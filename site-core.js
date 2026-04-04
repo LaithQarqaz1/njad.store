@@ -1,19 +1,20 @@
-// Quick-edit defaults: Firebase config and router base live here first.
-var SITE_CORE_PROJECT_TOKEN = ["z", "3", "em", "-d9b11"].join("");
-var SITE_CORE_CANONICAL_API_HOST = ["api", ["z", "3", "em"].join(""), "shop"].join(".");
+// Quick-edit defaults: static frontend Firebase config lives here for GitHub/static hosting.
+// Backend workers must still use secret bindings separately.
+var SITE_CORE_PROJECT_TOKEN = "njadstore1";
+var SITE_CORE_FIREBASE_FRONTEND_CONFIG = {
+  apiKey: "AIzaSyBaJE8eTuSZUfjLw3lj-788iTvR7YJvWj8",
+  authDomain: SITE_CORE_PROJECT_TOKEN + ".firebaseapp.com",
+  projectId: SITE_CORE_PROJECT_TOKEN,
+  storageBucket: SITE_CORE_PROJECT_TOKEN + ".firebasestorage.app",
+  messagingSenderId: "1072422740336",
+  appId: "1:1072422740336:web:28abfc7058d310379dafb5",
+  measurementId: "G-T2J947YL3L"
+};
+var SITE_CORE_CANONICAL_API_HOST = ["api", "njad", "store"].join(".");
 var SITE_CORE_CANONICAL_API_BASE = "https://" + SITE_CORE_CANONICAL_API_HOST;
 
 var SITE_CORE_DEFAULT_RUNTIME = {
-  firebase: {
-    apiKey: "AIzaSyBRVEViuKnCUZqBoD0liuA-P0DVN7mTePA",
-    authDomain: SITE_CORE_PROJECT_TOKEN + ".firebaseapp.com",
-    databaseURL: "https://" + SITE_CORE_PROJECT_TOKEN + "-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: SITE_CORE_PROJECT_TOKEN,
-    storageBucket: SITE_CORE_PROJECT_TOKEN + ".firebasestorage.app",
-    messagingSenderId: "236716520945",
-    appId: "1:236716520945:web:a0c336db7dc7079c190050",
-    measurementId: "G-1GG6DE12K6"
-  },
+  firebase: SITE_CORE_FIREBASE_FRONTEND_CONFIG,
   workers: {
     routerBase: SITE_CORE_CANONICAL_API_BASE,
     routerBaseStorageKey: "MANWAL_ROUTER_BASE",
@@ -344,6 +345,7 @@ try { window.__SITE_CORE_DEFAULT_RUNTIME__ = SITE_CORE_DEFAULT_RUNTIME; } catch 
     brand: mergeObjects(defaults.brand, mergedExisting.brand)
   };
 
+  try { delete runtime.firebase.databaseURL; } catch (_) { runtime.firebase.databaseURL = undefined; }
   runtime.workers.routerBase = normalizeHttpBase(runtime.workers.routerBase) || derivedWorkerBase || defaults.workers.routerBase;
   runtime.workers.routerBaseStorageKey = trimText(runtime.workers.routerBaseStorageKey, defaults.workers.routerBaseStorageKey);
   runtime.workers.legacyWorkerStorageKey = trimText(runtime.workers.legacyWorkerStorageKey, defaults.workers.legacyWorkerStorageKey);

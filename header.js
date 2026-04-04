@@ -7358,9 +7358,12 @@ async function syncCatalogAuthFromToken(idToken, payload){
   if (payload?.sessionKey) sessionKey = String(payload.sessionKey || "");
   if (payload?.uid) sessionUid = String(payload.uid || "");
   if (payload?.deviceId) deviceId = String(payload.deviceId || "");
+  const emailHint = String(payload?.email || "").trim();
   const body = {
     action: 'sync',
     idToken: String(idToken || ''),
+    ...(sessionUid ? { uid: sessionUid } : {}),
+    ...(emailHint ? { email: emailHint } : {}),
     deviceId: deviceId || getDeviceFingerprint(),
     deviceInfo: collectDeviceInfo()
   };
