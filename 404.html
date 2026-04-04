@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>الصفحة غير موجودة</title>
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet"></noscript>
+  <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet"></noscript>
+  <link rel="preload" href="header.css?v=20260331-22" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <script src="site-core.js?v=20260403-04"></script>
+  <script src="header.js?v=20260403-05"></script>
+  <style>
+    :root{
+      --bg1:#050910;
+      --bg2:#0b1220;
+      --text:#e5e7eb;
+    }
+    *{box-sizing:border-box;font-family:'Cairo',sans-serif}
+    body{
+      margin:0;
+      min-height:100vh;
+      background:
+        radial-gradient(1200px 700px at 50% 20%, rgba(255,255,255,.04), transparent 60%),
+        linear-gradient(145deg, var(--bg1), var(--bg2));
+      color:var(--text);
+      padding:0;
+    }
+    main{
+      min-height:calc(100vh - 140px);
+      padding:120px 24px 48px;
+      text-align:center;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:16px;
+    }
+    .logo{
+      width:150px;
+      height:150px;
+      border-radius:50%;
+      overflow:hidden;
+      background:rgba(255,255,255,.05);
+      display:grid;
+      place-items:center;
+      box-shadow:0 20px 70px rgba(0,0,0,.45);
+    }
+    .logo img{
+      width:94%;
+      height:94%;
+      object-fit:cover;
+      border-radius:50%;
+      filter:drop-shadow(0 6px 18px rgba(0,0,0,.45));
+    }
+    .logo img[hidden]{
+      display:none;
+    }
+    .logo-fallback{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      width:100%;
+      height:100%;
+      padding:18px;
+      text-align:center;
+      color:rgba(255,255,255,.8);
+      font-size:1rem;
+      font-weight:700;
+      line-height:1.5;
+    }
+    .logo.has-image .logo-fallback{
+      display:none;
+    }
+    h1{
+      margin:0;
+      font-size:1.8rem;
+      letter-spacing:.2px;
+    }
+    .support-section{
+      background:var(--bg1);
+      border-top:1px solid #1c1d38;
+      color:var(--text);
+    }
+    .support-title{color:var(--text);}
+    .support-icons .support-icon{
+      background:#0f1628;
+      box-shadow:0 8px 18px rgba(0,0,0,.45);
+      border:1px solid rgba(255,255,255,.05);
+    }
+    .support-icon:hover{box-shadow:0 10px 24px rgba(0,0,0,.55);}
+    @media (max-width:520px){
+      main{
+        min-height:calc(100vh - 120px);
+        padding:110px 16px 36px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="headerContainer"></div>
+  <div id="sidebarContainer"></div>
+  <main>
+    <div class="logo" id="notFoundLogoWrap">
+      <img id="notFoundStoreLogo" src="" alt="شعار الصفحة" hidden>
+      <span class="logo-fallback">شعار الصفحة</span>
+    </div>
+    <h1>الصفحة غير موجودة</h1>
+  </main>
+  <script>
+    (function(){
+      var logoWrap = document.getElementById("notFoundLogoWrap");
+      var logoImg = document.getElementById("notFoundStoreLogo");
+      if (!logoWrap || !logoImg) return;
+
+      function normalizeText(value){
+        return String(value == null ? "" : value).trim();
+      }
+
+      function readCachedSiteIcon(){
+        try {
+          var raw = localStorage.getItem("site:media:v1");
+          if (!raw) return "";
+          var parsed = JSON.parse(raw);
+          if (!parsed || typeof parsed !== "object") return "";
+          var keys = ["siteIcon", "site_icon", "icon", "iconUrl", "icon_url", "favicon", "faviconUrl", "favicon_url", "windowIcon", "window_icon", "windowImage", "window_image"];
+          for (var i = 0; i < keys.length; i += 1) {
+            var candidate = normalizeText(parsed[keys[i]]);
+            if (candidate) return candidate;
+          }
+        } catch (_) {}
+        return "";
+      }
+
+      function resolvePageIcon(){
+        try {
+          var direct = normalizeText(window.__SITE_ICON__);
+          if (direct) return direct;
+        } catch (_) {}
+        try {
+          if (typeof window.__resolveSiteMediaFallbackUrl === "function") {
+            var resolved = normalizeText(window.__resolveSiteMediaFallbackUrl("icon"));
+            if (resolved) return resolved;
+          }
+        } catch (_) {}
+        return readCachedSiteIcon();
+      }
+
+      function applyStoreLogo(url){
+        var src = normalizeText(url);
+        if (!src) {
+          try { logoImg.hidden = true; } catch (_) {}
+          try { logoImg.removeAttribute("src"); } catch (_) {}
+          try { logoWrap.classList.remove("has-image"); } catch (_) {}
+          return false;
+        }
+        try {
+          logoImg.src = src;
+          logoImg.hidden = false;
+          logoWrap.classList.add("has-image");
+        } catch (_) {
+          return false;
+        }
+        return true;
+      }
+
+      logoImg.addEventListener("error", function(){
+        try { logoImg.hidden = true; } catch (_) {}
+        try { logoWrap.classList.remove("has-image"); } catch (_) {}
+      });
+
+      applyStoreLogo(resolvePageIcon());
+
+      var tries = 0;
+      var timer = setInterval(function(){
+        tries += 1;
+        if (applyStoreLogo(resolvePageIcon()) || tries >= 16) {
+          clearInterval(timer);
+        }
+      }, 250);
+    })();
+  </script>
+</body>
+</html>
