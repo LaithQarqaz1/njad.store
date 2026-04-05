@@ -27,13 +27,34 @@ function shouldEnableRealtime(feature){
     const t = String(value || '').toLowerCase().trim();
     return (t === 'light' || t === 'dark') ? t : '';
   }
+  function readCachedSiteDefaultMode(){
+    try {
+      const raw = localStorage.getItem('site:theme:v1');
+      if (!raw) return '';
+      const parsed = JSON.parse(raw);
+      return normalizeTheme(
+        parsed && (
+          parsed.defaultMode ||
+          parsed.default_mode ||
+          parsed.defaultThemeMode ||
+          parsed.default_theme_mode
+        )
+      );
+    } catch {}
+    return '';
+  }
   function readTheme(){
     let t = '';
-    try { t = normalizeTheme(document.documentElement.getAttribute('data-theme')); } catch {}
     if (!t) {
       try { t = normalizeTheme(localStorage.getItem('theme')); } catch {}
     }
-    return t || 'light';
+    if (!t) {
+      t = readCachedSiteDefaultMode();
+    }
+    if (!t) {
+      try { t = normalizeTheme(document.documentElement.getAttribute('data-theme')); } catch {}
+    }
+    return t || 'dark';
   }
   function ensureMeta(name){
     try {
@@ -49,7 +70,7 @@ function shouldEnableRealtime(feature){
     }
   }
   function applyTheme(theme){
-    const t = normalizeTheme(theme) || 'light';
+    const t = normalizeTheme(theme) || 'dark';
     try { document.documentElement.setAttribute('data-theme', t); } catch {}
     try {
       if (document.body) {
@@ -84,7 +105,7 @@ function shouldEnableRealtime(feature){
     } catch {}
   });
   window.addEventListener('storage', function(e){
-    if (e && e.key === 'theme') sync();
+    if (e && (e.key === 'theme' || e.key === 'site:theme:v1')) sync();
   });
 })();
 
@@ -1986,11 +2007,9 @@ function watchSessionDocForDevice(user){
         }
         try { applyCurrencyNow(); } catch {}
         try {
-          const base = (typeof window.__BAL_BASE__ !== 'undefined') ? window.__BAL_BASE__ : null;
-          if (base != null && Number.isFinite(Number(base))) {
-            const txt = (typeof window.formatCurrencyFromJOD === 'function') ? window.formatCurrencyFromJOD(base) : (Number(base).toFixed(3) + ' $');
-            setHeaderBalance(txt);
-          }
+          const base = headerGetBaseBalanceValue();
+          setHeaderBalanceAmount(base);
+          broadcastBalance(base);
         } catch {}
         try { window.dispatchEvent(new CustomEvent('currency:rates:change')); } catch {}
         try { window.dispatchEvent(new Event('currency:ready')); } catch {}
@@ -5123,7 +5142,7 @@ if (!document.getElementById('header-balance-style')) {
       .header-balance__currency {
         font-size: 12px;
         font-weight: 700;
-        color: var(--balance-currency, var(--balance-text, #e2e8f0));
+        color: inherit;
         letter-spacing: 0.3px;
         text-transform: uppercase;
         direction: ltr;
@@ -5153,7 +5172,7 @@ if (!document.getElementById('header-balance-style')) {
 	      }
       html[data-theme="light"] .header-balance__currency,
       body.light-mode .header-balance__currency {
-        color: var(--balance-currency-light, var(--balance-text-light, #0f172a));
+        color: inherit;
       }
       html[data-theme="light"] .header-balance,
       body.light-mode .header-balance {
@@ -5167,7 +5186,7 @@ if (!document.getElementById('header-balance-style')) {
 	      }
       body.dark-mode .header-balance__currency,
       html[data-theme="dark"] .header-balance__currency {
-        color: var(--balance-currency-dark, var(--balance-text-dark, #f8fafc));
+        color: inherit;
       }
       html[data-theme="light"] .header-levels-btn,
       body.light-mode .header-levels-btn {
@@ -5218,6 +5237,9 @@ headerLevelsBtn.id = 'headerLevelsBtn';
 headerLevelsBtn.setAttribute('aria-label', 'المستويات');
 headerLevelsBtn.setAttribute('title', 'عرض المستويات');
 headerLevelsBtn.innerHTML = '<span class="header-levels-btn__fallback"><i class="fa-solid fa-medal" aria-hidden="true"></i></span>';
+headerLevelsBtn.hidden = true;
+headerLevelsBtn.disabled = true;
+headerLevelsBtn.setAttribute('aria-hidden', 'true');
 
 
 const leftContainer = document.createElement('div');
@@ -5364,11 +5386,90 @@ function headerResolveCurrentLevelEntry(profile){
   const levelId = headerNormalizeLevelId(safeProfile.levelId != null ? safeProfile.levelId : safeProfile.level_id);
   const levelOrder = headerNormalizeLevelOrder(safeProfile.levelNo != null ? safeProfile.levelNo : safeProfile.level_no);
   const levelKey = headerNormalizeLevelKey(safeProfile.level || '');
+  if (levelId == null && levelOrder == null && !levelKey) return null;
   let currentEntry = null;
   if (levelId != null) currentEntry = entries.find((entry) => entry.id === levelId) || null;
   if (!currentEntry && levelKey) currentEntry = entries.find((entry) => entry.key === levelKey) || null;
   if (!currentEntry && levelOrder != null) currentEntry = entries.find((entry) => entry.order === levelOrder) || null;
-  return currentEntry || entries[0] || null;
+  return currentEntry || null;
+}
+function headerGetSelectedCurrencyCode(){
+  try {
+    if (typeof window.getSelectedCurrencyCode === 'function') {
+      const code = String(window.getSelectedCurrencyCode() || '').trim().toUpperCase();
+      if (code) return code;
+    }
+  } catch {}
+  try {
+    const stored = String(localStorage.getItem('currency:selected') || '').trim().toUpperCase();
+    if (stored) return stored;
+  } catch {}
+  return '';
+}
+function headerGetSelectedCurrencyText(rawCode){
+  const code = String(rawCode || headerGetSelectedCurrencyCode() || '').trim().toUpperCase();
+  if (!code) return '';
+  let rates = null;
+  try { rates = window.__CURRENCIES__ || null; } catch {}
+  const rateEntry = rates && typeof rates === 'object' ? rates[code] : null;
+  const symbol = String(rateEntry && (rateEntry.symbol || rateEntry.displaySymbol || rateEntry.sign) || '').trim();
+  if (symbol) return symbol;
+  const fallbackMap = {
+    USD: '$',
+    EUR: '€',
+    GBP: '£',
+    JOD: 'د.أ',
+    SAR: 'ر.س',
+    AED: 'د.إ',
+    KWD: 'د.ك',
+    QAR: 'ر.ق',
+    BHD: 'د.ب',
+    OMR: 'ر.ع',
+    EGP: 'EGP'
+  };
+  return fallbackMap[code] || String(rateEntry && (rateEntry.code || code) || code).trim().toUpperCase();
+}
+function headerNormalizeBalanceValue(value){
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : 0;
+}
+function headerGetBaseBalanceValue(){
+  try {
+    if (typeof window.__BAL_BASE__ !== 'undefined') {
+      return headerNormalizeBalanceValue(window.__BAL_BASE__);
+    }
+  } catch {}
+  return 0;
+}
+function formatHeaderBalanceText(value){
+  const safeValue = headerNormalizeBalanceValue(value);
+  try {
+    if (typeof window.formatCurrencyFromJOD === 'function') {
+      const formatted = String(window.formatCurrencyFromJOD(safeValue) || '').trim();
+      if (formatted) return formatted;
+    }
+  } catch {}
+  const currencyText = headerGetSelectedCurrencyText();
+  return safeValue.toFixed(3) + (currencyText ? (' ' + currencyText) : '');
+}
+function splitHeaderBalanceParts(text){
+  const normalized = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!normalized) return null;
+  const prefixMatch = normalized.match(/^(\S+)\s+(.+)$/);
+  if (prefixMatch && !/[0-9]/.test(prefixMatch[1]) && /[0-9]/.test(prefixMatch[2])) {
+    return { currency: prefixMatch[1].trim(), value: prefixMatch[2].trim() };
+  }
+  const suffixMatch = normalized.match(/^(.+)\s+(\S+)$/);
+  if (suffixMatch && /[0-9]/.test(suffixMatch[1]) && !/[0-9]/.test(suffixMatch[2])) {
+    return { value: suffixMatch[1].trim(), currency: suffixMatch[2].trim() };
+  }
+  return null;
+}
+function setHeaderLevelsVisibility(visible){
+  const show = !!visible;
+  try { headerLevelsBtn.hidden = !show; } catch {}
+  try { headerLevelsBtn.disabled = !show; } catch {}
+  try { headerLevelsBtn.setAttribute('aria-hidden', show ? 'false' : 'true'); } catch {}
 }
 function renderHeaderLevelBadge(profile){
   if (profile && typeof profile === 'object') {
@@ -5381,6 +5482,7 @@ function renderHeaderLevelBadge(profile){
   headerLevelsBtn.classList.toggle('header-levels-btn--image', !!imageUrl);
   headerLevelsBtn.innerHTML = '';
   if (imageUrl) {
+    setHeaderLevelsVisibility(true);
     const img = document.createElement('img');
     img.className = 'header-levels-btn__img';
     img.src = imageUrl;
@@ -5392,20 +5494,22 @@ function renderHeaderLevelBadge(profile){
     headerLevelsBtn.setAttribute('title', 'عرض المستويات - ' + String(entry && entry.label || '').trim());
     return;
   }
-  const fallback = document.createElement('span');
-  fallback.className = 'header-levels-btn__fallback';
-  fallback.innerHTML = '<i class="fa-solid fa-medal" aria-hidden="true"></i>';
-  headerLevelsBtn.appendChild(fallback);
-  headerLevelsBtn.setAttribute('title', 'عرض المستويات');
+  setHeaderLevelsVisibility(false);
+  try { headerLevelsBtn.removeAttribute('title'); } catch {}
 }
 function setHeaderBalance(text){
   const valueEl = document.getElementById('headerBalanceText') || balanceSpan.querySelector('#headerBalanceText');
   const currencyEl = document.getElementById('headerBalanceCurrency') || balanceSpan.querySelector('#headerBalanceCurrency');
   if (!valueEl) return;
   if (typeof text !== 'string') {
-    valueEl.textContent = text;
-    if (currencyEl) currencyEl.textContent = '—';
-    return;
+    const numeric = Number(text);
+    if (Number.isFinite(numeric)) {
+      text = formatHeaderBalanceText(numeric);
+    } else {
+      valueEl.textContent = text == null ? '—' : String(text);
+      if (currencyEl) currencyEl.textContent = '—';
+      return;
+    }
   }
   const trimmed = text.trim();
   if (!trimmed) {
@@ -5413,33 +5517,36 @@ function setHeaderBalance(text){
     if (currencyEl) currencyEl.textContent = '—';
     return;
   }
-  const hasDigits = /[0-90-9]/.test(trimmed);
+  const hasDigits = /[0-9]/.test(trimmed);
   if (!hasDigits) {
     valueEl.textContent = trimmed;
     if (currencyEl) currencyEl.textContent = '—';
     return;
   }
-  const shouldSplit = /\s/.test(trimmed) || /[^\d.,+\-]/.test(trimmed.slice(-1));
-  if (shouldSplit) {
-    const match = trimmed.match(/^(.*\S)\s+(\S+)$/);
-    if (match) {
-      valueEl.textContent = match[1].trim();
-      if (currencyEl) currencyEl.textContent = match[2] || '—';
-      return;
-    }
+  const parts = splitHeaderBalanceParts(trimmed);
+  if (parts) {
+    valueEl.textContent = parts.value || trimmed;
+    if (currencyEl) currencyEl.textContent = parts.currency || headerGetSelectedCurrencyText() || '—';
+    return;
   }
   valueEl.textContent = trimmed;
-  if (currencyEl) currencyEl.textContent = '—';
+  if (currencyEl) currencyEl.textContent = headerGetSelectedCurrencyText() || '—';
+}
+try {
+  window.__setHeaderBalanceDisplay = setHeaderBalance;
+  window.__formatHeaderBalanceDisplay = formatHeaderBalanceText;
+} catch {}
+function setHeaderBalanceAmount(value){
+  setHeaderBalance(formatHeaderBalanceText(headerNormalizeBalanceValue(value)));
 }
 function readCachedBalance(uid){ try { const s = localStorage.getItem(BAL_KEY(uid)); if (s == null) return null; const n = Number(s); return Number.isFinite(n) ? n : null; } catch { return null; } }
 function writeCachedBalance(uid, val){ try { localStorage.setItem(BAL_KEY(uid), String(val)); } catch {} }
 function broadcastBalance(value){
-  try { window.__BALANCE__ = value; window.__BAL_BASE__ = value; } catch {}
+  const safeValue = headerNormalizeBalanceValue(value);
+  try { window.__BALANCE__ = safeValue; window.__BAL_BASE__ = safeValue; } catch {}
   try {
-    const formatted = (typeof window.formatCurrencyFromJOD === 'function')
-      ? window.formatCurrencyFromJOD(value)
-      : (Number(value || 0).toFixed(3) + ' $');
-    window.dispatchEvent(new CustomEvent('balance:change', { detail: { value: Number(value || 0), formatted } }));
+    const formatted = formatHeaderBalanceText(safeValue);
+    window.dispatchEvent(new CustomEvent('balance:change', { detail: { value: safeValue, formatted } }));
   } catch {}
 }
 function seedHeaderFromCache(){
@@ -5452,15 +5559,13 @@ function seedHeaderFromCache(){
       const cached = readCachedBalance(uid);
       if (cached != null){
         try { window.__BAL_BASE__ = cached; } catch {}
-        const text = (typeof window.formatCurrencyFromJOD === 'function')
-          ? window.formatCurrencyFromJOD(cached)
-          : (Number(cached).toFixed(3) + ' $');
-        setHeaderBalance(text);
+        setHeaderBalanceAmount(cached);
         broadcastBalance(cached);
       }
     } else {
       renderHeaderLevelBadge(null);
-      setHeaderBalance('0.000 $');
+      setHeaderBalanceAmount(0);
+      broadcastBalance(0);
     }
   } catch {}
 }
@@ -5954,8 +6059,8 @@ function ensureBannedOverlaySupportStyle(){
         position:relative;
       }
       #ban-block-overlay .ban-support-section .support-icon img{
-        width:32px !important;
-        height:32px !important;
+        width:24px !important;
+        height:24px !important;
         object-fit:contain;
         display:block;
         filter:none !important;
@@ -6381,7 +6486,7 @@ function performClientLogout(redirectUrl){
   hideBannedOverlay();
   clearAuthClientState();
   try { applyAuthUi(null); } catch {}
-  try { setHeaderBalance('0.000 $'); } catch {}
+  try { setHeaderBalanceAmount(0); } catch {}
   try { broadcastBalance(0); } catch {}
   var currentUrl = '';
   try { currentUrl = String(window.location.href || ''); } catch {}
@@ -6556,10 +6661,9 @@ try {
 try {
   window.addEventListener('currency:change', function(){
     try {
-      const base = (typeof window.__BAL_BASE__ !== 'undefined') ? window.__BAL_BASE__ : null;
-      if (base == null || !Number.isFinite(Number(base))) return;
-      const text = (typeof window.formatCurrencyFromJOD === 'function') ? window.formatCurrencyFromJOD(base) : (Number(base).toFixed(3) + ' $');
-      setHeaderBalance(text);
+      const base = headerGetBaseBalanceValue();
+      setHeaderBalanceAmount(base);
+      broadcastBalance(base);
     } catch {}
   });
 } catch {}
@@ -7477,7 +7581,7 @@ try {
     if (user) {
       watchSessionDocForDevice(user);
       try { localStorage.setItem(LAST_UID_KEY, user.uid); } catch {}
-      const cached = readCachedBalance(user.uid); if (cached != null) { try { window.__BAL_BASE__ = cached; } catch {}; setHeaderBalance((typeof window.formatCurrencyFromJOD === 'function') ? window.formatCurrencyFromJOD(cached) : (Number(cached).toFixed(3) + ' $')); broadcastBalance(cached); }
+      const cached = readCachedBalance(user.uid); if (cached != null) { try { window.__BAL_BASE__ = cached; } catch {}; setHeaderBalanceAmount(cached); broadcastBalance(cached); }
       const docRef = firebase.firestore().collection('users').doc(user.uid);
       const handleBalanceSnap = (snap) => {
         if (snap && snap.exists) {
@@ -7538,7 +7642,7 @@ try {
           const raw = data.balance ?? 0; const num = Number(raw); const val = Number.isFinite(num) ? num : 0;
           renderHeaderLevelBadge(data);
           try { window.__BAL_BASE__ = val; } catch {}
-          setHeaderBalance((typeof window.formatCurrencyFromJOD === 'function') ? window.formatCurrencyFromJOD(val) : (Number(val).toFixed(3) + ' $'));
+          setHeaderBalanceAmount(val);
           writeCachedBalance(user.uid, val); broadcastBalance(val);
         } else {
           try { localStorage.removeItem(LAST_ACCOUNT_NO_KEY); } catch {}
@@ -7550,7 +7654,7 @@ try {
           setApiSidebarVisibility(false);
           renderHeaderLevelBadge(null);
           try { window.__BAL_BASE__ = 0; } catch {};
-          setHeaderBalance((typeof window.formatCurrencyFromJOD === 'function') ? window.formatCurrencyFromJOD(0) : '0.000 $');
+          setHeaderBalanceAmount(0);
           writeCachedBalance(user.uid, 0); broadcastBalance(0);
         }
       };
@@ -7572,8 +7676,8 @@ try {
       } catch {}
       setApiSidebarVisibility(false);
       renderHeaderLevelBadge(null);
-      setHeaderBalance('0.000 $');
-      broadcastBalance(null);
+      setHeaderBalanceAmount(0);
+      broadcastBalance(0);
     }
     try { window.__LOGOUT_IN_PROGRESS__ = false; } catch {}
     });
@@ -7683,6 +7787,79 @@ function wirePageBalanceBox(){
       return raw;
     }
 
+    const SUPPORT_BADGE_ICONS = {
+      group: 'fa-solid fa-user-group',
+      person: 'fa-solid fa-user',
+      support: 'fa-solid fa-headset',
+      chat: 'fa-solid fa-comment-dots',
+      community: 'fa-solid fa-users',
+      forum: 'fa-solid fa-comments',
+      helpdesk: 'fa-solid fa-life-ring',
+      call: 'fa-solid fa-phone',
+      question: 'fa-solid fa-circle-question',
+      star: 'fa-solid fa-star'
+    };
+
+    function normalizeBadgeType(value){
+      const raw = String(value == null ? '' : value).trim().toLowerCase();
+      if (!raw) return 'auto';
+      const map = {
+        auto: 'auto',
+        automatic: 'auto',
+        default: 'auto',
+        number: 'number',
+        num: 'number',
+        numeric: 'number',
+        digit: 'number',
+        digits: 'number',
+        group: 'group',
+        team: 'group',
+        users: 'group',
+        channel: 'group',
+        person: 'person',
+        user: 'person',
+        individual: 'person',
+        support: 'support',
+        help: 'support',
+        headset: 'support',
+        chat: 'chat',
+        message: 'chat',
+        conversation: 'chat',
+        community: 'community',
+        members: 'community',
+        forum: 'forum',
+        discussion: 'forum',
+        discussions: 'forum',
+        helpdesk: 'helpdesk',
+        'help-desk': 'helpdesk',
+        'helpdesk-center': 'helpdesk',
+        call: 'call',
+        phone: 'call',
+        hotline: 'call',
+        question: 'question',
+        faq: 'question',
+        inquiry: 'question',
+        star: 'star',
+        vip: 'star',
+        custom: 'custom',
+        text: 'custom',
+        label: 'custom'
+      };
+      return map[raw] || 'auto';
+    }
+
+    function normalizeBadgeText(value, type){
+      const text = String(value == null ? '' : value).trim();
+      const normalizedType = normalizeBadgeType(type);
+      if (normalizedType === 'number') {
+        return text.replace(/[^\d]/g, '').slice(0, 4);
+      }
+      if (normalizedType === 'custom') {
+        return text.slice(0, 12);
+      }
+      return '';
+    }
+
     function normalizeContactEntry(raw, index){
       if (!raw || typeof raw !== 'object') return null;
       const fallbackKey = 'contact-' + String(index || 0);
@@ -7692,7 +7869,12 @@ function wirePageBalanceBox(){
       const iconURL = String(raw.iconURL || raw.iconUrl || raw.icon || raw.image || KNOWN_ICON_URLS[key] || '').trim();
       const iconClass = String(raw.iconClass || raw.fa || '').trim();
       const label = String(raw.label || raw.name || key).trim();
-      return { key, className, href, iconURL, iconClass, label };
+      const badgeType = normalizeBadgeType(raw.badgeType || raw.badge_type || (raw.badge && raw.badge.type) || '');
+      const badgeText = normalizeBadgeText(
+        raw.badgeText || raw.badge_text || raw.badgeValue || raw.badge_value || (raw.badge && (raw.badge.text || raw.badge.value || raw.badge.label)) || '',
+        badgeType
+      );
+      return { key, className, href, iconURL, iconClass, label, badgeType, badgeText };
     }
 
     function appendSupportEntries(out, key, value, index){
@@ -8011,10 +8193,43 @@ function wirePageBalanceBox(){
           a.appendChild(icon);
         }
 
-        if (totalForKey > 1) {
+        const badgeType = normalizeBadgeType(contact.badgeType || '');
+        const badgeText = normalizeBadgeText(contact.badgeText || '', badgeType);
+        let badgeMode = null;
+        let badgeValue = '';
+        if (badgeType === 'auto') {
+          if (totalForKey > 1) {
+            badgeMode = 'text';
+            badgeValue = String(orderForKey);
+          }
+        } else if (badgeType === 'number') {
+          badgeMode = 'text';
+          badgeValue = badgeText || String(orderForKey);
+        } else if (badgeType === 'custom') {
+          if (badgeText) {
+            badgeMode = 'text';
+            badgeValue = badgeText;
+          }
+        } else if (SUPPORT_BADGE_ICONS[badgeType]) {
+          badgeMode = 'icon';
+          badgeValue = SUPPORT_BADGE_ICONS[badgeType];
+        }
+
+        if (badgeMode) {
           const badge = document.createElement('span');
           badge.className = 'support-badge';
-          badge.textContent = String(orderForKey);
+          badge.setAttribute('data-badge-mode', badgeMode);
+          if (badgeMode === 'icon') {
+            const icon = document.createElement('i');
+            icon.className = badgeValue;
+            icon.setAttribute('aria-hidden', 'true');
+            badge.appendChild(icon);
+          } else {
+            const badgeTextEl = document.createElement('span');
+            badgeTextEl.className = 'support-badge__text';
+            badgeTextEl.textContent = String(badgeValue);
+            badge.appendChild(badgeTextEl);
+          }
           badge.setAttribute('aria-hidden', 'true');
           a.appendChild(badge);
         }
@@ -8090,6 +8305,7 @@ function wirePageBalanceBox(){
         padding: 14px 14px 8px !important;
         border: none !important;
         box-shadow: none !important;
+        overflow: visible !important;
       }
       #sidebar .support-section .support-title {
         color: #e6edff;
@@ -8102,6 +8318,8 @@ function wirePageBalanceBox(){
         gap: 8px;
         align-items: center;
         justify-content: center;
+        padding: 8px 10px 6px;
+        overflow: visible !important;
       }
       #sidebar .support-section .support-icon {
         width: 32px;
@@ -8114,10 +8332,14 @@ function wirePageBalanceBox(){
         box-shadow: none !important;
         padding: 0 !important;
         position: relative;
+        overflow: visible !important;
       }
       #sidebar .support-section .support-icon img {
         width: 32px !important;
         height: 32px !important;
+        object-fit: contain;
+        object-position: center;
+        display: block;
         filter: none !important;
       }
       #sidebar .support-section .support-icon i {
@@ -8463,27 +8685,31 @@ function wirePageBalanceBox(){
           0 12px 22px rgba(var(--site-accent-rgb, 106, 111, 232), 0.22);
       }
       #supportFloatingWidget .support-dock__link img {
-        width: 20px !important;
-        height: 20px !important;
+        width: 24px !important;
+        height: 24px !important;
+        max-width: 24px !important;
+        max-height: 24px !important;
         object-fit: contain;
+        object-position: center;
+        display: block;
         filter: none !important;
       }
       #supportFloatingWidget .support-dock__link i {
-        font-size: 20px;
+        font-size: 24px;
         color: #ffffff;
       }
       #supportFloatingWidget .support-dock__badge {
         position: absolute;
-        top: -3px;
-        right: -5px;
-        min-width: 16px;
-        height: 16px;
-        padding: 0 4px;
-        border-radius: 999px;
+        top: -6px;
+        right: -8px;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
+        border-radius: 999px 999px 999px 6px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        background: var(--site-accent-runtime-strong, var(--primary-dark, var(--accent-theme, #414391)));
+        background: var(--support-dock-gradient) !important;
         color: #ffffff;
         border: 2px solid #ffffff;
         box-shadow: 0 4px 10px rgba(var(--site-accent-rgb, 106, 111, 232), 0.18);
@@ -8491,6 +8717,34 @@ function wirePageBalanceBox(){
         font-weight: 900;
         line-height: 1;
         direction: ltr;
+        white-space: nowrap;
+      }
+      #supportFloatingWidget .support-dock__badge[data-badge-mode="icon"] {
+        top: 0;
+        right: 0;
+        min-width: 18px;
+        width: 18px;
+        height: 18px;
+        padding: 0;
+        border-radius: 50%;
+        transform: translate(30%, -30%);
+      }
+      #supportFloatingWidget .support-dock__badge .support-badge__text {
+        display: block;
+        transform: translateY(-1px);
+      }
+      #supportFloatingWidget .support-dock__badge i {
+        font-size: 8px;
+        line-height: 1;
+      }
+      #supportFloatingWidget .support-dock__badge[data-badge-mode="icon"] i {
+        display: block;
+        font-size: 7px;
+        line-height: 1;
+        color: #ffffff;
+        -webkit-text-stroke: 0;
+        text-shadow: none;
+        transform: translateY(-1px);
       }
       #supportFloatingWidget .support-dock__link[aria-disabled="true"] {
         opacity: 0.56;
@@ -8518,8 +8772,10 @@ function wirePageBalanceBox(){
           height: 42px;
         }
         #supportFloatingWidget .support-dock__link img {
-          width: 21px !important;
-          height: 21px !important;
+          width: 23px !important;
+          height: 23px !important;
+          max-width: 23px !important;
+          max-height: 23px !important;
         }
       }
       @media (prefers-reduced-motion: reduce) {
@@ -9159,16 +9415,35 @@ function wirePageBalanceBox(){
       var t = String(value || '').toLowerCase().trim();
       return (t === 'light' || t === 'dark') ? t : '';
     }
+    function readCachedSiteDefaultMode(){
+      try {
+        var raw = localStorage.getItem('site:theme:v1');
+        if (!raw) return '';
+        var parsed = JSON.parse(raw);
+        return normalizeTheme(
+          parsed && (
+            parsed.defaultMode ||
+            parsed.default_mode ||
+            parsed.defaultThemeMode ||
+            parsed.default_theme_mode
+          )
+        );
+      } catch {}
+      return '';
+    }
     function readTheme(){
       var t = '';
       try { t = normalizeTheme(document.documentElement.getAttribute('data-theme')); } catch {}
       if (!t) {
         try { t = normalizeTheme(localStorage.getItem('theme')); } catch {}
       }
-      return t || 'light';
+      if (!t) {
+        t = readCachedSiteDefaultMode();
+      }
+      return t || 'dark';
     }
     function applyTheme(nextTheme){
-      var theme = normalizeTheme(nextTheme) || 'light';
+      var theme = normalizeTheme(nextTheme) || 'dark';
       try { localStorage.setItem('theme', theme); } catch {}
       try { document.documentElement.setAttribute('data-theme', theme); } catch {}
       try {
@@ -9212,18 +9487,18 @@ function wirePageBalanceBox(){
       }
       .support-icon .support-badge {
         position: absolute;
-        right: -8px;
-        bottom: -6px;
+        right: -10px;
+        bottom: -8px;
         min-width: 22px;
         height: 18px;
         padding: 0 5px;
-        background: #f8fafc;
-        color: #233a72;
+        background: linear-gradient(145deg, #9aa4ff 0%, #7076eb 54%, #4f55cd 100%);
+        color: #ffffff;
         border: 1px solid rgba(35, 58, 114, 0.14);
         font-size: 10px;
         font-weight: 900;
         line-height: 1;
-        border-radius: 999px;
+        border-radius: 999px 999px 999px 6px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -9231,6 +9506,80 @@ function wirePageBalanceBox(){
         direction: ltr;
         pointer-events: none;
         z-index: 1;
+        white-space: nowrap;
+      }
+      .support-icon .support-badge[data-badge-mode="icon"] {
+        top: 0;
+        right: 0;
+        bottom: auto;
+        min-width: 19px;
+        width: 19px;
+        height: 19px;
+        padding: 0;
+        border-radius: 50%;
+        transform: translate(32%, -32%);
+      }
+      .support-icon .support-badge .support-badge__text {
+        display: block;
+        transform: translateY(-1px);
+      }
+      .support-icon .support-badge i {
+        font-size: 9px;
+        line-height: 1;
+      }
+      .support-icon .support-badge[data-badge-mode="icon"] i {
+        display: block;
+        font-size: 7px;
+        line-height: 1;
+        color: #ffffff;
+        -webkit-text-stroke: 0;
+        text-shadow: none;
+        transform: translateY(-1px);
+      }
+      #sidebar .support-section .support-icon .support-badge {
+        top: 0;
+        left: auto;
+        right: 0;
+        bottom: auto;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
+        background: linear-gradient(
+          145deg,
+          var(--site-accent-runtime-light, var(--primary-light, var(--accent-theme, #969cff))) 0%,
+          var(--site-accent-runtime, var(--accent-theme, #7076eb)) 54%,
+          var(--site-accent-runtime-strong, var(--primary-dark, var(--accent-theme, #4f55cd))) 100%
+        );
+        color: #ffffff;
+        border: 2px solid #ffffff;
+        border-radius: 999px 999px 999px 6px;
+        box-shadow: 0 4px 10px rgba(var(--site-accent-rgb, 106, 111, 232), 0.18);
+        font-size: 9px;
+        font-weight: 900;
+        line-height: 1;
+        direction: ltr;
+        transform: translate(42%, -42%);
+      }
+      #sidebar .support-section .support-icon .support-badge[data-badge-mode="icon"] {
+        min-width: 18px;
+        width: 18px;
+        height: 18px;
+        padding: 0;
+        transform: translate(34%, -34%);
+        border-radius: 50%;
+      }
+      #sidebar .support-section .support-icon .support-badge .support-badge__text {
+        display: block;
+        transform: translateY(-1px);
+      }
+      #sidebar .support-section .support-icon .support-badge[data-badge-mode="icon"] i {
+        display: block;
+        font-size: 7px;
+        line-height: 1;
+        color: #ffffff;
+        -webkit-text-stroke: 0;
+        text-shadow: none;
+        transform: translateY(-1px);
       }
       #sidebar .support-theme-toggle {
         margin: 8px 10px 10px;
@@ -10494,10 +10843,11 @@ function wirePageBalanceBox(){
 
     let maintTimer = null;
     let siteMaintenanceActive = false;
-    let siteNoticeConfig = { enabled:false, title:"", message:"", requiredViews:1, version:"" };
+    let siteNoticeConfig = { enabled:false, title:"", message:"", requiredViews:1, autoHideSeconds:0, version:"" };
     let siteNoticeDismissedOnce = false;
     let siteNoticeModalBound = false;
     let siteNoticeLastKey = "";
+    let siteNoticeAutoHideTimer = null;
     const SITE_WA_JOIN_CACHE_KEY = "site:wa-join:v1";
 
     function normalizeSiteNoticeState(raw){
@@ -10508,12 +10858,25 @@ function wirePageBalanceBox(){
       const message = String(src.message ?? src.text ?? src.body ?? "").trim().slice(0, 4000);
       const requiredViewsRaw = Number(src.requiredViews ?? src.required_views ?? src.readCount ?? src.read_count ?? src.count ?? src.views ?? 1);
       const requiredViews = Number.isFinite(requiredViewsRaw) ? Math.max(1, Math.min(20, Math.trunc(requiredViewsRaw))) : 1;
+      const autoHideRaw = Number(
+        src.autoHideSeconds ??
+        src.auto_hide_seconds ??
+        src.autoHide ??
+        src.auto_hide ??
+        src.hideAfter ??
+        src.hide_after ??
+        src.dismissAfter ??
+        src.dismiss_after ??
+        0
+      );
+      const autoHideSeconds = Number.isFinite(autoHideRaw) ? Math.max(0, Math.min(86400, Math.trunc(autoHideRaw))) : 0;
       const version = String(src.version ?? src.id ?? src.key ?? "").trim().slice(0, 120);
       return {
         enabled: !!enabled && !!message,
         title,
         message,
         requiredViews,
+        autoHideSeconds,
         version
       };
     }
@@ -10565,6 +10928,18 @@ function wirePageBalanceBox(){
         src.link ??
         ""
       );
+      const autoHideRaw = Number(
+        src.autoHideSeconds ??
+        src.auto_hide_seconds ??
+        src.autoHide ??
+        src.auto_hide ??
+        src.hideAfter ??
+        src.hide_after ??
+        src.dismissAfter ??
+        src.dismiss_after ??
+        0
+      );
+      const autoHideSeconds = Number.isFinite(autoHideRaw) ? Math.max(0, Math.min(86400, Math.trunc(autoHideRaw))) : 0;
       return {
         enabled: !!enabled && !!message && !!whatsappUrl,
         badgeSub: String(src.badgeSub ?? src.badge_sub ?? src.badgeTop ?? src.badge_top ?? "").trim().slice(0, 160),
@@ -10574,6 +10949,7 @@ function wirePageBalanceBox(){
         benefits: normalizeSiteWaJoinBenefits(src.benefits ?? src.items ?? src.points ?? src.features ?? []),
         buttonText: String(src.buttonText ?? src.button_text ?? src.ctaText ?? src.cta_text ?? src.cta ?? src.joinText ?? src.join_text ?? "").trim().slice(0, 120),
         whatsappUrl,
+        autoHideSeconds,
         version: String(src.version ?? src.id ?? src.key ?? "").trim().slice(0, 120),
         updatedAt: String(src.updatedAt ?? src.updated_at ?? "").trim()
       };
@@ -10686,6 +11062,10 @@ function wirePageBalanceBox(){
       wrap.classList.remove("show");
       const muteInput = document.getElementById("siteNoticeMute");
       if (muteInput) muteInput.checked = false;
+      if (siteNoticeAutoHideTimer) {
+        clearTimeout(siteNoticeAutoHideTimer);
+        siteNoticeAutoHideTimer = null;
+      }
     }
 
     function applySiteNotice(raw){
@@ -10724,6 +11104,20 @@ function wirePageBalanceBox(){
       if (body) body.textContent = siteNoticeConfig.message;
       if (muteInput) muteInput.checked = false;
       wrap.classList.add("show");
+      if (siteNoticeAutoHideTimer) {
+        clearTimeout(siteNoticeAutoHideTimer);
+        siteNoticeAutoHideTimer = null;
+      }
+      if (siteNoticeConfig.autoHideSeconds > 0) {
+        siteNoticeAutoHideTimer = setTimeout(function(){
+          if (!siteNoticeConfig || !siteNoticeConfig.enabled) return;
+          const progress = readNoticeProgress(siteNoticeConfig);
+          progress.reads = Math.max(0, progress.reads || 0) + 1;
+          writeNoticeProgress(siteNoticeConfig, progress);
+          siteNoticeDismissedOnce = true;
+          hideSiteNoticeModal();
+        }, siteNoticeConfig.autoHideSeconds * 1000);
+      }
     }
 
     function resolveMaintenanceLogoUrl(){
@@ -11883,6 +12277,132 @@ html[data-theme="dark"] #wa-join-modal .wa-modal-content{
       syncActiveSiteTextColors();
     }
 
+    const SITE_THEME_RUNTIME_STYLE_ID = "site-theme-runtime-style";
+    function ensureSiteThemeRuntimeStyleTag(){
+      try {
+        let style = document.getElementById(SITE_THEME_RUNTIME_STYLE_ID);
+        if (style) return style;
+        style = document.createElement("style");
+        style.id = SITE_THEME_RUNTIME_STYLE_ID;
+        document.head && document.head.appendChild(style);
+        return style;
+      } catch {
+        return null;
+      }
+    }
+    function applySiteThemeDetailRuntimeCss(theme){
+      const normalizedTheme = normalizeSiteThemeState(theme || {});
+      const style = ensureSiteThemeRuntimeStyleTag();
+      const root = document.documentElement;
+      if (!style || !root || !root.style) return;
+      const balanceAccentColor = normalizeThemeHexColor(normalizedTheme.balanceAccentColor || "");
+      const sectionTitleColor = normalizeThemeHexColor(normalizedTheme.sectionTitleColor || "");
+      const productTitleColor = normalizeThemeHexColor(normalizedTheme.productTitleColor || "");
+      const productPriceColor = normalizeThemeHexColor(normalizedTheme.productPriceColor || "");
+      if (balanceAccentColor) root.style.setProperty("--site-balance-accent", balanceAccentColor);
+      else root.style.removeProperty("--site-balance-accent");
+      if (sectionTitleColor) root.style.setProperty("--site-section-title", sectionTitleColor);
+      else root.style.removeProperty("--site-section-title");
+      if (productTitleColor) root.style.setProperty("--site-product-title", productTitleColor);
+      else root.style.removeProperty("--site-product-title");
+      if (productPriceColor) root.style.setProperty("--site-product-price", productPriceColor);
+      else root.style.removeProperty("--site-product-price");
+      const css = `
+:root{
+  --site-category-grid-desktop:${normalizedTheme.categoryGridDesktop};
+  --site-category-grid-mobile:${normalizedTheme.categoryGridMobile};
+  --site-category-image-shape:${normalizedTheme.categoryImageShape};
+  --site-product-grid-desktop:${normalizedTheme.productGridDesktop};
+  --site-product-grid-mobile:${normalizedTheme.productGridMobile};
+  --site-product-image-shape:${normalizedTheme.productImageShape};
+}
+${balanceAccentColor ? `
+.header-balance,
+.header-balance__currency,
+#balanceHeader,
+#headerBalanceCurrency,
+.header-balance__value,
+#headerBalanceText,
+#balanceAmount,
+#sidebarBalanceValue,
+[data-user-balance]{
+  color:${balanceAccentColor} !important;
+}
+` : ``}
+${sectionTitleColor ? `
+.wallet-page h2,
+.settings-page h2,
+.security-header h2,
+.content-container h2,
+.section-title,
+.footer-title{
+  color:${sectionTitleColor} !important;
+}
+` : ``}
+${productTitleColor ? `
+.categories > .card h2,
+.catalog-inline-host .categories .card h2,
+.catalog-branch-card h2,
+#catalogOffersContainer .card h2,
+.offer-box.card h2,
+#depositInlineApp .categories .card h2{
+  color:${productTitleColor} !important;
+}
+` : ``}
+${productPriceColor ? `
+.offer-price,
+#pm-price,
+.pm-pill,
+.voucher .price,
+#depositInlineApp .categories .card .offer-price,
+.card.catalog-card[data-card-type="product"] .offer-price{
+  color:${productPriceColor} !important;
+}
+` : ``}
+.categories,
+.home-sections .categories,
+.catalog-inline-host .categories,
+#depositInlineApp #grid.categories,
+#depositInlineApp .categories{
+  grid-template-columns:repeat(${normalizedTheme.categoryGridDesktop},minmax(0,1fr)) !important;
+}
+#catalogOffersContainer,
+.inline-favorites-grid{
+  grid-template-columns:repeat(${normalizedTheme.productGridDesktop},minmax(0,1fr)) !important;
+}
+.categories > .card img,
+.categories > .card .catalog-card-media,
+.catalog-inline-host .categories .card img,
+.catalog-inline-host .categories .card .catalog-card-media,
+#depositInlineApp .categories .card img,
+#depositInlineApp .categories .card .catalog-card-media{
+  aspect-ratio:${normalizedTheme.categoryImageShape} !important;
+  object-fit:cover !important;
+}
+#catalogOffersContainer .card img,
+#catalogOffersContainer .card .catalog-card-media,
+.offer-box.card img,
+.offer-box.card .catalog-card-media{
+  aspect-ratio:${normalizedTheme.productImageShape} !important;
+  object-fit:cover !important;
+}
+@media (max-width:768px){
+  .categories,
+  .home-sections .categories,
+  .catalog-inline-host .categories,
+  #depositInlineApp #grid.categories,
+  #depositInlineApp .categories{
+    grid-template-columns:repeat(${normalizedTheme.categoryGridMobile},minmax(0,1fr)) !important;
+  }
+  #catalogOffersContainer,
+  .inline-favorites-grid{
+    grid-template-columns:repeat(${normalizedTheme.productGridMobile},minmax(0,1fr)) !important;
+  }
+}
+`;
+      style.textContent = css;
+    }
+
     document.addEventListener("theme:change", function(){
       syncActiveSiteTextColors();
     });
@@ -11893,6 +12413,41 @@ html[data-theme="dark"] #wa-join-modal .wa-modal-content{
     } catch {}
 
     const SITE_THEME_CACHE_KEY = "site:theme:v1";
+    function normalizeSiteThemeMode(value, fallback){
+      const text = String(value == null ? "" : value).trim().toLowerCase();
+      if (text === "dark") return "dark";
+      if (text === "light") return "light";
+      return String(fallback || "").trim().toLowerCase() === "dark" ? "dark" : "light";
+    }
+    function normalizeSiteLayoutCount(value, fallback){
+      const num = Number(value);
+      if (Number.isFinite(num)) return Math.max(1, Math.min(6, Math.trunc(num)));
+      const fallbackNum = Number(fallback);
+      return Number.isFinite(fallbackNum) ? Math.max(1, Math.min(6, Math.trunc(fallbackNum))) : 3;
+    }
+    function normalizeSiteLayoutShape(value, fallback){
+      const raw = String(value == null ? "" : value).trim().toLowerCase();
+      const map = {
+        square: "1/1",
+        "1:1": "1/1",
+        "1/1": "1/1",
+        portrait: "3/4",
+        tall: "3/4",
+        "3:4": "3/4",
+        "3/4": "3/4",
+        landscape: "4/3",
+        wide: "4/3",
+        "4:3": "4/3",
+        "4/3": "4/3",
+        banner: "16/9",
+        hero: "16/9",
+        "16:9": "16/9",
+        "16/9": "16/9"
+      };
+      if (map[raw]) return map[raw];
+      const fallbackKey = String(fallback == null ? "" : fallback).trim().toLowerCase();
+      return map[fallbackKey] || "1/1";
+    }
     function normalizeSiteThemeState(raw){
       const src = (raw && typeof raw === "object") ? raw : {};
       const name = String(
@@ -11904,6 +12459,8 @@ html[data-theme="dark"] #wa-join-modal .wa-modal-content{
         ""
       ).trim().slice(0, 80);
       const color = sanitizeThemeHexColor(
+        src.siteMainColor ??
+        src.site_main_color ??
         src.color ??
         src.accent ??
         src.primary ??
@@ -11958,10 +12515,95 @@ html[data-theme="dark"] #wa-join-modal .wa-modal-content{
       return {
         name,
         color,
+        siteMainColor: color,
         balanceColorLight: textColorLight,
         balanceColorDark: textColorDark,
         textColorLight,
-        textColorDark
+        textColorDark,
+        defaultMode: normalizeSiteThemeMode(
+          src.defaultMode ??
+          src.default_mode ??
+          src.defaultThemeMode ??
+          src.default_theme_mode ??
+          "",
+          "light"
+        ),
+        balanceAccentColor: normalizeThemeHexColor(
+          src.balanceAccentColor ??
+          src.balance_accent_color ??
+          src.userBalanceColor ??
+          src.user_balance_color ??
+          src.balanceAmountColor ??
+          src.balance_amount_color ??
+          ""
+        ),
+        sectionTitleColor: normalizeThemeHexColor(
+          src.sectionTitleColor ??
+          src.section_title_color ??
+          src.categoryTitleColor ??
+          src.category_title_color ??
+          ""
+        ),
+        productTitleColor: normalizeThemeHexColor(
+          src.productTitleColor ??
+          src.product_title_color ??
+          ""
+        ),
+        productPriceColor: normalizeThemeHexColor(
+          src.productPriceColor ??
+          src.product_price_color ??
+          src.priceColor ??
+          src.price_color ??
+          ""
+        ),
+        categoryGridDesktop: normalizeSiteLayoutCount(
+          src.categoryGridDesktop ??
+          src.category_grid_desktop ??
+          src.categoryCardsDesktop ??
+          src.category_cards_desktop ??
+          5,
+          5
+        ),
+        categoryGridMobile: normalizeSiteLayoutCount(
+          src.categoryGridMobile ??
+          src.category_grid_mobile ??
+          src.categoryCardsMobile ??
+          src.category_cards_mobile ??
+          3,
+          3
+        ),
+        categoryImageShape: normalizeSiteLayoutShape(
+          src.categoryImageShape ??
+          src.category_image_shape ??
+          src.categoryCardShape ??
+          src.category_card_shape ??
+          "1/1",
+          "1/1"
+        ),
+        productGridDesktop: normalizeSiteLayoutCount(
+          src.productGridDesktop ??
+          src.product_grid_desktop ??
+          src.productCardsDesktop ??
+          src.product_cards_desktop ??
+          5,
+          5
+        ),
+        productGridMobile: normalizeSiteLayoutCount(
+          src.productGridMobile ??
+          src.product_grid_mobile ??
+          src.productCardsMobile ??
+          src.product_cards_mobile ??
+          3,
+          3
+        ),
+        productImageShape: normalizeSiteLayoutShape(
+          src.productImageShape ??
+          src.product_image_shape ??
+          src.productCardShape ??
+          src.product_card_shape ??
+          "1/1",
+          "1/1"
+        )
       };
     }
 
@@ -12033,12 +12675,82 @@ html[data-theme="dark"] #wa-join-modal .wa-modal-content{
       return currentThemeClasses.length === 1 && body.classList.contains(targetClass);
     }
 
+    function ensureSiteThemeMeta(name){
+      try {
+        let meta = document.querySelector(`meta[name="${name}"]`);
+        if (!meta) {
+          meta = document.createElement("meta");
+          meta.name = name;
+          document.head && document.head.appendChild(meta);
+        }
+        return meta;
+      } catch {
+        return null;
+      }
+    }
+
+    function resolveAppliedSiteThemeMode(theme){
+      const storedMode = readStoredThemeMode();
+      if (storedMode === "dark" || storedMode === "light") return storedMode;
+      return normalizeSiteThemeMode(
+        theme && (
+          theme.defaultMode ??
+          theme.default_mode ??
+          theme.defaultThemeMode ??
+          theme.default_theme_mode
+        ),
+        "light"
+      );
+    }
+
+    function applyDocumentThemeMode(theme){
+      const mode = resolveAppliedSiteThemeMode(theme);
+      let changed = false;
+      try {
+        const current = String(document.documentElement?.getAttribute("data-theme") || "").trim().toLowerCase();
+        if (current !== mode) changed = true;
+        document.documentElement.setAttribute("data-theme", mode);
+      } catch {}
+      try {
+        const body = document.body;
+        if (body && body.classList) {
+          const hasDark = body.classList.contains("dark-mode");
+          const hasLight = body.classList.contains("light-mode");
+          if ((mode === "dark" && (!hasDark || hasLight)) || (mode === "light" && (!hasLight || hasDark))) {
+            changed = true;
+          }
+          body.classList.toggle("dark-mode", mode === "dark");
+          body.classList.toggle("light-mode", mode === "light");
+        }
+      } catch {}
+      try {
+        const colorSchemeMeta = ensureSiteThemeMeta("color-scheme");
+        if (colorSchemeMeta) {
+          colorSchemeMeta.setAttribute("content", mode === "dark" ? "dark light" : "light dark");
+        }
+      } catch {}
+      try {
+        const themeColorMeta = ensureSiteThemeMeta("theme-color");
+        if (themeColorMeta) {
+          themeColorMeta.setAttribute("content", mode === "dark" ? "#05050b" : "#f8f9fa");
+        }
+      } catch {}
+      if (changed) {
+        try {
+          document.dispatchEvent(new CustomEvent("theme:change", { detail: { theme: mode } }));
+        } catch {}
+      }
+      return mode;
+    }
+
     function applyTheme(theme){
       const normalizedTheme = normalizeSiteThemeState(theme);
       const name = String(normalizedTheme?.name || "").toLowerCase().trim();
       const color = normalizedTheme?.color || "";
+      const appliedMode = applyDocumentThemeMode(normalizedTheme);
       applySiteAccentColor(color);
       applySiteBalanceTextColors(normalizedTheme);
+      applySiteThemeDetailRuntimeCss(normalizedTheme);
       cacheSiteTheme(normalizedTheme);
       const body = document.body;
       if (!body || !body.classList) {
@@ -12049,8 +12761,20 @@ html[data-theme="dark"] #wa-join-modal .wa-modal-content{
       const nextThemeSignature = [
         name,
         color,
+        appliedMode,
         String(normalizedTheme?.balanceColorLight || ""),
-        String(normalizedTheme?.balanceColorDark || "")
+        String(normalizedTheme?.balanceColorDark || ""),
+        String(normalizedTheme?.defaultMode || ""),
+        String(normalizedTheme?.balanceAccentColor || ""),
+        String(normalizedTheme?.sectionTitleColor || ""),
+        String(normalizedTheme?.productTitleColor || ""),
+        String(normalizedTheme?.productPriceColor || ""),
+        String(normalizedTheme?.categoryGridDesktop || ""),
+        String(normalizedTheme?.categoryGridMobile || ""),
+        String(normalizedTheme?.categoryImageShape || ""),
+        String(normalizedTheme?.productGridDesktop || ""),
+        String(normalizedTheme?.productGridMobile || ""),
+        String(normalizedTheme?.productImageShape || "")
       ].join("|");
       if (activeSiteThemeSignature === nextThemeSignature && bodyMatchesSeasonalTheme(body, name)) {
         try { syncMaintenanceTheme(document.getElementById("maintenance-overlay")); } catch {}
@@ -12102,6 +12826,26 @@ html[data-theme="dark"] #wa-join-modal .wa-modal-content{
       return text.slice(0, 2000);
     }
 
+    function normalizeSiteCollectionId(value, fallback){
+      const text = String(value == null ? "" : value).trim().toLowerCase()
+        .replace(/[^a-z0-9_-]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 80);
+      if (text) return text;
+      const fallbackText = String(fallback == null ? "" : fallback).trim().toLowerCase()
+        .replace(/[^a-z0-9_-]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 80);
+      return fallbackText || ("banner-" + Date.now().toString(36));
+    }
+
+    function normalizeSiteCollectionOrder(value, fallback){
+      const num = Number(value);
+      if (Number.isFinite(num)) return Math.max(0, Math.min(999, Math.trunc(num)));
+      const fallbackNum = Number(fallback);
+      return Number.isFinite(fallbackNum) ? Math.max(0, Math.min(999, Math.trunc(fallbackNum))) : 0;
+    }
+
     function normalizeSiteMediaBannerEntry(entry){
       const src = (entry && typeof entry === "object" && !Array.isArray(entry)) ? entry : null;
       const image = normalizeSiteMediaUrl(
@@ -12134,20 +12878,65 @@ html[data-theme="dark"] #wa-join-modal .wa-modal-content{
           )
           : ""
       );
-      return { image, href };
+      const order = normalizeSiteCollectionOrder(
+        src
+          ? (
+            src.order ??
+            src.rank ??
+            src.position ??
+            src.sort ??
+            src.sortOrder ??
+            src.sort_order ??
+            0
+          )
+          : 0,
+        0
+      );
+      const enabled = !(
+        src &&
+        (
+          src.enabled === false ||
+          src.on === false ||
+          src.active === false ||
+          src.visible === false ||
+          src.show === false ||
+          String(src.enabled ?? src.on ?? src.active ?? src.visible ?? src.show ?? "").trim().toLowerCase() === "false"
+        )
+      );
+      const id = normalizeSiteCollectionId(
+        src
+          ? (
+            src.id ??
+            src.key ??
+            src.bannerId ??
+            src.banner_id ??
+            ""
+          )
+          : "",
+        "banner-" + String(order)
+      );
+      return { id, image, href, order, enabled: !!enabled };
     }
 
     function normalizeSiteMediaBanners(list){
       const source = Array.isArray(list) ? list : (list != null ? [list] : []);
       const out = [];
+      const seen = new Set();
       source.forEach((entry) => {
         const normalized = normalizeSiteMediaBannerEntry(entry);
         if (!normalized || !normalized.image) return;
-        if (out.some((item) => item.image === normalized.image && item.href === normalized.href)) return;
+        const key = [normalized.id, normalized.image, normalized.href].join("|");
+        if (seen.has(key)) return;
+        seen.add(key);
         out.push(normalized);
         if (out.length >= 8) return;
       });
-      return out;
+      return out
+        .sort((left, right) => {
+          if (left.order !== right.order) return left.order - right.order;
+          return String(left.id || "").localeCompare(String(right.id || ""));
+        })
+        .slice(0, 8);
     }
 
     function normalizeSiteMediaState(raw){
@@ -12245,6 +13034,80 @@ html[data-theme="dark"] #wa-join-modal .wa-modal-content{
           )
         };
       };
+      const normalizeTickerMessageEntry = function(entryRaw, index){
+        const entry = (entryRaw && typeof entryRaw === "object") ? entryRaw : { text: entryRaw };
+        const text = String(
+          entry.text ??
+          entry.message ??
+          entry.value ??
+          entry.title ??
+          ""
+        ).trim().slice(0, 280);
+        if (!text) return null;
+        return {
+          id: normalizeSiteCollectionId(
+            entry.id ?? entry.key ?? entry.messageId ?? entry.message_id ?? "",
+            "ticker-" + String(index + 1)
+          ),
+          text,
+          enabled: !(
+            entry.enabled === false ||
+            entry.on === false ||
+            entry.active === false ||
+            entry.visible === false ||
+            String(entry.enabled ?? entry.on ?? entry.active ?? entry.visible ?? "").trim().toLowerCase() === "false"
+          ),
+          order: normalizeSiteCollectionOrder(
+            entry.order ?? entry.rank ?? entry.position ?? index,
+            index
+          )
+        };
+      };
+      const normalizeTickerMessages = function(rawMessages, fallbackText){
+        let source = [];
+        if (Array.isArray(rawMessages)) source = rawMessages;
+        else if (typeof rawMessages === "string") {
+          source = rawMessages.split(/\r?\n/g).map((item) => String(item || "").trim()).filter(Boolean);
+        } else if (rawMessages != null && rawMessages !== "") {
+          source = [rawMessages];
+        }
+        const out = [];
+        const seen = new Set();
+        source.forEach((item, index) => {
+          const normalized = normalizeTickerMessageEntry(item, index);
+          if (!normalized) return;
+          const key = [normalized.id, normalized.text].join("|");
+          if (seen.has(key)) return;
+          seen.add(key);
+          out.push(normalized);
+        });
+        if (!out.length && fallbackText) {
+          const fallbackEntry = normalizeTickerMessageEntry({
+            id: "ticker-primary",
+            text: fallbackText,
+            enabled: true,
+            order: 0
+          }, 0);
+          if (fallbackEntry) out.push(fallbackEntry);
+        }
+        return out
+          .sort((left, right) => {
+            if (left.order !== right.order) return left.order - right.order;
+            return String(left.id || "").localeCompare(String(right.id || ""));
+          })
+          .slice(0, 12);
+      };
+      const resolvedTickerText = String(
+        src.tickerText ??
+        src.ticker_text ??
+        src.noticeText ??
+        src.notice_text ??
+        src.marqueeText ??
+        src.marquee_text ??
+        src.homeTickerText ??
+        src.home_ticker_text ??
+        DEFAULT_SITE_TICKER_TEXT
+      ).trim().slice(0, 1000) || DEFAULT_SITE_TICKER_TEXT;
       return {
         storeName: String(
           src.storeName ??
@@ -12255,17 +13118,16 @@ html[data-theme="dark"] #wa-join-modal .wa-modal-content{
           src.title ??
           DEFAULT_SITE_STORE_NAME
         ).trim().slice(0, 160) || DEFAULT_SITE_STORE_NAME,
-        tickerText: String(
-          src.tickerText ??
-          src.ticker_text ??
-          src.noticeText ??
-          src.notice_text ??
-          src.marqueeText ??
-          src.marquee_text ??
-          src.homeTickerText ??
-          src.home_ticker_text ??
-          DEFAULT_SITE_TICKER_TEXT
-        ).trim().slice(0, 1000) || DEFAULT_SITE_TICKER_TEXT,
+        tickerText: resolvedTickerText,
+        tickerMessages: normalizeTickerMessages(
+          src.tickerMessages ??
+          src.ticker_messages ??
+          src.newsMessages ??
+          src.news_messages ??
+          src.messages ??
+          [],
+          resolvedTickerText
+        ),
         depositHint: String(
           src.depositHint ??
           src.deposit_hint ??
@@ -12330,6 +13192,18 @@ html[data-theme="dark"] #wa-join-modal .wa-modal-content{
           src.marqueeText ??
           src.marquee_text ??
           "",
+        tickerMessages:
+          brandRaw.tickerMessages ??
+          brandRaw.ticker_messages ??
+          brandRaw.newsMessages ??
+          brandRaw.news_messages ??
+          brandRaw.messages ??
+          src.tickerMessages ??
+          src.ticker_messages ??
+          src.newsMessages ??
+          src.news_messages ??
+          src.messages ??
+          [],
         depositHint:
           brandRaw.depositHint ??
           brandRaw.deposit_hint ??
@@ -12533,7 +13407,7 @@ html[data-theme="dark"] #wa-join-modal .wa-modal-content{
     }
 
     function applyHeroBanners(list){
-      const banners = normalizeSiteMediaBanners(list);
+      const banners = normalizeSiteMediaBanners(list).filter((item) => item && item.enabled !== false);
       const next = banners.slice();
       try { window.__SITE_HERO_BANNERS__ = next.slice(); } catch {}
       try {
@@ -12548,11 +13422,25 @@ html[data-theme="dark"] #wa-join-modal .wa-modal-content{
       next.forEach((item) => preloadImageAsset(item.image));
     }
 
+    function resolveActiveSiteTickerText(raw){
+      const brand = normalizeSiteBrandState(raw || {});
+      const activeEntry = (Array.isArray(brand.tickerMessages) ? brand.tickerMessages : []).find((entry) => {
+        return entry && entry.enabled !== false && String(entry.text || "").trim();
+      });
+      return String(
+        (activeEntry && activeEntry.text) ||
+        brand.tickerText ||
+        DEFAULT_SITE_TICKER_TEXT
+      ).trim().slice(0, 1000) || DEFAULT_SITE_TICKER_TEXT;
+    }
+
     function applySiteBrand(raw){
       const brand = normalizeSiteBrandState(raw || {});
+      const activeTickerText = resolveActiveSiteTickerText(brand);
       try { window.__SITE_BRAND__ = { ...brand }; } catch {}
       try { window.__SITE_STORE_NAME__ = brand.storeName; } catch {}
-      try { window.__SITE_TICKER_TEXT__ = brand.tickerText; } catch {}
+      try { window.__SITE_TICKER_TEXT__ = activeTickerText; } catch {}
+      try { window.__SITE_TICKER_MESSAGES__ = Array.isArray(brand.tickerMessages) ? brand.tickerMessages.slice() : []; } catch {}
       cacheSiteBrand(brand);
       setMetaContent('meta[name="application-name"]', brand.storeName);
       setMetaContent('meta[name="apple-mobile-web-app-title"]', brand.storeName);
@@ -12563,7 +13451,7 @@ html[data-theme="dark"] #wa-join-modal .wa-modal-content{
       } catch {}
       try { syncWalletTreeSidebarUi(window.__AUTH_LAST_USER__ || null); } catch {}
       try {
-        window.dispatchEvent(new CustomEvent("site:brand", { detail: { ...brand } }));
+        window.dispatchEvent(new CustomEvent("site:brand", { detail: { ...brand, activeTickerText } }));
       } catch {}
     }
 

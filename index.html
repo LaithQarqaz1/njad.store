@@ -866,16 +866,30 @@
   <!-- سكربت تثبيت الثيم مبكرًا جدًا لمنع اللمعة -->
   <script>
   (function () {
-    var theme = 'light';
+    function normalizeThemeMode(value) {
+      var text = String(value || '').trim().toLowerCase();
+      return text === 'dark' || text === 'light' ? text : '';
+    }
+    function readCachedDefaultThemeMode() {
+      try {
+        var cachedThemeRaw = localStorage.getItem('site:theme:v1');
+        if (!cachedThemeRaw) return '';
+        var cachedTheme = JSON.parse(cachedThemeRaw) || {};
+        return normalizeThemeMode(
+          cachedTheme.defaultMode ||
+          cachedTheme.default_mode ||
+          cachedTheme.defaultThemeMode ||
+          cachedTheme.default_theme_mode
+        );
+      } catch (_) {}
+      return '';
+    }
+    var theme = 'dark';
     try {
       var t = localStorage.getItem('theme');
-      if (!t) {
-        // إذا لم يكن هناك theme في localStorage اجعله فاتحًا افتراضيًا
-        t = 'light';
-        try { localStorage.setItem('theme', 'light'); } catch (_) {}
-      }
-      theme = (t === 'dark') ? 'dark' : 'light';
-    } catch (e) { theme = 'light'; }
+      t = normalizeThemeMode(t) || readCachedDefaultThemeMode() || 'dark';
+      theme = t;
+    } catch (e) { theme = 'dark'; }
 
     var root = document.documentElement;
     root.setAttribute('data-theme', theme);
@@ -14341,6 +14355,52 @@ window.__I18N_DICT__ = {
       let currentFilter = 0;
       let reviewsData = [];
       let currentReviewUser = null;
+      let currentReviewActorId = '';
+
+      function normalizeReviewActorId(value){
+        return String(value == null ? '' : value).trim();
+      }
+
+      function getReviewFallbackUid(){
+        return (auth && auth.currentUser && auth.currentUser.uid)
+          ? String(auth.currentUser.uid).trim()
+          : '';
+      }
+
+      function assignCurrentReviewActorId(user, data){
+        currentReviewActorId = normalizeReviewActorId(
+          (data && (data.webuid || data.webUid)) ||
+          (user && user.uid) ||
+          ''
+        );
+      }
+
+      function resolveCurrentReviewActorId(){
+        return normalizeReviewActorId(currentReviewActorId || getReviewFallbackUid());
+      }
+
+      function resolveCurrentReviewActorKeys(){
+        const seen = new Set();
+        const out = [];
+        [resolveCurrentReviewActorId(), getReviewFallbackUid()].forEach((value) => {
+          const normalized = normalizeReviewActorId(value);
+          if (!normalized || seen.has(normalized)) return;
+          seen.add(normalized);
+          out.push(normalized);
+        });
+        return out;
+      }
+
+      function readCurrentReviewVoteValue(votes){
+        const map = (votes && typeof votes === 'object') ? votes : {};
+        const actorKeys = resolveCurrentReviewActorKeys();
+        for (let i = 0; i < actorKeys.length; i += 1) {
+          const key = actorKeys[i];
+          const value = Number(map[key] || 0);
+          if (value === 1 || value === -1) return value;
+        }
+        return 0;
+      }
 
       function normalizeReplyEntry(entry){
         const src = entry && typeof entry === 'object' ? entry : {};
@@ -14398,6 +14458,7 @@ window.__I18N_DICT__ = {
 
       function syncReviewComposerState(user){
         currentReviewUser = user || null;
+        assignCurrentReviewActorId(user || null, null);
         if (!isSiteCommentsEnabled()) {
           currentUserName.textContent = 'تم تعطيل قسم التعليقات حالياً.';
           reviewText.disabled = true;
@@ -14410,16 +14471,23 @@ window.__I18N_DICT__ = {
           userDoc.get().then(doc => {
             if (doc.exists) {
               const data = doc.data() || {};
+              assignCurrentReviewActorId(user, data);
               const name = normalizeDisplayName(data.username || user.displayName || 'مستخدم');
               currentUserName.textContent = `مرحباً ${name}`;
             } else {
+              assignCurrentReviewActorId(user, null);
               currentUserName.textContent = 'مرحباً بك من جديد.';
             }
+            if (reviewsLoadedOnce) renderReviews();
           }).catch(() => {
+            assignCurrentReviewActorId(user, null);
             currentUserName.textContent = 'مرحباً بك من جديد.';
+            if (reviewsLoadedOnce) renderReviews();
           });
         } else {
+          currentReviewActorId = '';
           currentUserName.textContent = 'يجب تسجيل الدخول لإضافة تعليق.';
+          if (reviewsLoadedOnce) renderReviews();
         }
         checkFormValid();
       }
@@ -14575,7 +14643,6 @@ window.__I18N_DICT__ = {
           return;
         }
 
-        const uid = (auth && auth.currentUser && auth.currentUser.uid) ? auth.currentUser.uid : null;
         filteredReviews.forEach(data => {
           const comment = data.comment || '';
           const d = data.createdAtMillis ? new Date(data.createdAtMillis) : (data.createdAtISO ? new Date(data.createdAtISO) : null);
@@ -14584,7 +14651,7 @@ window.__I18N_DICT__ = {
           const repliesCount = countReplies(data.replies);
           const reviewItem = document.createElement('article');
           reviewItem.className = 'review-item';
-          const userVote = (uid && data.votes && typeof data.votes==='object') ? Number(data.votes[uid]||0) : 0;
+          const userVote = readCurrentReviewVoteValue(data.votes);
           const likeActive = userVote === 1 ? ' active' : '';
           const dislikeActive = userVote === -1 ? ' active' : '';
           const firstLetter = escapeHTML(String(userName).trim().charAt(0) || 'م');
@@ -14767,7 +14834,6 @@ window.__I18N_DICT__ = {
         try{
           var arr = Array.isArray(replies) ? replies : [];
           if (!arr.length) return '<div class="replies"></div>';
-          var uid = (auth && auth.currentUser && auth.currentUser.uid) ? auth.currentUser.uid : null;
           var html = '<div class="replies collapsed"><div class="replies-list">';
           arr.forEach(function(r, i){
             var t = escapeHTML(normalizeDisplayText(String(r.text||'')));
@@ -14780,7 +14846,7 @@ window.__I18N_DICT__ = {
             var likes = Number(r.likes||0);
             var dislikes = Number(r.dislikes||0);
             var votes = (r && r.votes && typeof r.votes==='object') ? r.votes : {};
-            var userVote = uid ? Number(votes[uid]||0) : 0;
+            var userVote = readCurrentReviewVoteValue(votes);
             var likeActive = (userVote===1) ? ' active' : '';
             var dislikeActive = (userVote===-1) ? ' active' : '';
             var childCount = Array.isArray(r.replies) ? r.replies.length : 0;
@@ -14866,7 +14932,8 @@ window.__I18N_DICT__ = {
 
       function applyVoteLocally({ reviewId, replyId = null, vote }){
         if (!Array.isArray(reviewsData) || !reviewId || ![1,-1].includes(vote)) return;
-        const uid = (auth.currentUser && auth.currentUser.uid) ? auth.currentUser.uid : null;
+        const actorKeys = resolveCurrentReviewActorKeys();
+        const primaryActorKey = resolveCurrentReviewActorId();
         const review = reviewsData.find(r => String(r.id||'') === String(reviewId));
         if (!review) return;
         const target = replyId
@@ -14876,16 +14943,24 @@ window.__I18N_DICT__ = {
         target.likes = Number(target.likes||0);
         target.dislikes = Number(target.dislikes||0);
         target.votes = (target.votes && typeof target.votes==='object') ? target.votes : {};
-        const prev = Number(target.votes[uid]||0);
+        let prev = 0;
+        actorKeys.forEach((key) => {
+          if (prev) return;
+          const stored = Number(target.votes[key]||0);
+          if (stored === 1 || stored === -1) prev = stored;
+        });
+        actorKeys.forEach((key) => {
+          if (!key) return;
+          delete target.votes[key];
+        });
         if (prev === vote){
           if (vote === 1 && target.likes>0) target.likes -= 1;
           if (vote === -1 && target.dislikes>0) target.dislikes -= 1;
-          delete target.votes[uid];
         } else {
           if (prev === 1 && target.likes>0) target.likes -= 1;
           if (prev === -1 && target.dislikes>0) target.dislikes -= 1;
           if (vote === 1) target.likes += 1; else if (vote === -1) target.dislikes += 1;
-          if (uid) target.votes[uid] = vote;
+          if (primaryActorKey) target.votes[primaryActorKey] = vote;
         }
         renderReviews();
         return target;
@@ -22749,6 +22824,36 @@ function toggleDetails(code) {
         #ban-block-overlay-login .ban-support-links.is-sidebar-style .support-dock__link i{
           font-size:18px;
           color:#f8fafc;
+        }
+        #ban-block-overlay-login .ban-support-links.is-sidebar-style .support-badge,
+        #ban-block-overlay-login .ban-support-links.is-sidebar-style .support-dock__badge{
+          position:absolute;
+          top:-3px;
+          left:auto;
+          right:-5px;
+          bottom:auto;
+          min-width:16px;
+          height:16px;
+          padding:0 4px;
+          border-radius:999px;
+          display:inline-flex;
+          align-items:center;
+          justify-content:center;
+          background:var(--site-accent-runtime-strong, var(--primary-dark, var(--accent-theme, #414391)));
+          color:#ffffff;
+          border:2px solid #ffffff;
+          box-shadow:0 4px 10px rgba(var(--site-accent-rgb, 106, 111, 232), 0.18);
+          font-size:9px;
+          font-weight:900;
+          line-height:1;
+          direction:ltr;
+          pointer-events:none;
+          z-index:1;
+        }
+        #ban-block-overlay-login .ban-support-links.is-sidebar-style .support-badge .support-badge__text,
+        #ban-block-overlay-login .ban-support-links.is-sidebar-style .support-dock__badge .support-badge__text{
+          display:block;
+          transform:translateY(-1px);
         }
         @media (max-width: 520px){
           #ban-block-overlay-login .ban-support-links{
@@ -33473,6 +33578,41 @@ button#logoutBtn:hover{background:#990000}
 
       var SPEED = 80; // بكسل/ثانية
       var rafId = 0;
+      var cycleTimer = 0;
+      var tickerMessages = [];
+      var tickerIndex = 0;
+      var tickerSpan = one.querySelector('[data-runtime-ticker]');
+
+      function sanitizeTickerMessage(value){
+        return String(value == null ? '' : value).replace(/\s+/g, ' ').trim();
+      }
+
+      function prefersReducedMotion(){
+        try {
+          return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+        } catch(_) {
+          return false;
+        }
+      }
+
+      function normalizeTickerMessages(input, fallbackText){
+        var list = Array.isArray(input) ? input : [];
+        var out = [];
+        var seen = Object.create(null);
+        list.forEach(function(entry){
+          var raw = (entry && typeof entry === 'object')
+            ? (entry.enabled === false ? '' : (entry.text ?? entry.value ?? entry.tickerText ?? ''))
+            : entry;
+          var text = sanitizeTickerMessage(raw);
+          var dedupeKey = text.toLowerCase();
+          if (!text || seen[dedupeKey]) return;
+          seen[dedupeKey] = true;
+          out.push(text);
+        });
+        fallbackText = sanitizeTickerMessage(fallbackText);
+        if (!out.length && fallbackText) out.push(fallbackText);
+        return out;
+      }
 
       function parseDir(){
         var d = 1;
@@ -33490,8 +33630,32 @@ button#logoutBtn:hover{background:#990000}
         return isFinite(n) ? n : 0;
       }
 
+      function clearTickerCycle(){
+        if (!cycleTimer) return;
+        clearTimeout(cycleTimer);
+        cycleTimer = 0;
+      }
+
+      function restartTickerAnimation(){
+        try {
+          track.style.animation = 'none';
+          void track.offsetWidth;
+          track.style.removeProperty('animation');
+        } catch(_){}
+      }
+
+      function setTickerText(text){
+        var normalized = sanitizeTickerMessage(text);
+        if (tickerSpan) {
+          tickerSpan.textContent = normalized;
+          tickerSpan.setAttribute('data-i18n-ignore', 'true');
+        }
+        ticker.hidden = !normalized;
+        ticker.setAttribute('aria-hidden', normalized ? 'false' : 'true');
+      }
+
       function apply(cw, ow, dir){
-        if (!cw || !ow) return;
+        if (!cw || !ow) return 0;
         // خذ في الاعتبار عرض طبقة التلاشي على الأطراف، ويختلف بين الهاتف والكمبيوتر
         var styles = getComputedStyle(ticker);
         var fade   = px(styles.getPropertyValue('--fadeWidth'));
@@ -33499,29 +33663,72 @@ button#logoutBtn:hover{background:#990000}
         var start  = dir * (cw + fade + pad);   // خارج الحافة في جهة البداية
         var end    = -dir * (ow + fade + pad);  // خارج الحافة في جهة النهاية
         var dist   = cw + ow + (2 * fade) + (2 * pad); // المسافة المقطوعة الفعلية
-        var dur   = (dist / SPEED).toFixed(2) + 's';
+        var durMs = Math.max(1000, Math.round((dist / SPEED) * 1000));
+        var dur   = (durMs / 1000).toFixed(2) + 's';
         track.style.setProperty('--start', start + 'px');
         track.style.setProperty('--end',   end   + 'px');
         track.style.setProperty('--dur',   dur);
+        return durMs;
       }
 
-      function measure(){
+      function scheduleNextTicker(durationMs){
+        clearTickerCycle();
+        if (ticker.hidden || tickerMessages.length < 2 || prefersReducedMotion()) return;
+        cycleTimer = window.setTimeout(function(){
+          showTickerMessage(tickerIndex + 1);
+        }, Math.max(durationMs || 0, 1000));
+      }
+
+      function showTickerMessage(nextIndex){
+        if (!tickerMessages.length) {
+          clearTickerCycle();
+          setTickerText('');
+          measure(false);
+          return;
+        }
+        tickerIndex = ((Number(nextIndex) || 0) % tickerMessages.length + tickerMessages.length) % tickerMessages.length;
+        setTickerText(tickerMessages[tickerIndex]);
+        measure(true);
+      }
+
+      function setTickerMessages(nextMessages, fallbackText){
+        tickerMessages = normalizeTickerMessages(nextMessages, fallbackText);
+        tickerIndex = 0;
+        if (!tickerMessages.length) {
+          clearTickerCycle();
+          setTickerText('');
+          measure(false);
+          return;
+        }
+        showTickerMessage(0);
+      }
+
+      function measure(shouldRestart){
         cancelAnimationFrame(rafId);
         rafId = requestAnimationFrame(function(){
           // قياسات دقيقة
           var cw  = ticker.clientWidth;    // عرض الحاوية (يتبدل بين الهاتف والكمبيوتر)
           var ow  = one.scrollWidth;       // عرض المحتوى
           var dir = parseDir();
-          apply(cw, ow, dir);
+          if (!cw || !ow) {
+            clearTickerCycle();
+            return;
+          }
+          var durationMs = apply(cw, ow, dir);
+          if (shouldRestart && !prefersReducedMotion()) restartTickerAnimation();
+          scheduleNextTicker(durationMs);
         });
       }
 
-      // قياس أولي
-      measure();
-
       function refreshTickerDirection(){
-        measure();
+        measure(true);
       }
+
+      try {
+        window.__setHomeTickerMessages = function(messages, fallbackText){
+          setTickerMessages(messages, fallbackText);
+        };
+      } catch(_){}
 
       // أعِد القياس بعد تحميل الخطوط/الصور وضبط اللغة لضمان ثبات العرض والاتجاه
       if (document.fonts && document.fonts.ready) {
@@ -33558,6 +33765,11 @@ button#logoutBtn:hover{background:#990000}
           refreshTickerDirection();
         };
       } catch(_){}
+
+      setTickerMessages(
+        Array.isArray(window.__SITE_TICKER_MESSAGES__) ? window.__SITE_TICKER_MESSAGES__ : [],
+        (tickerSpan && tickerSpan.textContent) || window.__SITE_TICKER_TEXT__ || ''
+      );
     })();
   </script>
 
@@ -33606,14 +33818,75 @@ button#logoutBtn:hover{background:#990000}
 
       function normalizeBrand(raw){
         var src = (raw && typeof raw === 'object') ? raw : {};
+        function normalizeTickerMessageEntry(entryRaw, index){
+          var entry = (entryRaw && typeof entryRaw === 'object') ? entryRaw : { text: entryRaw };
+          var text = sanitizeTickerText(entry.text ?? entry.message ?? entry.value ?? entry.title ?? '').slice(0, 280);
+          if (!text) return null;
+          return {
+            id: String(entry.id ?? entry.key ?? entry.messageId ?? entry.message_id ?? ('ticker-' + String(index + 1))).trim() || ('ticker-' + String(index + 1)),
+            text: text,
+            enabled: parseRuntimeBrandBool(entry.enabled ?? entry.on ?? entry.active ?? entry.visible, true),
+            order: Number.isFinite(Number(entry.order ?? entry.rank ?? entry.position))
+              ? Math.max(0, Math.trunc(Number(entry.order ?? entry.rank ?? entry.position)))
+              : index
+          };
+        }
+        function normalizeTickerMessages(rawMessages, fallbackText){
+          var source = [];
+          if (Array.isArray(rawMessages)) source = rawMessages.slice();
+          else if (typeof rawMessages === 'string') {
+            source = rawMessages.split(/\r?\n/g).map(function(item){ return String(item || '').trim(); }).filter(Boolean);
+          } else if (rawMessages != null && rawMessages !== '') {
+            source = [rawMessages];
+          }
+          var out = [];
+          var seen = {};
+          source.forEach(function(item, index){
+            var normalized = normalizeTickerMessageEntry(item, index);
+            if (!normalized) return;
+            var dedupeKey = String(normalized.id || '') + '|' + String(normalized.text || '');
+            if (seen[dedupeKey]) return;
+            seen[dedupeKey] = true;
+            out.push(normalized);
+          });
+          if (!out.length && fallbackText) {
+            var fallbackEntry = normalizeTickerMessageEntry({ id: 'ticker-primary', text: fallbackText, enabled: true, order: 0 }, 0);
+            if (fallbackEntry) out.push(fallbackEntry);
+          }
+          return out.sort(function(left, right){
+            if (left.order !== right.order) return left.order - right.order;
+            return String(left.id || '').localeCompare(String(right.id || ''));
+          }).slice(0, 12);
+        }
+        var resolvedTickerText = sanitizeTickerText(src.tickerText ?? src.ticker_text ?? src.noticeText ?? src.notice_text ?? src.marqueeText ?? src.marquee_text ?? src.homeTickerText ?? src.home_ticker_text ?? window.__SITE_TICKER_TEXT__ ?? DEFAULT_TICKER_TEXT).slice(0, 1000) || DEFAULT_TICKER_TEXT;
         return {
           storeName: String(src.storeName ?? src.store_name ?? src.siteName ?? src.site_name ?? src.name ?? src.title ?? window.__SITE_STORE_NAME__ ?? DEFAULT_STORE_NAME).trim().slice(0, 160) || DEFAULT_STORE_NAME,
-          tickerText: sanitizeTickerText(src.tickerText ?? src.ticker_text ?? src.noticeText ?? src.notice_text ?? src.marqueeText ?? src.marquee_text ?? src.homeTickerText ?? src.home_ticker_text ?? window.__SITE_TICKER_TEXT__ ?? DEFAULT_TICKER_TEXT).slice(0, 1000) || DEFAULT_TICKER_TEXT,
+          tickerText: resolvedTickerText,
+          tickerMessages: normalizeTickerMessages(src.tickerMessages ?? src.ticker_messages ?? src.newsMessages ?? src.news_messages ?? src.messages ?? window.__SITE_TICKER_MESSAGES__ ?? [], resolvedTickerText),
           depositHint: String(src.depositHint ?? src.deposit_hint ?? src.depositDescription ?? src.deposit_description ?? src.depositModalHint ?? src.deposit_modal_hint ?? '').trim().slice(0, 4000),
           depositTree: normalizeRuntimeWalletTreeEntry(src.depositTree ?? src.deposit_tree ?? src.depositItem ?? src.deposit_item ?? src.depositCategory ?? src.deposit_category, 'الإيداع'),
           withdrawTree: normalizeRuntimeWalletTreeEntry(src.withdrawTree ?? src.withdraw_tree ?? src.withdrawItem ?? src.withdraw_item ?? src.withdrawCategory ?? src.withdraw_category, 'سحب الرصيد'),
           updatedAt: String(src.updatedAt ?? src.updated_at ?? '').trim().slice(0, 120)
         };
+      }
+
+      function collectActiveBrandTickerMessages(raw){
+        var brand = normalizeBrand(raw);
+        var rows = Array.isArray(brand.tickerMessages) ? brand.tickerMessages : [];
+        return rows.filter(function(entry){
+          return entry && entry.enabled !== false && String(entry.text || '').trim();
+        }).sort(function(left, right){
+          if (left.order !== right.order) return left.order - right.order;
+          return String(left.id || '').localeCompare(String(right.id || ''));
+        }).map(function(entry){
+          return String(entry && entry.text || '').trim();
+        });
+      }
+
+      function resolveActiveBrandTickerText(raw){
+        var brand = normalizeBrand(raw);
+        var active = collectActiveBrandTickerMessages(brand);
+        return active.length ? active[0] : String(brand.tickerText || '').trim();
       }
 
       function getRuntimeWalletTreeEntries(raw){
@@ -33773,32 +34046,54 @@ button#logoutBtn:hover{background:#990000}
         try { document.title = storeName; } catch(_){}
       }
 
-      function applyRuntimeTicker(tickerText){
+      function applyRuntimeTicker(tickerText, tickerMessages){
         var normalizedTickerText = sanitizeTickerText(tickerText).slice(0, 1000);
+        var appliedByTickerController = false;
+        var normalizedTickerMessages = [];
         try {
-          var ticker = document.getElementById('homeTicker');
-          var spans = document.querySelectorAll('#homeTicker [data-runtime-ticker]');
-          spans.forEach(function(span){
-            try {
-              span.textContent = normalizedTickerText;
-              span.setAttribute('data-i18n-ignore', 'true');
-            } catch(_){}
+          normalizedTickerMessages = collectActiveBrandTickerMessages({
+            tickerText: normalizedTickerText,
+            tickerMessages: Array.isArray(tickerMessages) ? tickerMessages : []
           });
-          if (ticker) {
-            ticker.hidden = !normalizedTickerText;
-            ticker.setAttribute('aria-hidden', normalizedTickerText ? 'false' : 'true');
+        } catch(_) {}
+        if (!normalizedTickerMessages.length && normalizedTickerText) {
+          normalizedTickerMessages = [normalizedTickerText];
+        }
+        try {
+          if (typeof window.__setHomeTickerMessages === 'function') {
+            window.__setHomeTickerMessages(normalizedTickerMessages, normalizedTickerText);
+            appliedByTickerController = true;
+          }
+        } catch(_){}
+        try {
+          if (!appliedByTickerController) {
+            var ticker = document.getElementById('homeTicker');
+            var spans = document.querySelectorAll('#homeTicker [data-runtime-ticker]');
+            spans.forEach(function(span){
+              try {
+                span.textContent = normalizedTickerText;
+                span.setAttribute('data-i18n-ignore', 'true');
+              } catch(_){}
+            });
+            if (ticker) {
+              ticker.hidden = !normalizedTickerText;
+              ticker.setAttribute('aria-hidden', normalizedTickerText ? 'false' : 'true');
+            }
           }
         } catch(_){}
         try { window.__SITE_TICKER_TEXT__ = normalizedTickerText; } catch(_){}
-        try {
-          if (typeof window.__refreshHomeTicker === 'function') window.__refreshHomeTicker();
-        } catch(_){}
+        if (!appliedByTickerController) {
+          try {
+            if (typeof window.__refreshHomeTicker === 'function') window.__refreshHomeTicker();
+          } catch(_){}
+        }
       }
 
       function getRuntimeSeoDescription(brand){
         try {
           return String(
-            brand && (brand.tickerText || brand.ticker_text || brand.description || brand.storeName || '')
+            resolveActiveBrandTickerText(brand) ||
+            (brand && (brand.tickerText || brand.ticker_text || brand.description || brand.storeName || ''))
           ).trim().slice(0, 320);
         } catch(_) {
           return '';
@@ -33816,10 +34111,12 @@ button#logoutBtn:hover{background:#990000}
         } catch(_){}
         var merged = Object.assign({}, existing, (raw && typeof raw === 'object') ? raw : {});
         var brand = normalizeBrand(merged);
+        var activeTickerText = resolveActiveBrandTickerText(brand);
         var seoDescription = getRuntimeSeoDescription(brand);
         try { window.__SITE_BRAND__ = { ...brand }; } catch(_){}
         try { window.__SITE_STORE_NAME__ = brand.storeName; } catch(_){}
-        try { window.__SITE_TICKER_TEXT__ = brand.tickerText; } catch(_){}
+        try { window.__SITE_TICKER_TEXT__ = activeTickerText; } catch(_){}
+        try { window.__SITE_TICKER_MESSAGES__ = Array.isArray(brand.tickerMessages) ? brand.tickerMessages.slice() : []; } catch(_){}
         try { syncRuntimeWalletRouteTitles(); } catch(_){}
         setMetaContent('meta[name="application-name"]', brand.storeName);
         setMetaContent('meta[name="apple-mobile-web-app-title"]', brand.storeName);
@@ -33844,7 +34141,7 @@ button#logoutBtn:hover{background:#990000}
           }
         } catch(_){}
         try { window.__LAST_APPLIED_STORE_NAME__ = brand.storeName; } catch(_){}
-        applyRuntimeTicker(brand.tickerText);
+        applyRuntimeTicker(activeTickerText, brand.tickerMessages);
         applyRuntimeTitle(brand.storeName);
         try { updateStructuredData(String(window.__SITE_ICON__ || '').trim(), brand.storeName); } catch(_){}
         return brand;
@@ -33859,7 +34156,7 @@ button#logoutBtn:hover{background:#990000}
       };
       window.__getCurrentStoreTickerText = function(){
         try {
-          return normalizeBrand(window.__SITE_BRAND__ || {}).tickerText;
+          return resolveActiveBrandTickerText(window.__SITE_BRAND__ || {});
         } catch(_) {
           return DEFAULT_TICKER_TEXT;
         }
@@ -38858,13 +39155,24 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
   function updateInlineWithdrawBalanceCache(value){
     const nextBalance = Number(value);
     if (!Number.isFinite(nextBalance)) return;
-    const formatted = nextBalance.toFixed(3) + ' USD';
+    const formatted = (typeof window.__formatHeaderBalanceDisplay === 'function')
+      ? window.__formatHeaderBalanceDisplay(nextBalance)
+      : ((typeof window.formatCurrencyFromJOD === 'function')
+          ? window.formatCurrencyFromJOD(nextBalance)
+          : (nextBalance.toFixed(3) + ' USD'));
     try { window.__BAL_BASE__ = nextBalance; window.__BALANCE__ = nextBalance; } catch (_) {}
     try {
-      const textEl = document.getElementById('headerBalanceText');
-      const currencyEl = document.getElementById('headerBalanceCurrency');
-      if (textEl) textEl.textContent = nextBalance.toFixed(3);
-      if (currencyEl) currencyEl.textContent = 'USD';
+      if (typeof window.__setHeaderBalanceDisplay === 'function') {
+        window.__setHeaderBalanceDisplay(formatted);
+      } else {
+        const textEl = document.getElementById('headerBalanceText');
+        const currencyEl = document.getElementById('headerBalanceCurrency');
+        if (textEl) {
+          const parts = String(formatted || '').trim().split(/\s+/);
+          textEl.textContent = parts.shift() || formatted;
+          if (currencyEl) currencyEl.textContent = parts.join(' ') || '';
+        }
+      }
     } catch (_) {}
     try {
       window.dispatchEvent(new CustomEvent('balance:change', {
@@ -46488,12 +46796,16 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       const formatted = (typeof window.formatCurrencyFromJOD === "function")
         ? window.formatCurrencyFromJOD(val)
         : (val.toFixed(3) + " $");
-      const textEl = document.getElementById("headerBalanceText");
-      const currencyEl = document.getElementById("headerBalanceCurrency");
-      if (textEl) {
-        const parts = formatted.split(/\s+/);
-        textEl.textContent = parts.shift() || formatted;
-        if (currencyEl) currencyEl.textContent = parts.join(" ") || "$";
+      if (typeof window.__setHeaderBalanceDisplay === "function") {
+        window.__setHeaderBalanceDisplay(formatted);
+      } else {
+        const textEl = document.getElementById("headerBalanceText");
+        const currencyEl = document.getElementById("headerBalanceCurrency");
+        if (textEl) {
+          const parts = String(formatted || "").trim().split(/\s+/);
+          textEl.textContent = parts.shift() || formatted;
+          if (currencyEl) currencyEl.textContent = parts.join(" ") || "";
+        }
       }
       window.dispatchEvent(new CustomEvent("balance:change", { detail: { value: val, formatted: formatted } }));
     } catch (_) {}
@@ -48960,12 +49272,30 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
           state.currencyBound = true;
         }
 
+        function readCachedDefaultThemeMode(){
+          try {
+            var raw = localStorage.getItem('site:theme:v1');
+            if (!raw) return '';
+            var parsed = JSON.parse(raw) || {};
+            var mode = String(
+              parsed.defaultMode ||
+              parsed.default_mode ||
+              parsed.defaultThemeMode ||
+              parsed.default_theme_mode ||
+              ''
+            ).trim().toLowerCase();
+            return mode === 'dark' || mode === 'light' ? mode : '';
+          } catch(_){}
+          return '';
+        }
+
         function getCurrentTheme(){
           var attr = (document.documentElement.getAttribute('data-theme') || '').toLowerCase();
           if (attr === 'dark' || attr === 'light') return attr;
           var saved = null;
           try { saved = localStorage.getItem('theme'); } catch(_){}
-          return saved === 'dark' ? 'dark' : 'light';
+          if (saved === 'dark' || saved === 'light') return saved;
+          return readCachedDefaultThemeMode() || 'dark';
         }
 
         function syncBodyThemeClass(){
@@ -53754,11 +54084,23 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
         function themeIsDark(){
           try{
             var attr = document.documentElement.getAttribute('data-theme');
-            if (attr) return attr === 'dark';
+            if (attr === 'dark' || attr === 'light') return attr === 'dark';
             var stored = localStorage.getItem('theme');
-            if (stored) return stored === 'dark';
+            if (stored === 'dark' || stored === 'light') return stored === 'dark';
+            var cachedRaw = localStorage.getItem('site:theme:v1');
+            if (cachedRaw) {
+              var cached = JSON.parse(cachedRaw) || {};
+              var mode = String(
+                cached.defaultMode ||
+                cached.default_mode ||
+                cached.defaultThemeMode ||
+                cached.default_theme_mode ||
+                ''
+              ).trim().toLowerCase();
+              if (mode === 'dark' || mode === 'light') return mode === 'dark';
+            }
           }catch(_){}
-          return false;
+          return true;
         }
 
         function ensureRoot(){
@@ -54896,12 +55238,16 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
             var formatted = (typeof window.formatCurrencyFromJOD === "function")
               ? window.formatCurrencyFromJOD(val)
               : (val.toFixed(3) + " $");
-            var textEl = document.getElementById("headerBalanceText");
-            var currencyEl = document.getElementById("headerBalanceCurrency");
-            if (textEl){
-              var parts = formatted.split(/\s+/);
-              textEl.textContent = parts.shift() || formatted;
-              if (currencyEl) currencyEl.textContent = parts.join(" ") || "?";
+            if (typeof window.__setHeaderBalanceDisplay === "function") {
+              window.__setHeaderBalanceDisplay(formatted);
+            } else {
+              var textEl = document.getElementById("headerBalanceText");
+              var currencyEl = document.getElementById("headerBalanceCurrency");
+              if (textEl){
+                var parts = String(formatted || "").trim().split(/\s+/);
+                textEl.textContent = parts.shift() || formatted;
+                if (currencyEl) currencyEl.textContent = parts.join(" ") || "";
+              }
             }
             window.dispatchEvent(new CustomEvent("balance:change", { detail: { value: val, formatted: formatted } }));
           } catch(_){}
@@ -55243,18 +55589,6 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
           return String(value == null ? '' : value).trim().replace(/\s+/g, '').slice(0, 2000);
         }
 
-        function getDefaultAgentsSeed(){
-          return [{
-            id: 'agent-matrex',
-            name: 'MATREX',
-            description: '',
-            address: 'جميع الدول',
-            phone: '+905050505540',
-            whatsapp: 'https://wa.me/905050505540',
-            order: 1
-          }];
-        }
-
         function normalizeAgentsState(raw){
           var src = raw && typeof raw === 'object' ? raw : {};
           var hasExplicitEnabled =
@@ -55273,9 +55607,6 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
           var sourceItems = Array.isArray(src.items)
             ? src.items
             : (Array.isArray(src.agents) ? src.agents : (Array.isArray(src.rows) ? src.rows : []));
-          if (!sourceItems.length && !updatedAt) {
-            sourceItems = getDefaultAgentsSeed();
-          }
           var items = sourceItems.map(function(entry, index){
             var item = entry && typeof entry === 'object' ? entry : {};
             var name = String(item.name || item.agentName || item.agent_name || item.title || '').trim();
@@ -61404,11 +61735,23 @@ function normalizeCategory(value){
         function themeIsDark(){
           try{
             var attr = document.documentElement.getAttribute('data-theme');
-            if (attr) return attr === 'dark';
+            if (attr === 'dark' || attr === 'light') return attr === 'dark';
             var stored = localStorage.getItem('theme');
-            if (stored) return stored === 'dark';
+            if (stored === 'dark' || stored === 'light') return stored === 'dark';
+            var cachedRaw = localStorage.getItem('site:theme:v1');
+            if (cachedRaw) {
+              var cached = JSON.parse(cachedRaw) || {};
+              var mode = String(
+                cached.defaultMode ||
+                cached.default_mode ||
+                cached.defaultThemeMode ||
+                cached.default_theme_mode ||
+                ''
+              ).trim().toLowerCase();
+              if (mode === 'dark' || mode === 'light') return mode === 'dark';
+            }
           }catch(_){}
-          return false;
+          return true;
         }
 
         function ensureStyles(){
@@ -65279,8 +65622,16 @@ function normalizeCategory(value){
       var joinLinkEl = document.getElementById('wa-join-link');
       var joinTextEl = document.getElementById('wa-join-text');
 
+      var autoHideTimer = null;
       function lockScroll(on){ try { document.body.style.overflow = on ? 'hidden' : ''; } catch(_){} }
-      function close(){ modal.style.display = 'none'; lockScroll(false); }
+      function close(){
+        modal.style.display = 'none';
+        lockScroll(false);
+        if (autoHideTimer) {
+          clearTimeout(autoHideTimer);
+          autoHideTimer = null;
+        }
+      }
 
       function hashText(text){
         var str = String(text || '');
@@ -65341,6 +65692,19 @@ function normalizeCategory(value){
         );
         var message = String(src.message ?? src.text ?? src.body ?? src.description ?? fb.message ?? '').trim().slice(0, 4000);
         var whatsappUrl = normalizeUrl(src.whatsappUrl ?? src.whatsapp_url ?? src.whatsappLink ?? src.whatsapp_link ?? src.whatsapp ?? src.url ?? src.link ?? fb.whatsappUrl ?? '');
+        var autoHideRaw = Number(
+          src.autoHideSeconds ??
+          src.auto_hide_seconds ??
+          src.autoHide ??
+          src.auto_hide ??
+          src.hideAfter ??
+          src.hide_after ??
+          src.dismissAfter ??
+          src.dismiss_after ??
+          fb.autoHideSeconds ??
+          0
+        );
+        var autoHideSeconds = Number.isFinite(autoHideRaw) ? Math.max(0, Math.min(86400, Math.trunc(autoHideRaw))) : 0;
         return {
           enabled: !!enabled && !!message && !!whatsappUrl,
           badgeSub: String(src.badgeSub ?? src.badge_sub ?? src.badgeTop ?? src.badge_top ?? fb.badgeSub ?? '').trim().slice(0, 160),
@@ -65350,6 +65714,7 @@ function normalizeCategory(value){
           benefits: normalizeBenefits(src.benefits ?? src.items ?? src.points ?? src.features, fb.benefits || []),
           buttonText: String(src.buttonText ?? src.button_text ?? src.ctaText ?? src.cta_text ?? src.cta ?? src.joinText ?? src.join_text ?? fb.buttonText ?? '').trim().slice(0, 120),
           whatsappUrl: whatsappUrl,
+          autoHideSeconds: autoHideSeconds,
           version: String(src.version ?? src.id ?? src.key ?? fb.version ?? '').trim().slice(0, 120),
           updatedAt: String(src.updatedAt ?? src.updated_at ?? fb.updatedAt ?? '').trim()
         };
@@ -65389,6 +65754,13 @@ function normalizeCategory(value){
         modal.style.display = 'flex';
         lockScroll(true);
         try { sessionStorage.setItem(sessionKeyForConfig(config), '1'); } catch(_){}
+        if (autoHideTimer) {
+          clearTimeout(autoHideTimer);
+          autoHideTimer = null;
+        }
+        if (config.autoHideSeconds && config.autoHideSeconds > 0) {
+          autoHideTimer = setTimeout(function(){ close(); }, config.autoHideSeconds * 1000);
+        }
       }
       function applyConfig(raw){
         var defaults = {
@@ -65400,6 +65772,7 @@ function normalizeCategory(value){
           benefits: Array.prototype.slice.call((benefitsEl && benefitsEl.querySelectorAll('li span')) || []).map(function(el){ return String(el && el.textContent || '').trim(); }).filter(Boolean),
           buttonText: joinTextEl ? joinTextEl.textContent : '',
           whatsappUrl: joinLinkEl ? (joinLinkEl.getAttribute('href') || '') : '',
+          autoHideSeconds: 0,
           version: ''
         };
         var config = normalizeConfig(raw || {}, defaults);
@@ -65435,6 +65808,7 @@ function normalizeCategory(value){
             benefits: Array.prototype.slice.call((benefitsEl && benefitsEl.querySelectorAll('li span')) || []).map(function(el){ return String(el && el.textContent || '').trim(); }).filter(Boolean),
             buttonText: joinTextEl ? joinTextEl.textContent : '',
             whatsappUrl: joinLinkEl ? (joinLinkEl.getAttribute('href') || '') : '',
+            autoHideSeconds: 0,
             version: ''
           };
           var normalized = normalizeConfig(raw || {}, defaults);

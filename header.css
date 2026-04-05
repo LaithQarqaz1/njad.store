@@ -459,6 +459,13 @@ body.light-mode .app-context-menu__icon {
   color: rgba(15, 23, 42, 0.56);
 }
 
+.support-icon img {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+  display: block;
+}
+
 .support-icon.whatsapp img {
   filter: invert(44%) sepia(78%) saturate(442%) hue-rotate(85deg) brightness(90%) contrast(85%);
 }
@@ -1442,6 +1449,7 @@ body:has(#loginInline:not(.hidden)) #preloader { z-index: 200000 !important; }
   font-size: 26px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
+  overflow: hidden;
 }
 
 .support-icon:hover {
@@ -1482,8 +1490,9 @@ body:has(#loginInline:not(.hidden)) #preloader { z-index: 200000 !important; }
 }
 
 #sidebar .support-icon img {
-  width: 32px;
-  height: 32px;
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
   filter: none !important;
 }
 
