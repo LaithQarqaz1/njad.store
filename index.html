@@ -26942,8 +26942,6 @@ function toggleDetails(code) {
       .transfer-modal h3{font-size:1.2rem;margin-top:2px;padding-inline:42px;}
       .transfer-modal{padding:16px 14px 14px;}
     }
-    body.theme-snow[data-inline-route="transfer"]::before,
-    body.theme-snow[data-inline-route="transfer"]::after,
     body.theme-eid[data-inline-route="transfer"]::before,
     body.theme-eid[data-inline-route="transfer"]::after,
     body.theme-fall[data-inline-route="transfer"]::before,
@@ -26951,7 +26949,6 @@ function toggleDetails(code) {
       display:none !important;
       background:none !important;
     }
-    body.theme-snow[data-inline-route="transfer"] .snowflake{display:none !important;}
   </style>
 
   <style id="shared-inline-calendar-style">
@@ -35073,6 +35070,7 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       '  min-height:0 !important;',
       '  word-break:break-word !important;',
       '  text-align:center !important;',
+      '  color:var(--site-accent-runtime-strong, var(--site-accent-runtime, var(--accent-theme, #4f46e5))) !important;',
       '}',
       '#depositInlineApp #grid.categories .card .offer-price,',
       '#depositInlineApp .categories .card .offer-price{',
@@ -35091,6 +35089,10 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       'html[data-theme="dark"] #depositInlineApp #grid.categories .card .offer-price,',
       'html[data-theme="dark"] #depositInlineApp .categories .card .offer-price{',
       '  color:#f0f1ff !important;',
+      '}',
+      'html[data-theme="dark"] #depositInlineApp #grid.categories .card h2,',
+      'html[data-theme="dark"] #depositInlineApp .categories .card h2{',
+      '  color:var(--site-accent-runtime-light, var(--site-accent-runtime, var(--accent-theme, #dbeafe))) !important;',
       '}',
       '@media (max-width: 1100px){',
       '  #depositInlineApp #grid.categories,',
@@ -35114,40 +35116,66 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       '    font-size:.78rem !important;',
       '  }',
       '}',
+      '#depositInlineApp #methodModal .modal-content{--inline-modal-text:var(--modal-text, var(--text, var(--site-text-light, #1b1d3b))) !important;}',
+      '#depositInlineApp #methodModal .modal-title{margin:2px 0 4px !important;color:var(--inline-modal-text) !important;}',
+      '#depositInlineApp #methodModal .calc{gap:12px !important;}',
+      '#depositInlineApp #methodModal .calc .field{min-height:62px !important;padding:12px 16px 10px !important;border-radius:999px !important;direction:inherit !important;}',
+      '#depositInlineApp #methodModal .calc label{border:1px solid rgba(var(--site-accent-rgb, 148, 163, 184), .24) !important;background:var(--modal-bg, #ffffff) !important;color:var(--inline-modal-text) !important;}',
+      '#depositInlineApp #methodModal .calc input{color:var(--inline-modal-text) !important;}',
+      '#depositInlineApp #methodModal .actions{gap:10px !important;margin-top:6px !important;}',
+      '#depositInlineApp #methodModal .btn{min-height:46px !important;height:46px !important;padding:0 18px !important;border-radius:999px !important;box-shadow:none !important;}',
+      '#depositInlineApp #methodModal .hint{margin-top:2px !important;padding:8px 14px !important;border-radius:18px !important;font-size:.86rem !important;line-height:1.55 !important;}',
       '#depositInlineApp #methodModal #dynamicExtraFields{margin-top:10px !important;padding:0 !important;border:none !important;border-radius:0 !important;gap:10px !important;background:transparent !important;box-shadow:none !important;}',
       'html[data-theme="dark"] #depositInlineApp #methodModal #dynamicExtraFields, body.dark-mode #depositInlineApp #methodModal #dynamicExtraFields{background:transparent !important;border:none !important;box-shadow:none !important;}',
       'html[data-theme="light"] #depositInlineApp #methodModal #dynamicExtraFields, body.light-mode #depositInlineApp #methodModal #dynamicExtraFields{background:transparent !important;border:none !important;box-shadow:none !important;}',
       '#depositInlineApp #methodModal #dynamicExtraFields .dynamic-extra-head{display:none !important;}',
       '#depositInlineApp #methodModal #dynamicExtraFields .dynamic-extra-grid{display:grid !important;gap:10px !important;}',
       '#depositInlineApp #methodModal #dynamicExtraFields .dynamic-extra-field{position:relative !important;margin:0 !important;padding:10px 0 0 !important;border:none !important;background:transparent !important;box-shadow:none !important;gap:0 !important;display:block !important;min-height:auto !important;}',
-      '#depositInlineApp #methodModal #dynamicExtraFields .dynamic-extra-label{position:absolute !important;inset-inline-start:12px !important;inset-inline-end:auto !important;top:10px !important;transform:translateY(-50%) !important;display:flex !important;align-items:center !important;gap:8px !important;margin:0 !important;padding:0 !important;font-size:0 !important;font-weight:800 !important;z-index:1 !important;pointer-events:none !important;}',
-      '#depositInlineApp #methodModal #dynamicExtraFields .dynamic-extra-label > :not(.dynamic-extra-badge){display:inline-flex !important;align-items:center !important;justify-content:center !important;min-height:26px !important;padding:0 8px !important;border-radius:999px !important;font-size:.8rem !important;font-weight:800 !important;line-height:1.45 !important;letter-spacing:0 !important;text-transform:none !important;opacity:1 !important;border:1px solid #e5e7eb !important;background:#ffffff !important;color:#5d6ba8 !important;}',
+      '#depositInlineApp #methodModal #dynamicExtraFields .dynamic-extra-label{position:absolute !important;inset-inline-start:12px !important;inset-inline-end:auto !important;left:12px !important;right:auto !important;top:10px !important;transform:translateY(-50%) !important;display:flex !important;align-items:center !important;gap:8px !important;margin:0 !important;padding:0 !important;font-size:0 !important;font-weight:800 !important;z-index:1 !important;pointer-events:none !important;}',
+      'html[dir="rtl"] #depositInlineApp #methodModal #dynamicExtraFields .dynamic-extra-label, html[data-lang="ar"] #depositInlineApp #methodModal #dynamicExtraFields .dynamic-extra-label{inset-inline-start:auto !important;inset-inline-end:12px !important;left:auto !important;right:12px !important;}',
+      'html[dir="ltr"] #depositInlineApp #methodModal #dynamicExtraFields .dynamic-extra-label, html[data-lang="en"] #depositInlineApp #methodModal #dynamicExtraFields .dynamic-extra-label{inset-inline-start:12px !important;inset-inline-end:auto !important;left:12px !important;right:auto !important;}',
+      '#depositInlineApp #methodModal #dynamicExtraFields .dynamic-extra-label > :not(.dynamic-extra-badge){display:inline-flex !important;align-items:center !important;justify-content:center !important;min-height:26px !important;padding:0 8px !important;border-radius:999px !important;font-size:.8rem !important;font-weight:800 !important;line-height:1.45 !important;letter-spacing:0 !important;text-transform:none !important;opacity:1 !important;border:1px solid rgba(var(--site-accent-rgb, 148, 163, 184), .24) !important;background:var(--modal-bg, #ffffff) !important;color:var(--inline-modal-text) !important;}',
       '#depositInlineApp #methodModal #dynamicExtraFields .dynamic-extra-badge{display:inline-flex !important;align-items:center !important;justify-content:center !important;min-height:24px !important;padding:0 10px !important;font-size:.72rem !important;border-radius:999px !important;white-space:nowrap !important;}',
       '#depositInlineApp #methodModal #dynamicExtraFields .dynamic-extra-hint{display:none !important;}',
-      '#depositInlineApp #methodModal #dynamicExtraFields .dynamic-extra-control{width:100% !important;height:46px !important;min-height:46px !important;padding:0 16px !important;font-size:1.02rem !important;font-weight:900 !important;border-radius:999px !important;border:1px solid #e5e7eb !important;background:#ffffff !important;color:#29315f !important;letter-spacing:.2px !important;transition:border-color .2s ease, box-shadow .2s ease !important;box-shadow:none !important;text-align:center !important;}',
+      '#depositInlineApp #methodModal #dynamicExtraFields .dynamic-extra-control{width:100% !important;height:48px !important;min-height:48px !important;padding:0 16px !important;font-size:1.02rem !important;font-weight:900 !important;border-radius:999px !important;border:1px solid #e5e7eb !important;background:#ffffff !important;color:var(--inline-modal-text) !important;letter-spacing:.2px !important;transition:border-color .2s ease, box-shadow .2s ease !important;box-shadow:none !important;text-align:center !important;}',
       '#depositInlineApp #methodModal #dynamicExtraFields .dynamic-extra-control::placeholder{opacity:.45 !important;color:#94a3b8 !important;font-weight:600 !important;letter-spacing:0 !important;}',
       '#depositInlineApp #methodModal #dynamicExtraFields .dynamic-extra-control:focus{border-color:#8aa0ff !important;box-shadow:0 0 0 2px rgba(110,128,232,.16) !important;transform:none !important;}',
       '#depositInlineApp #methodModal #dynamicExtraFields .dynamic-extra-control[data-dir="ltr"]{direction:ltr !important;font-variant-numeric:tabular-nums !important;}',
-      '#depositInlineApp #methodModal #dynamicExtraFields textarea.dynamic-extra-control{height:auto !important;min-height:92px !important;padding:14px 18px !important;border-radius:24px !important;resize:none !important;}',
-      'html[data-theme="dark"] #depositInlineApp #methodModal #dynamicExtraFields .dynamic-extra-label > :not(.dynamic-extra-badge), body.dark-mode #depositInlineApp #methodModal #dynamicExtraFields .dynamic-extra-label > :not(.dynamic-extra-badge){color:#c8d2fb !important;background:#0c1233 !important;border-color:#2b2d52 !important;}',
-      'html[data-theme="dark"] #depositInlineApp #methodModal #dynamicExtraFields .dynamic-extra-control, body.dark-mode #depositInlineApp #methodModal #dynamicExtraFields .dynamic-extra-control{background:rgba(5,7,28,.88) !important;border-color:#2b2d52 !important;color:#eaf0ff !important;}',
+      '#depositInlineApp #methodModal #dynamicExtraFields textarea.dynamic-extra-control{height:auto !important;min-height:74px !important;padding:12px 16px !important;border-radius:22px !important;resize:none !important;}',
+      'html[data-theme="dark"] #depositInlineApp #methodModal #dynamicExtraFields .dynamic-extra-label > :not(.dynamic-extra-badge), body.dark-mode #depositInlineApp #methodModal #dynamicExtraFields .dynamic-extra-label > :not(.dynamic-extra-badge){color:var(--inline-modal-text) !important;background:var(--modal-bg, #090a16) !important;border-color:#2b2d52 !important;}',
+      'html[data-theme="dark"] #depositInlineApp #methodModal #dynamicExtraFields .dynamic-extra-control, body.dark-mode #depositInlineApp #methodModal #dynamicExtraFields .dynamic-extra-control{background:rgba(5,7,28,.88) !important;border-color:#2b2d52 !important;color:var(--inline-modal-text) !important;}',
       'html[data-theme="dark"] #depositInlineApp #methodModal #dynamicExtraFields .dynamic-extra-control::placeholder, body.dark-mode #depositInlineApp #methodModal #dynamicExtraFields .dynamic-extra-control::placeholder{color:#94a3b8 !important;}',
       '#depositInlineApp #methodModal #methodInfo .info-item{position:relative !important;display:block !important;gap:0 !important;padding:10px 0 0 !important;margin:0 !important;border:none !important;background:transparent !important;box-shadow:none !important;}',
-      '#depositInlineApp #methodModal #methodInfo .info-item > strong{position:absolute !important;inset-inline-start:12px !important;inset-inline-end:auto !important;top:10px !important;transform:translateY(-50%) !important;margin:0 !important;padding:0 8px !important;border-radius:999px !important;font-size:.8rem !important;font-weight:800 !important;line-height:1.45 !important;letter-spacing:0 !important;pointer-events:none !important;direction:inherit !important;text-align:start !important;}',
-      'html[data-theme="dark"] #depositInlineApp #methodModal #methodInfo .info-item > strong{color:#c8d2fb !important;background:#0c1233 !important;border:1px solid #2b2d52 !important;}',
-      'html[data-theme="light"] #depositInlineApp #methodModal #methodInfo .info-item > strong{color:#5d6ba8 !important;background:#ffffff !important;border:1px solid #e5e7eb !important;}',
-      '#depositInlineApp #methodModal #methodInfo .info-item .info-value{display:flex !important;align-items:center !important;justify-content:center !important;min-height:46px !important;padding:0 16px !important;border-radius:999px !important;font-size:1.02rem !important;font-weight:900 !important;text-align:center !important;border:1px solid #2b2d52 !important;background:rgba(5,7,28,.88) !important;color:#eaf0ff !important;}',
-      '#depositInlineApp #methodModal #methodInfo .info-item .info-value .value-text{width:100% !important;text-align:center !important;direction:ltr !important;font-size:1.02rem !important;font-weight:900 !important;line-height:1.1 !important;white-space:nowrap !important;}',
-      '#depositInlineApp #methodModal #methodInfo .info-item.inline-native-note-item .info-value, #depositInlineApp #methodModal #methodInfo .info-item[data-inline-kind="note"] .info-value{min-height:92px !important;padding:14px 18px !important;border-radius:24px !important;justify-content:flex-start !important;align-items:flex-start !important;}',
-      '#depositInlineApp #methodModal #methodInfo .info-item.inline-native-note-item .info-value .value-text, #depositInlineApp #methodModal #methodInfo .info-item[data-inline-kind="note"] .info-value .value-text{text-align:right !important;direction:rtl !important;line-height:1.8 !important;white-space:normal !important;}',
-      'html[data-theme="light"] #depositInlineApp #methodModal #methodInfo .info-item .info-value{background:#ffffff !important;color:#29315f !important;border:1px solid #e5e7eb !important;}',
+      '#depositInlineApp #methodModal #methodInfo .info-item > strong{position:absolute !important;inset-inline-start:12px !important;inset-inline-end:auto !important;left:12px !important;right:auto !important;top:10px !important;transform:translateY(-50%) !important;margin:0 !important;padding:0 8px !important;border-radius:999px !important;font-size:.8rem !important;font-weight:800 !important;line-height:1.45 !important;letter-spacing:0 !important;pointer-events:none !important;direction:inherit !important;text-align:start !important;z-index:2 !important;}',
+      'html[dir="rtl"] #depositInlineApp #methodModal #methodInfo .info-item > strong, html[dir="rtl"] #depositInlineApp #methodModal #methodInfo .inline-native-fee-item > strong, html[data-lang="ar"] #depositInlineApp #methodModal #methodInfo .info-item > strong, html[data-lang="ar"] #depositInlineApp #methodModal #methodInfo .inline-native-fee-item > strong{inset-inline-start:auto !important;inset-inline-end:12px !important;left:auto !important;right:12px !important;text-align:right !important;}',
+      'html[dir="ltr"] #depositInlineApp #methodModal #methodInfo .info-item > strong, html[dir="ltr"] #depositInlineApp #methodModal #methodInfo .inline-native-fee-item > strong, html[data-lang="en"] #depositInlineApp #methodModal #methodInfo .info-item > strong, html[data-lang="en"] #depositInlineApp #methodModal #methodInfo .inline-native-fee-item > strong{inset-inline-start:12px !important;inset-inline-end:auto !important;left:12px !important;right:auto !important;text-align:left !important;}',
+      'html[data-theme="dark"] #depositInlineApp #methodModal #methodInfo .info-item > strong{color:var(--inline-modal-text) !important;background:var(--modal-bg, #090a16) !important;border:1px solid #2b2d52 !important;}',
+      'html[data-theme="light"] #depositInlineApp #methodModal #methodInfo .info-item > strong{color:var(--inline-modal-text) !important;background:var(--modal-bg, #ffffff) !important;border:1px solid rgba(var(--site-accent-rgb, 148, 163, 184), .24) !important;}',
+      '#depositInlineApp #methodModal #methodInfo .info-item .info-value{display:flex !important;align-items:center !important;justify-content:center !important;min-height:46px !important;padding:0 16px !important;border-radius:999px !important;font-size:1.02rem !important;font-weight:900 !important;text-align:center !important;border:1px solid #2b2d52 !important;background:rgba(5,7,28,.88) !important;color:var(--inline-modal-text) !important;}',
+      '#depositInlineApp #methodModal #methodInfo .info-item .info-value .value-text{width:100% !important;text-align:center !important;direction:ltr !important;font-size:1.02rem !important;font-weight:900 !important;line-height:1.2 !important;white-space:nowrap !important;border:none !important;outline:none !important;box-shadow:none !important;color:var(--inline-modal-text) !important;}',
+      '#depositInlineApp #methodModal #methodInfo .info-item .info-value.copyable-row{position:relative !important;direction:ltr !important;justify-content:center !important;gap:0 !important;padding:0 52px !important;}',
+      '#depositInlineApp #methodModal #methodInfo .info-item .info-value.copyable-row .value-text{flex:1 1 auto !important;min-width:0 !important;text-align:center !important;}',
+      '#depositInlineApp #methodModal #methodInfo .info-item .copy-value-btn{position:absolute !important;left:10px !important;top:50% !important;display:inline-flex !important;align-items:center !important;justify-content:center !important;gap:0 !important;flex:0 0 auto !important;width:36px !important;min-width:36px !important;height:32px !important;padding:0 !important;border-radius:999px !important;border:1px solid rgba(var(--site-accent-rgb, 148, 163, 184), .24) !important;background:rgba(var(--site-accent-rgb, 148, 163, 184), .12) !important;color:var(--inline-modal-text) !important;box-shadow:none !important;cursor:pointer !important;appearance:none !important;-webkit-appearance:none !important;transform:translateY(-50%) !important;filter:none !important;font-size:.76rem !important;font-weight:800 !important;line-height:1 !important;}',
+      '#depositInlineApp #methodModal #methodInfo .info-item .copy-value-btn .copy-value-icon{font-size:.86rem !important;line-height:1 !important;}',
+      '#depositInlineApp #methodModal #methodInfo .info-item .copy-value-btn .copy-value-icon-check{display:none !important;}',
+      '#depositInlineApp #methodModal #methodInfo .info-item .copy-value-btn:hover{transform:translateY(calc(-50% - 1px)) !important;box-shadow:0 10px 24px rgba(var(--site-accent-rgb, 148, 163, 184), .26) !important;background:rgba(var(--site-accent-rgb, 148, 163, 184), .2) !important;}',
+      '#depositInlineApp #methodModal #methodInfo .info-item .copy-value-btn:focus, #depositInlineApp #methodModal #methodInfo .info-item .copy-value-btn:focus-visible{outline:none !important;box-shadow:none !important;}',
+      '#depositInlineApp #methodModal #methodInfo .info-item .copy-value-btn.is-copied{background:rgba(22,163,74,.18) !important;border-color:rgba(34,197,94,.34) !important;color:#bbf7d0 !important;box-shadow:none !important;transform:translateY(-50%) !important;}',
+      '#depositInlineApp #methodModal #methodInfo .info-item .copy-value-btn.is-copied .copy-value-icon-copy{display:none !important;}',
+      '#depositInlineApp #methodModal #methodInfo .info-item .copy-value-btn.is-copied .copy-value-icon-check{display:inline-block !important;}',
+      '#depositInlineApp #methodModal #methodInfo .info-item.inline-native-note-item .info-value, #depositInlineApp #methodModal #methodInfo .info-item[data-inline-kind="note"] .info-value{min-height:64px !important;padding:10px 14px !important;border-radius:20px !important;justify-content:flex-start !important;align-items:flex-start !important;}',
+      '#depositInlineApp #methodModal #methodInfo .info-item.inline-native-note-item .info-value .value-text, #depositInlineApp #methodModal #methodInfo .info-item[data-inline-kind="note"] .info-value .value-text{text-align:right !important;direction:rtl !important;line-height:1.55 !important;white-space:normal !important;}',
+      'html[data-theme="light"] #depositInlineApp #methodModal #methodInfo .info-item .info-value{background:#ffffff !important;color:var(--inline-modal-text) !important;border:1px solid #e5e7eb !important;}',
+      'html[data-theme="light"] #depositInlineApp #methodModal #methodInfo .info-item .copy-value-btn{border-color:#d7defe !important;background:#f8fafc !important;color:var(--inline-modal-text) !important;}',
+      'html[data-theme="light"] #depositInlineApp #methodModal #methodInfo .info-item .copy-value-btn:hover{background:#eef2ff !important;box-shadow:none !important;}',
+      'html[data-theme="light"] #depositInlineApp #methodModal #methodInfo .info-item .copy-value-btn.is-copied{background:#ecfdf3 !important;color:#15803d !important;border-color:#86efac !important;}',
       '#depositInlineApp #methodModal #methodInfo .inline-native-fee-item{position:relative !important;display:block !important;gap:0 !important;padding:10px 0 0 !important;margin:0 !important;border:none !important;background:transparent !important;box-shadow:none !important;}',
-      '#depositInlineApp #methodModal #methodInfo .inline-native-fee-item > strong{position:absolute !important;inset-inline-start:12px !important;inset-inline-end:auto !important;top:10px !important;transform:translateY(-50%) !important;margin:0 !important;padding:0 8px !important;border-radius:999px !important;font-size:.8rem !important;font-weight:800 !important;line-height:1.45 !important;letter-spacing:0 !important;pointer-events:none !important;direction:inherit !important;text-align:start !important;}',
-      'html[data-theme="dark"] #depositInlineApp #methodModal #methodInfo .inline-native-fee-item > strong{color:#c8d2fb !important;background:#0c1233 !important;border:1px solid #2b2d52 !important;}',
-      'html[data-theme="light"] #depositInlineApp #methodModal #methodInfo .inline-native-fee-item > strong{color:#5d6ba8 !important;background:#ffffff !important;border:1px solid #e5e7eb !important;}',
+      '#depositInlineApp #methodModal #methodInfo .inline-native-fee-item > strong{position:absolute !important;inset-inline-start:12px !important;inset-inline-end:auto !important;left:12px !important;right:auto !important;top:10px !important;transform:translateY(-50%) !important;margin:0 !important;padding:0 8px !important;border-radius:999px !important;font-size:.8rem !important;font-weight:800 !important;line-height:1.45 !important;letter-spacing:0 !important;pointer-events:none !important;direction:inherit !important;text-align:start !important;z-index:2 !important;}',
+      'html[data-theme="dark"] #depositInlineApp #methodModal #methodInfo .inline-native-fee-item > strong{color:var(--inline-modal-text) !important;background:var(--modal-bg, #090a16) !important;border:1px solid #2b2d52 !important;}',
+      'html[data-theme="light"] #depositInlineApp #methodModal #methodInfo .inline-native-fee-item > strong{color:var(--inline-modal-text) !important;background:var(--modal-bg, #ffffff) !important;border:1px solid rgba(var(--site-accent-rgb, 148, 163, 184), .24) !important;}',
       '#depositInlineApp #methodModal #methodInfo .inline-native-fee-item .info-value{display:flex !important;align-items:center !important;justify-content:center !important;min-height:46px !important;padding:0 16px !important;border-radius:999px !important;font-size:1.02rem !important;font-weight:900 !important;text-align:center !important;}',
-      'html[data-theme="dark"] #depositInlineApp #methodModal #methodInfo .inline-native-fee-item .info-value{background:rgba(5,7,28,.88) !important;color:#eaf0ff !important;border:1px solid #2b2d52 !important;}',
-      'html[data-theme="light"] #depositInlineApp #methodModal #methodInfo .inline-native-fee-item .info-value{background:#ffffff !important;color:#29315f !important;border:1px solid #e5e7eb !important;}',
+      'html[data-theme="dark"] #depositInlineApp #methodModal #methodInfo .inline-native-fee-item .info-value{background:rgba(5,7,28,.88) !important;color:var(--inline-modal-text) !important;border:1px solid #2b2d52 !important;}',
+      'html[data-theme="light"] #depositInlineApp #methodModal #methodInfo .inline-native-fee-item .info-value{background:#ffffff !important;color:var(--inline-modal-text) !important;border:1px solid #e5e7eb !important;}',
       '#depositInlineApp #methodModal #methodInfo .inline-native-fee-item .info-value .value-text{width:100% !important;text-align:center !important;direction:ltr !important;font-size:1.02rem !important;font-weight:900 !important;line-height:1.1 !important;white-space:nowrap !important;}'
     ].concat(buildInlineDepositTreeCardCss()).join('\n');
     document.head.appendChild(style);
@@ -36399,7 +36427,28 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
     stripNativeClientExtraHeader();
     applyNativeClientHint(method);
     placeNativeInlineExtraFieldsBelowAmount();
+    try {
+      const titleEl = document && typeof document.querySelector === 'function'
+        ? document.querySelector('#methodModal .modal-title')
+        : null;
+      if (titleEl && titleEl.style) {
+        const isDarkTheme = (function(){
+          try {
+            const theme = String(document && document.documentElement && document.documentElement.getAttribute('data-theme') || '').trim().toLowerCase();
+            if (theme) return theme === 'dark';
+          } catch (_) {}
+          try {
+            return !!(document && document.body && document.body.classList && document.body.classList.contains('dark-mode'));
+          } catch (_) {}
+          return false;
+        })();
+        titleEl.style.color = isDarkTheme
+          ? 'var(--modal-text, var(--text, var(--site-text-dark, #f0f1ff)))'
+          : 'var(--modal-text, var(--text, var(--site-text-light, #1b1d3b)))';
+      }
+    } catch (_) {}
     decorateNativeInlineMethodInfo(method);
+    syncInlineModalDirection();
   }
 
   function normalizeInlineFlow(value){
@@ -36718,18 +36767,50 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
     }).filter(Boolean);
   }
 
+  function mergeInlineDisplayFieldLists(primaryFields, secondaryFields){
+    const merged = [];
+    const seen = Object.create(null);
+
+    function append(list){
+      (Array.isArray(list) ? list : []).forEach(function(entry, idx){
+        const source = (entry && typeof entry === 'object') ? entry : null;
+        if (!source) return;
+        const key = String(source.key || '').trim();
+        const label = String(source.label || source.name || source.title || key || ('تفصيل ' + (idx + 1))).trim();
+        const value = String(source.value || source.text || source.content || '').trim();
+        if (!value) return;
+        const fingerprint = [
+          normalizeInlineDisplayLooseKey(key || label),
+          normalizeInlineDisplayLooseKey(label),
+          value.toLowerCase()
+        ].join('|');
+        if (seen[fingerprint]) return;
+        seen[fingerprint] = 1;
+        merged.push({
+          key: key || ('display_field_' + (merged.length + 1)),
+          label: label || ('تفصيل ' + (merged.length + 1)),
+          value: value
+        });
+      });
+    }
+
+    append(primaryFields);
+    append(secondaryFields);
+    return merged;
+  }
+
   function resolveInlineDisplayFields(displayFields, transferTargets, info, flow){
     const flowKey = normalizeInlineFlow(flow || getCurrentInlineFlowKind());
     const noteValue = resolveInlineClientNote(info, displayFields);
     const list = stripInlineNoteDisplayFields(displayFields);
-    if (list.length) {
+    const transferTargetFields = flowKey !== 'withdraw'
+      ? buildInlineTransferDisplayFields(transferTargets)
+      : [];
+    const mergedList = mergeInlineDisplayFieldLists(transferTargetFields, list);
+    if (mergedList.length) {
       return flowKey === 'withdraw'
-        ? list
-        : appendInlineNoteDisplayField(list, noteValue);
-    }
-    if (flowKey !== 'withdraw') {
-      const transferTargetFields = buildInlineTransferDisplayFields(transferTargets);
-      if (transferTargetFields.length) return appendInlineNoteDisplayField(transferTargetFields, noteValue);
+        ? mergedList
+        : appendInlineNoteDisplayField(mergedList, noteValue);
     }
     return buildInlineInfoDisplayFields(info, flowKey);
   }
@@ -36942,10 +37023,6 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
 
   function getRootEntryMeta(entry){
     if (!entry || entry.__rootType !== 'method') return '';
-    const currency = normalizeInlineCurrencyCode(entry && entry.data && entry.data.currencyCode || '');
-    if (currency) return currency;
-    const minUsd = Number(entry && entry.data && entry.data.minAmountUSD);
-    if (Number.isFinite(minUsd) && minUsd > 0) return 'الحد الأدنى ' + minUsd + ' USD';
     return '';
   }
 
@@ -37816,6 +37893,75 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
     return entries;
   }
 
+  function copyInlineMethodInfoValue(text){
+    const value = String(text || '').trim();
+    if (!value) return Promise.reject(new Error('empty'));
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(value);
+    }
+    return new Promise(function(resolve, reject){
+      try {
+        const area = document.createElement('textarea');
+        area.value = value;
+        area.style.position = 'fixed';
+        area.style.top = '-9999px';
+        area.style.opacity = '0';
+        area.setAttribute('readonly', 'readonly');
+        document.body.appendChild(area);
+        area.focus();
+        area.select();
+        area.setSelectionRange(0, area.value.length);
+        const copied = document.execCommand('copy');
+        try {
+          if (area.parentNode) area.parentNode.removeChild(area);
+          else if (typeof area.remove === 'function') area.remove();
+        } catch (_) {}
+        if (copied) resolve();
+        else reject(new Error('copy_failed'));
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+
+  function showInlineMethodCopyToast(message, ok){
+    try {
+      if (typeof showToast === 'function') {
+        showToast(message, ok);
+        return;
+      }
+    } catch (_) {}
+    try {
+      if (typeof window !== 'undefined' && window && typeof window.showToast === 'function') {
+        window.showToast(message, ok);
+      }
+    } catch (_) {}
+  }
+
+  function bindInlineMethodInfoCopy(infoHost){
+    if (!infoHost || infoHost.__inlineCopyBound) return;
+    infoHost.addEventListener('click', function(event){
+      const button = event && event.target && event.target.closest
+        ? event.target.closest('.copy-value-btn[data-copy-value]')
+        : null;
+      if (!button || !infoHost.contains(button)) return;
+      event.preventDefault();
+      const rawValue = String(button.getAttribute('data-copy-value') || '').trim();
+      if (!rawValue) return;
+      copyInlineMethodInfoValue(rawValue).then(function(){
+        try { if (button.__copyTimer) clearTimeout(button.__copyTimer); } catch (_) {}
+        try { button.classList.add('is-copied'); } catch (_) {}
+        showInlineMethodCopyToast('تم النسخ', true);
+        button.__copyTimer = setTimeout(function(){
+          try { button.classList.remove('is-copied'); } catch (_) {}
+        }, 1200);
+      }).catch(function(){
+        showInlineMethodCopyToast('تعذر النسخ', false);
+      });
+    });
+    infoHost.__inlineCopyBound = '1';
+  }
+
   function hasNativeInlineMethodModal(){
     try {
       return !!(document && typeof document.getElementById === 'function' && document.getElementById('dynamicExtraFields'));
@@ -37825,10 +37971,11 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
   }
 
   function renderInlineMethodInfo(method){
-    if (hasNativeInlineMethodModal()) return;
-    if (!methodInfo) return;
+    const infoHost = getNativeInlineMethodInfoEl();
+    if (!infoHost) return;
+    bindInlineMethodInfoCopy(infoHost);
     const entries = buildInlineMethodInfoEntries(method);
-    methodInfo.innerHTML = entries.map(function(entry){
+    infoHost.innerHTML = entries.map(function(entry){
       const label = String(entry && entry.label || '').trim();
       const rawValue = String(entry && entry.value != null ? entry.value : '');
       const htmlValue = zEscHtml(rawValue).replace(/\\r?\\n/g, '<br>');
@@ -37838,11 +37985,10 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       const resolvedInfoItemClass = isFeeEntry
         ? 'info-item info-item-fee'
         : (isNoteEntry ? 'info-item info-item-note' : infoItemClass);
-      const copyClass = entry && entry.copyable ? ' copyable-value' : '';
-      const copyAttrs = entry && entry.copyable
-        ? ' role="button" tabindex="0" data-copy-value="' + zEscHtml(rawValue) + '"'
+      const copyButtonHtml = entry && entry.copyable
+        ? '<button type="button" class="copy-value-btn" data-copy-value="' + zEscHtml(rawValue) + '" aria-label="' + zEscHtml('نسخ ' + label) + '"><i class="fa-regular fa-copy copy-value-icon copy-value-icon-copy" aria-hidden="true"></i><i class="fa-solid fa-check copy-value-icon copy-value-icon-check" aria-hidden="true"></i></button>'
         : '';
-      return '<div class="' + resolvedInfoItemClass + '" data-label="' + zEscHtml(label) + '" data-inline-kind="' + (isFeeEntry ? 'fee' : (isNoteEntry ? 'note' : 'field')) + '"><strong>' + zEscHtml(label) + '</strong><div class="info-value' + (entry && entry.copyable ? ' copyable-row' : '') + '"><span class="value-text' + copyClass + '"' + copyAttrs + '>' + htmlValue + '</span></div></div>';
+      return '<div class="' + resolvedInfoItemClass + '" data-label="' + zEscHtml(label) + '" data-inline-kind="' + (isFeeEntry ? 'fee' : (isNoteEntry ? 'note' : 'field')) + '"><strong>' + zEscHtml(label) + '</strong><div class="info-value' + (entry && entry.copyable ? ' copyable-row' : '') + '">' + copyButtonHtml + '<span class="value-text">' + htmlValue + '</span></div></div>';
     }).join('');
   }
 
@@ -37884,71 +38030,86 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
     style.id = INLINE_EXTRA_FIELDS_STYLE_ID;
     style.textContent = [
       '#depositInlineApp #methodModal{padding:18px;}',
-      '#depositInlineApp #methodModal .modal-content{width:min(560px,calc(100vw - 24px));max-width:560px;padding:22px 18px 18px;border-radius:28px;border:1px solid rgba(99,102,241,.34);background:linear-gradient(180deg,rgba(15,23,42,.98),rgba(17,24,39,.96));box-shadow:0 28px 70px rgba(2,6,23,.62);gap:14px;overflow:hidden;}',
-      '#depositInlineApp #methodModal .modal-title{font-size:1.9rem;font-weight:900;letter-spacing:-.02em;color:#f8fafc;text-align:center;margin:2px 0 4px;}',
+      '#depositInlineApp #methodModal .modal-content{--inline-modal-text:var(--modal-text, var(--text, var(--site-text-light, #1b1d3b)));width:min(560px,calc(100vw - 24px));max-width:560px;padding:22px 18px 18px;border-radius:28px;border:1px solid rgba(99,102,241,.34);background:linear-gradient(180deg,rgba(15,23,42,.98),rgba(17,24,39,.96));box-shadow:0 28px 70px rgba(2,6,23,.62);gap:14px;overflow:hidden;direction:inherit;text-align:inherit;}',
+      '#depositInlineApp #methodModal .modal-title{font-size:1.9rem;font-weight:900;letter-spacing:-.02em;color:var(--inline-modal-text);text-align:center;margin:2px 0 4px;}',
       '#depositInlineApp #methodModal .modal-x{position:absolute;top:14px;left:14px;width:44px;height:44px;border-radius:16px;border:1px solid rgba(99,102,241,.35);background:rgba(15,23,42,.72);color:#e2e8f0;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:none;}',
       '#depositInlineApp #methodModal .modal-x:hover{background:rgba(30,41,59,.92);border-color:rgba(129,140,248,.55);}',
       '#depositInlineApp #methodModal .rate-line{display:grid;gap:8px;padding:12px 14px;border-radius:18px;border:1px solid rgba(67,56,202,.24);background:rgba(30,41,59,.42);font-size:.88rem;color:#cbd5e1;}',
       '#depositInlineApp #methodModal .rate-line .mini{font-weight:800;color:#c7d2fe;}',
       '#depositInlineApp #methodModal .rate-line .chip{display:inline-flex;align-items:center;justify-content:center;min-height:38px;border-radius:14px;border:1px solid rgba(99,102,241,.28);background:rgba(15,23,42,.86);color:#eef2ff;font-weight:800;}',
       '#depositInlineApp #methodModal .calc{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}',
-      '#depositInlineApp #methodModal .calc .field{padding:12px 14px;border-radius:20px;border:1px solid rgba(99,102,241,.28);background:linear-gradient(180deg,rgba(12,18,34,.94),rgba(15,23,42,.9));box-shadow:inset 0 1px 0 rgba(255,255,255,.04);}',
-      '#depositInlineApp #methodModal .calc label{display:flex;align-items:center;justify-content:flex-start;align-self:flex-start;width:max-content;min-height:26px;margin:0 0 10px;padding:0 10px;border-radius:999px;background:rgba(79,70,229,.18);border:1px solid rgba(129,140,248,.3);font-size:.82rem;font-weight:900;color:#dbeafe;direction:inherit;text-align:start;}',
-      '#depositInlineApp #methodModal .calc input{width:100%;padding:0;border:none;outline:none;background:transparent;box-shadow:none;font-size:1.55rem;font-weight:900;color:#f8fafc;text-align:center;font-variant-numeric:tabular-nums;}',
+      '#depositInlineApp #methodModal .calc .field{position:relative;display:flex;flex-direction:column;justify-content:center;min-height:62px;padding:12px 16px 10px;border-radius:999px;border:1px solid rgba(99,102,241,.28);background:linear-gradient(180deg,rgba(12,18,34,.94),rgba(15,23,42,.9));box-shadow:inset 0 1px 0 rgba(255,255,255,.04);direction:inherit;}',
+      '#depositInlineApp #methodModal .calc label{position:absolute;inset-inline-start:12px;inset-inline-end:auto;left:12px;right:auto;top:10px;transform:translateY(-50%);display:inline-flex;align-items:center;justify-content:center;width:max-content;min-height:26px;margin:0;padding:0 10px;border-radius:999px;background:var(--modal-bg, #ffffff);border:1px solid rgba(var(--site-accent-rgb, 148, 163, 184), .24);font-size:.82rem;font-weight:900;color:var(--inline-modal-text);direction:inherit;text-align:start;z-index:1;}',
+      'html[dir="rtl"] #depositInlineApp #methodModal .calc label, html[data-lang="ar"] #depositInlineApp #methodModal .calc label, html[dir="rtl"] #depositInlineApp #methodModal .info-item strong, html[data-lang="ar"] #depositInlineApp #methodModal .info-item strong, html[dir="rtl"] #depositInlineApp #methodModal .info-item-fee strong, html[data-lang="ar"] #depositInlineApp #methodModal .info-item-fee strong, html[dir="rtl"] #depositInlineApp #methodModal .inline-extra-label, html[data-lang="ar"] #depositInlineApp #methodModal .inline-extra-label{inset-inline-start:auto;inset-inline-end:12px;left:auto;right:12px;text-align:right;}',
+      'html[dir="ltr"] #depositInlineApp #methodModal .calc label, html[data-lang="en"] #depositInlineApp #methodModal .calc label, html[dir="ltr"] #depositInlineApp #methodModal .info-item strong, html[data-lang="en"] #depositInlineApp #methodModal .info-item strong, html[dir="ltr"] #depositInlineApp #methodModal .info-item-fee strong, html[data-lang="en"] #depositInlineApp #methodModal .info-item-fee strong, html[dir="ltr"] #depositInlineApp #methodModal .inline-extra-label, html[data-lang="en"] #depositInlineApp #methodModal .inline-extra-label{inset-inline-start:12px;inset-inline-end:auto;left:12px;right:auto;text-align:left;}',
+      '#depositInlineApp #methodModal .calc input{width:100%;padding:0;border:none;outline:none;background:transparent;box-shadow:none;font-size:1.55rem;font-weight:900;color:var(--inline-modal-text);text-align:center;font-variant-numeric:tabular-nums;}',
       '#depositInlineApp #methodModal .calc input::placeholder{color:#64748b;}',
       '#depositInlineApp #methodModal .info-list{display:grid;gap:12px;margin-top:2px;}',
       '#depositInlineApp #methodModal .info-item{position:relative;display:block;gap:0;padding:10px 0 0;border:none;background:transparent;box-shadow:none;}',
-      '#depositInlineApp #methodModal .info-item strong{position:absolute;inset-inline-start:12px;inset-inline-end:auto;top:10px;transform:translateY(-50%);display:inline-flex;align-items:center;justify-content:center;width:max-content;min-height:26px;margin:0;padding:0 8px;border-radius:999px;font-size:.8rem;font-weight:800;line-height:1.45;letter-spacing:0;border:1px solid rgba(129,140,248,.3);background:rgba(79,70,229,.18);color:#dbeafe;direction:inherit;text-align:start;z-index:1;}',
+      '#depositInlineApp #methodModal .info-item strong{position:absolute;inset-inline-start:12px;inset-inline-end:auto;left:12px;right:auto;top:10px;transform:translateY(-50%);display:inline-flex;align-items:center;justify-content:center;width:max-content;min-height:26px;margin:0;padding:0 8px;border-radius:999px;font-size:.8rem;font-weight:800;line-height:1.45;letter-spacing:0;border:1px solid rgba(var(--site-accent-rgb, 148, 163, 184), .24);background:var(--modal-bg, #ffffff);color:var(--inline-modal-text);direction:inherit;text-align:start;z-index:2;}',
       '#depositInlineApp #methodModal .info-value{display:flex;align-items:center;justify-content:center;min-height:46px;padding:0 16px;border-radius:999px;border:1px solid #2b2d52;background:rgba(5,7,28,.88);}',
-      '#depositInlineApp #methodModal .info-value .value-text{width:100%;font-size:1.02rem;font-weight:900;color:#eaf0ff;line-height:1.1;white-space:nowrap;text-align:center;word-break:break-word;}',
+      '#depositInlineApp #methodModal .info-value .value-text{width:100%;font-size:1.02rem;font-weight:900;color:var(--inline-modal-text);line-height:1.2;white-space:nowrap;text-align:center;word-break:break-word;border:none;outline:none;box-shadow:none;}',
+      '#depositInlineApp #methodModal .info-value.copyable-row{position:relative;direction:ltr;justify-content:center;gap:0;padding:0 52px;}',
+      '#depositInlineApp #methodModal .info-value.copyable-row .value-text{flex:1 1 auto;min-width:0;text-align:center;}',
+      '#depositInlineApp #methodModal .copy-value-btn{position:absolute;left:10px;top:50%;display:inline-flex;align-items:center;justify-content:center;gap:0;flex:0 0 auto;width:36px;min-width:36px;height:32px;padding:0;border-radius:999px;border:1px solid rgba(var(--site-accent-rgb, 148, 163, 184), .24);background:rgba(var(--site-accent-rgb, 148, 163, 184), .12);color:var(--inline-modal-text);box-shadow:none;cursor:pointer;appearance:none;-webkit-appearance:none;transform:translateY(-50%);filter:none;font-size:.76rem;font-weight:800;line-height:1;}',
+      '#depositInlineApp #methodModal .copy-value-btn .copy-value-icon{font-size:.86rem;line-height:1;}',
+      '#depositInlineApp #methodModal .copy-value-btn .copy-value-icon-check{display:none;}',
+      '#depositInlineApp #methodModal .copy-value-btn:hover{transform:translateY(calc(-50% - 1px));box-shadow:0 10px 24px rgba(var(--site-accent-rgb, 148, 163, 184), .26);background:rgba(var(--site-accent-rgb, 148, 163, 184), .2);}',
+      '#depositInlineApp #methodModal .copy-value-btn:focus, #depositInlineApp #methodModal .copy-value-btn:focus-visible{outline:none;box-shadow:none;}',
+      '#depositInlineApp #methodModal .copy-value-btn.is-copied{background:rgba(22,163,74,.18);border-color:rgba(34,197,94,.34);color:#bbf7d0;box-shadow:none;transform:translateY(-50%);}',
+      '#depositInlineApp #methodModal .copy-value-btn.is-copied .copy-value-icon-copy{display:none;}',
+      '#depositInlineApp #methodModal .copy-value-btn.is-copied .copy-value-icon-check{display:inline-block;}',
       '#depositInlineApp #methodModal .info-item-fee{position:relative;display:block;gap:0;padding:10px 0 0;border:none;background:transparent;box-shadow:none;}',
-      '#depositInlineApp #methodModal .info-item-fee strong{position:absolute;inset-inline-start:12px;inset-inline-end:auto;top:10px;transform:translateY(-50%);display:inline-flex;align-items:center;justify-content:center;width:max-content;min-height:26px;margin:0;padding:0 8px;border-radius:999px;background:rgba(79,70,229,.18);border:1px solid rgba(129,140,248,.3);font-size:.8rem;font-weight:800;color:#dbeafe;direction:inherit;text-align:start;z-index:1;}',
+      '#depositInlineApp #methodModal .info-item-fee strong{position:absolute;inset-inline-start:12px;inset-inline-end:auto;left:12px;right:auto;top:10px;transform:translateY(-50%);display:inline-flex;align-items:center;justify-content:center;width:max-content;min-height:26px;margin:0;padding:0 8px;border-radius:999px;background:var(--modal-bg, #ffffff);border:1px solid rgba(var(--site-accent-rgb, 148, 163, 184), .24);font-size:.8rem;font-weight:800;color:var(--inline-modal-text);direction:inherit;text-align:start;z-index:2;}',
       '#depositInlineApp #methodModal .info-item-fee .info-value{min-height:46px;padding:0 16px;border-radius:999px;border:1px solid #2b2d52;background:rgba(5,7,28,.88);justify-content:center;}',
       '#depositInlineApp #methodModal .info-item-fee .info-value .value-text{font-size:1.02rem;font-weight:900;line-height:1.1;text-align:center;font-variant-numeric:tabular-nums;white-space:nowrap;}',
       '#depositInlineApp #methodModal .info-item-note{position:relative;display:block;gap:0;padding:10px 0 0;border:none;background:transparent;box-shadow:none;}',
-      '#depositInlineApp #methodModal .info-item-note .info-value{min-height:92px;padding:14px 18px;border-radius:24px;justify-content:flex-start;align-items:flex-start;}',
-      '#depositInlineApp #methodModal .info-item-note .info-value .value-text{text-align:right;direction:rtl;line-height:1.8;white-space:normal;}',
+      '#depositInlineApp #methodModal .info-item-note .info-value{min-height:64px;padding:10px 14px;border-radius:20px;justify-content:flex-start;align-items:flex-start;}',
+      '#depositInlineApp #methodModal .info-item-note .info-value .value-text{text-align:right;direction:rtl;line-height:1.55;white-space:normal;}',
       '#depositInlineApp #methodModal .actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:6px;align-items:stretch;}',
       '#depositInlineApp #methodModal #closeModal{grid-column:1/-1;}',
-      '#depositInlineApp #methodModal .btn{width:100%;min-height:44px;height:44px;border-radius:16px;font-size:.9rem;font-weight:900;box-shadow:none;}',
+      '#depositInlineApp #methodModal .btn{width:100%;min-height:46px;height:46px;padding:0 18px;border-radius:999px;font-size:.9rem;font-weight:900;box-shadow:none;}',
       '#depositInlineApp #methodModal .btn-primary{background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border:none;}',
       '#depositInlineApp #methodModal .btn-outline{background:rgba(2,6,23,.78);color:#f8fafc;border:1px solid rgba(99,102,241,.24);}',
-      '#depositInlineApp #methodModal .hint{margin-top:2px;padding:14px 16px;border-radius:18px;border:1px solid rgba(34,197,94,.18);background:rgba(8,28,21,.42);color:#22c55e;font-size:.96rem;font-weight:800;line-height:1.9;text-align:right;}',
+      '#depositInlineApp #methodModal .hint{margin-top:2px;padding:8px 14px;border-radius:18px;border:1px solid rgba(34,197,94,.18);background:rgba(8,28,21,.42);color:#22c55e;font-size:.86rem;font-weight:800;line-height:1.55;text-align:right;}',
       '#depositInlineApp #methodModal .preview{padding:8px 4px 0;color:#93c5fd;font-size:.82rem;line-height:1.8;overflow-wrap:anywhere;text-align:center;}',
       '#depositInlineApp #methodModal .inline-extra-fields{display:grid;gap:10px;margin:0;padding:0;background:transparent;border:none;box-shadow:none;}',
       '#depositInlineApp #methodModal .inline-extra-fields[hidden]{display:none !important;}',
       '#depositInlineApp #methodModal .inline-extra-fields-head{display:none !important;}',
       '#depositInlineApp #methodModal .inline-extra-fields-grid{display:grid;gap:10px;}',
       '#depositInlineApp #methodModal .inline-extra-field{position:relative;display:block;gap:0;padding:10px 0 0;border:none;background:transparent;box-shadow:none;}',
-      '#depositInlineApp #methodModal .inline-extra-label{position:absolute;inset-inline-start:12px;inset-inline-end:auto;top:10px;transform:translateY(-50%);display:flex;align-items:center;gap:8px;margin:0;z-index:1;pointer-events:none;font-size:0;}',
-      '#depositInlineApp #methodModal .inline-extra-label > :not(.inline-extra-badge){display:inline-flex;align-items:center;justify-content:center;min-height:26px;padding:0 8px;border-radius:999px;font-size:.8rem;font-weight:800;line-height:1.45;letter-spacing:0;border:1px solid #e5e7eb;background:#ffffff;color:#5d6ba8;}',
+      '#depositInlineApp #methodModal .inline-extra-label{position:absolute;inset-inline-start:12px;inset-inline-end:auto;left:12px;right:auto;top:10px;transform:translateY(-50%);display:flex;align-items:center;gap:8px;margin:0;z-index:1;pointer-events:none;font-size:0;}',
+      '#depositInlineApp #methodModal .inline-extra-label > :not(.inline-extra-badge){display:inline-flex;align-items:center;justify-content:center;min-height:26px;padding:0 8px;border-radius:999px;font-size:.8rem;font-weight:800;line-height:1.45;letter-spacing:0;border:1px solid rgba(var(--site-accent-rgb, 148, 163, 184), .24);background:var(--modal-bg, #ffffff);color:var(--inline-modal-text);}',
       '#depositInlineApp #methodModal .inline-extra-badge{display:inline-flex;align-items:center;justify-content:center;min-height:24px;padding:0 10px;border-radius:999px;border:1px solid rgba(74,222,128,.35);background:rgba(22,163,74,.14);color:#bbf7d0;font-size:.72rem;font-weight:900;white-space:nowrap;}',
-      '#depositInlineApp #methodModal .inline-extra-control{width:100%;height:46px;min-height:46px;padding:0 16px;border-radius:999px;border:1px solid #e5e7eb;background:#ffffff;color:#29315f;font-size:1.02rem;font-weight:900;outline:none;box-shadow:none;text-align:center;}',
+      '#depositInlineApp #methodModal .inline-extra-control{width:100%;height:48px;min-height:48px;padding:0 16px;border-radius:999px;border:1px solid #e5e7eb;background:#ffffff;color:var(--inline-modal-text);font-size:1.02rem;font-weight:900;outline:none;box-shadow:none;text-align:center;}',
       '#depositInlineApp #methodModal .inline-extra-control[data-dir="ltr"]{direction:ltr;font-variant-numeric:tabular-nums;}',
-      '#depositInlineApp #methodModal textarea.inline-extra-control{height:auto;min-height:92px;padding:14px 18px;border-radius:24px;resize:vertical;}',
+      '#depositInlineApp #methodModal textarea.inline-extra-control{height:auto;min-height:74px;padding:12px 16px;border-radius:22px;resize:vertical;}',
       '#depositInlineApp #methodModal .inline-extra-control:focus{border-color:#8aa0ff;box-shadow:0 0 0 2px rgba(110,128,232,.16);}',
       '#depositInlineApp #methodModal .inline-extra-control.is-invalid{border-color:#ef4444;box-shadow:0 0 0 2px rgba(239,68,68,.14);}',
       '@media (max-width:640px){#depositInlineApp #methodModal{padding:8px;}#depositInlineApp #methodModal .modal-content{width:min(100vw - 16px,560px);padding:18px 14px 16px;border-radius:24px;gap:12px;}#depositInlineApp #methodModal .modal-title{font-size:1.55rem;}#depositInlineApp #methodModal .calc{grid-template-columns:1fr;}#depositInlineApp #methodModal .calc input{font-size:1.35rem;}#depositInlineApp #methodModal .modal-x{top:12px;left:12px;width:40px;height:40px;}}',
       'html[data-theme="light"] #depositInlineApp #methodModal .modal-content{background:linear-gradient(180deg,#ffffff,#f7faff);border-color:rgba(99,102,241,.18);box-shadow:0 24px 54px rgba(15,23,42,.18);}',
-      'html[data-theme="light"] #depositInlineApp #methodModal .modal-title{color:#1f2a5a;}',
+      'html[data-theme="light"] #depositInlineApp #methodModal .modal-title{color:var(--inline-modal-text);}',
       'html[data-theme="light"] #depositInlineApp #methodModal .modal-x{background:#f8fbff;color:#334155;border-color:#dbe3f3;}',
       'html[data-theme="light"] #depositInlineApp #methodModal .rate-line{background:#f8fbff;border-color:#dbe3f3;color:#475569;}',
       'html[data-theme="light"] #depositInlineApp #methodModal .rate-line .mini{color:#334155;}',
       'html[data-theme="light"] #depositInlineApp #methodModal .rate-line .chip{background:#ffffff;border-color:#dbe3f3;color:#0f172a;}',
       'html[data-theme="light"] #depositInlineApp #methodModal .calc .field{background:#f8fbff;border-color:#dbe3f3;box-shadow:none;}',
-      'html[data-theme="light"] #depositInlineApp #methodModal .calc label{background:#eef2ff;border-color:#d7defe;color:#334155;}',
-      'html[data-theme="light"] #depositInlineApp #methodModal .calc input{color:#0f172a;}',
+      'html[data-theme="light"] #depositInlineApp #methodModal .calc label{background:var(--modal-bg, #ffffff);border-color:#d7defe;color:var(--inline-modal-text);}',
+      'html[data-theme="light"] #depositInlineApp #methodModal .calc input{color:var(--inline-modal-text);}',
       'html[data-theme="light"] #depositInlineApp #methodModal .info-item{background:transparent;box-shadow:none;}',
-      'html[data-theme="light"] #depositInlineApp #methodModal .info-item strong{color:#5d6ba8;background:#ffffff;border-color:#e5e7eb;}',
+      'html[data-theme="light"] #depositInlineApp #methodModal .info-item strong{color:var(--inline-modal-text);background:#ffffff;border-color:#e5e7eb;}',
       'html[data-theme="light"] #depositInlineApp #methodModal .info-value{background:#ffffff;border-color:#e5e7eb;}',
-      'html[data-theme="light"] #depositInlineApp #methodModal .info-value .value-text{color:#29315f;}',
+      'html[data-theme="light"] #depositInlineApp #methodModal .info-value .value-text{color:var(--inline-modal-text);}',
+      'html[data-theme="light"] #depositInlineApp #methodModal .copy-value-btn{border-color:#d7defe;background:#f8fafc;color:var(--inline-modal-text);}',
+      'html[data-theme="light"] #depositInlineApp #methodModal .copy-value-btn:hover{background:#eef2ff;box-shadow:none;}',
+      'html[data-theme="light"] #depositInlineApp #methodModal .copy-value-btn.is-copied{background:#ecfdf3;color:#15803d;border-color:#86efac;}',
       'html[data-theme="light"] #depositInlineApp #methodModal .info-item-fee{background:transparent;box-shadow:none;}',
-      'html[data-theme="light"] #depositInlineApp #methodModal .info-item-fee strong{background:#ffffff;border-color:#e5e7eb;color:#5d6ba8;}',
+      'html[data-theme="light"] #depositInlineApp #methodModal .info-item-fee strong{background:#ffffff;border-color:#e5e7eb;color:var(--inline-modal-text);}',
       'html[data-theme="light"] #depositInlineApp #methodModal .info-item-fee .info-value{background:#ffffff;border-color:#e5e7eb;}',
       'html[data-theme="light"] #depositInlineApp #methodModal .btn-outline{background:#ffffff;color:#0f172a;border-color:#dbe3f3;}',
       'html[data-theme="light"] #depositInlineApp #methodModal .hint{background:#f0fdf4;border-color:#bbf7d0;color:#15803d;}',
       'html[data-theme="light"] #depositInlineApp #methodModal .inline-extra-badge{border-color:rgba(22,163,74,.18);background:#ecfdf3;color:#15803d;}',
-      'html[data-theme="light"] #depositInlineApp #methodModal .inline-extra-control{border-color:#dbe3f3;background:#f8fbff;color:#0f172a;}'
+      'html[data-theme="light"] #depositInlineApp #methodModal .inline-extra-control{border-color:#dbe3f3;background:#f8fbff;color:var(--inline-modal-text);}'
     ].join('');
     document.head.appendChild(style);
   }
@@ -38130,6 +38291,7 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
 
       grid.appendChild(row);
     });
+    syncInlineModalDirection();
   }
 
   function collectInlineExtraFields(method, silent){
@@ -38285,8 +38447,86 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
     ) || 'USD';
   }
 
+  function parseInlineBooleanFlag(value){
+    if (value === true || value === false) return value;
+    if (typeof value === 'number' && Number.isFinite(value)) return value !== 0;
+    const text = String(value == null ? '' : value).trim().toLowerCase();
+    if (!text) return null;
+    if (['true', '1', 'yes', 'on', 'required', 'require'].includes(text)) return true;
+    if (['false', '0', 'no', 'off', 'optional', 'none'].includes(text)) return false;
+    return null;
+  }
+
+  function inlineMethodRequiresProofImage(method){
+    const root = (method && typeof method === 'object') ? method : {};
+    const data = (root.data && typeof root.data === 'object') ? root.data : root;
+    const parsed = [
+      data.requiresProofImage,
+      data.requireProofImage,
+      data.proofRequired,
+      data.requiresProof,
+      data.needProofImage,
+      data.needProof,
+      data.proofImageRequired,
+      root.requiresProofImage
+    ].map(parseInlineBooleanFlag).find(function(value){
+      return value === true || value === false;
+    });
+    if (parsed === true || parsed === false) return parsed;
+    return normalizeInlineFlow(data.flow || root.flow || getCurrentInlineFlowKind()) !== 'withdraw';
+  }
+
+  function resolveInlineModalDirection(){
+    try {
+      const root = document && document.documentElement ? document.documentElement : null;
+      const explicitDir = String(root && root.getAttribute ? (root.getAttribute('dir') || '') : '').trim().toLowerCase();
+      if (explicitDir === 'rtl' || explicitDir === 'ltr') return explicitDir;
+      const lang = String(root && root.getAttribute ? (root.getAttribute('data-lang') || root.getAttribute('lang') || '') : '').trim().toLowerCase();
+      if (lang === 'en' || lang === 'fr') return 'ltr';
+    } catch (_) {}
+    return 'rtl';
+  }
+
+  function applyInlineModalChipDirection(target){
+    if (!target || !target.style) return;
+    const dir = resolveInlineModalDirection();
+    const isRtl = dir === 'rtl';
+    try { target.style.setProperty('inset-inline-start', isRtl ? 'auto' : '12px', 'important'); } catch (_) {}
+    try { target.style.setProperty('inset-inline-end', isRtl ? '12px' : 'auto', 'important'); } catch (_) {}
+    try { target.style.setProperty('left', isRtl ? 'auto' : '12px', 'important'); } catch (_) {}
+    try { target.style.setProperty('right', isRtl ? '12px' : 'auto', 'important'); } catch (_) {}
+    try { target.style.setProperty('text-align', isRtl ? 'right' : 'left', 'important'); } catch (_) {}
+    try { target.style.setProperty('direction', dir, 'important'); } catch (_) {}
+  }
+
+  function syncInlineModalDirection(){
+    try {
+      const modal = (document && typeof document.getElementById === 'function')
+        ? document.getElementById('methodModal')
+        : null;
+      if (!modal || !modal.querySelectorAll) return;
+      const dir = resolveInlineModalDirection();
+      try { modal.setAttribute('dir', dir); } catch (_) {}
+      const modalContent = modal.querySelector('.modal-content');
+      if (modalContent) {
+        try { modalContent.setAttribute('dir', dir); } catch (_) {}
+        try { modalContent.style.setProperty('direction', dir, 'important'); } catch (_) {}
+      }
+      const calcFields = modal.querySelectorAll('.calc .field');
+      calcFields.forEach(function(field){
+        try { field.setAttribute('dir', dir); } catch (_) {}
+        try { field.style.setProperty('direction', dir, 'important'); } catch (_) {}
+      });
+      const labelTargets = modal.querySelectorAll('.calc label, #methodInfo .info-item > strong, #methodInfo .inline-native-fee-item > strong, .info-item strong, .info-item-fee strong, .inline-extra-label, #dynamicExtraFields .dynamic-extra-label');
+      labelTargets.forEach(function(target){
+        applyInlineModalChipDirection(target);
+      });
+    } catch (_) {}
+  }
+
   function applyInlineFlowModalState(method){
     const isWithdraw = isInlineWithdrawFlowActive();
+    const requiresProofImage = !isWithdraw && inlineMethodRequiresProofImage(method);
     const methodCurrency = resolveInlineModalMethodCurrency(method);
     const payLabel = getInlineModalFieldLabel('sendJOD');
     const recvLabel = getInlineModalFieldLabel('recvCUR');
@@ -38308,14 +38548,15 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
     if (submitDepositBtn) {
       submitDepositBtn.textContent = isWithdraw ? 'طلب السحب' : 'طلب';
     }
+    syncInlineModalDirection();
 
     if (proofTriggerEl) {
-      proofTriggerEl.hidden = isWithdraw;
-      if (isWithdraw) proofTriggerEl.style.display = 'none';
+      proofTriggerEl.hidden = !requiresProofImage;
+      if (!requiresProofImage) proofTriggerEl.style.display = 'none';
       else proofTriggerEl.style.removeProperty('display');
     }
     if (proofPreviewEl) {
-      if (isWithdraw) {
+      if (!requiresProofImage) {
         proofPreviewEl.hidden = true;
         proofPreviewEl.textContent = '';
         proofPreviewEl.style.display = 'none';
@@ -38324,11 +38565,11 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
         proofPreviewEl.style.removeProperty('display');
       }
     }
-    if (proofFileInputEl && isWithdraw) {
+    if (proofFileInputEl && !requiresProofImage) {
       try { proofFileInputEl.value = ''; } catch (_) {}
     }
 
-    if (isWithdraw) {
+    if (!requiresProofImage) {
       try { if (typeof currentProofFile !== 'undefined') currentProofFile = null; } catch (_) {}
       try { if (typeof uploadedProofUrl !== 'undefined') uploadedProofUrl = ''; } catch (_) {}
       try { if (typeof proofUploadPending !== 'undefined') proofUploadPending = false; } catch (_) {}
@@ -38349,7 +38590,8 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
         if (submitDepositBtn && currentMethod) {
           const validation = getInlineCurrentExtraValidation(currentMethod);
           const okAmounts = (typeof amountsValid === 'function') ? !!amountsValid() : true;
-          if (isInlineWithdrawFlowActive()) {
+          const requiresProofImage = !isInlineWithdrawFlowActive() && inlineMethodRequiresProofImage(currentMethod);
+          if (isInlineWithdrawFlowActive() || !requiresProofImage) {
             submitDepositBtn.disabled = !(okAmounts && !!currentMethod && validation.ok);
           } else if (!validation.ok) {
             submitDepositBtn.disabled = true;
@@ -38363,6 +38605,29 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
 
   refreshNativeInlineMethodUi();
   applyInlineFlowModalState(typeof currentMethod !== 'undefined' ? currentMethod : null);
+  if (!window.__inlineModalDirectionWatcherBound__) {
+    try {
+      window.addEventListener('language:change', syncInlineModalDirection);
+    } catch (_) {}
+    try {
+      if (typeof MutationObserver !== 'undefined' && document && document.documentElement) {
+        const inlineModalDirectionObserver = new MutationObserver(function(mutations){
+          for (let i = 0; i < mutations.length; i += 1) {
+            const attrName = String(mutations[i] && mutations[i].attributeName || '');
+            if (attrName === 'lang' || attrName === 'dir' || attrName === 'data-lang') {
+              syncInlineModalDirection();
+              break;
+            }
+          }
+        });
+        inlineModalDirectionObserver.observe(document.documentElement, {
+          attributes: true,
+          attributeFilter: ['lang', 'dir', 'data-lang']
+        });
+      }
+    } catch (_) {}
+    try { window.__inlineModalDirectionWatcherBound__ = true; } catch (_) {}
+  }
 
   if (typeof getMethodNoteText === 'function') {
     const __originalInlineGetMethodNoteText = getMethodNoteText;
@@ -38376,6 +38641,7 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
     renderMethodInfo = function(){
       const result = __originalInlineRenderMethodInfo.apply(this, arguments);
       const method = typeof currentMethod !== 'undefined' ? currentMethod : null;
+      try { renderInlineMethodInfo(method); } catch (_) {}
       refreshNativeInlineMethodUi(method);
       applyInlineFlowModalState(method);
       return result;
@@ -39198,6 +39464,78 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
     return '';
   }
 
+  function syncInlineDepositPaymentsCache(payload){
+    const uid = resolveInlineHistoryUid();
+    if (!uid) return;
+
+    const code = String(payload && (payload.depositCode || payload.code) || '').trim();
+    try { localStorage.removeItem('wallet:cache:' + uid); } catch (_) {}
+
+    if (!code) {
+      try { localStorage.removeItem('payments:cache:' + uid); } catch (_) {}
+      return;
+    }
+
+    const cacheKey = 'payments:cache:' + uid;
+    const schemaVersion = 5;
+    let cache = { version: schemaVersion, order: [], byCode: {}, lastSync: 0 };
+    try {
+      const raw = localStorage.getItem(cacheKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          cache = parsed;
+        }
+      }
+    } catch (_) {}
+
+    cache.version = schemaVersion;
+    cache.order = Array.isArray(cache.order) ? cache.order.filter(Boolean) : [];
+    cache.byCode = (cache.byCode && typeof cache.byCode === 'object') ? cache.byCode : {};
+
+    const existing = (cache.byCode[code] && typeof cache.byCode[code] === 'object') ? cache.byCode[code] : {};
+    const amountCurrency = Number(payload && (
+      payload.amountCurrency != null
+        ? payload.amountCurrency
+        : (payload.client_payAmount != null ? payload.client_payAmount : payload.payAmount)
+    ));
+    const netAmountCurrency = Number(payload && payload.netAmountCurrency);
+    const feeAmountCurrency = Number(payload && payload.feeAmountCurrency);
+    const amountUSD = Number(payload && (payload.amountUSD != null ? payload.amountUSD : payload.addedAmount));
+    const nextItem = Object.assign({}, existing, {
+      code: code,
+      __kind: 'deposit',
+      status: String(payload && payload.status || 'قيد المراجعة'),
+      createdAt: String(payload && payload.createdAt || new Date().toISOString()),
+      timestamp: String(payload && payload.createdAt || new Date().toISOString()),
+      countryName: String(payload && payload.countryName || existing.countryName || '').trim(),
+      methodName: String(payload && payload.methodName || existing.methodName || '').trim(),
+      currency: String(payload && payload.currency || existing.currency || 'USD').trim() || 'USD',
+      proofUrl: String(payload && payload.proofUrl || existing.proofUrl || '').trim()
+    });
+
+    if (Number.isFinite(amountCurrency)) {
+      nextItem.client_payAmount = amountCurrency;
+      nextItem.amountCurrency = amountCurrency;
+      nextItem.payAmount = amountCurrency;
+    }
+    if (Number.isFinite(netAmountCurrency)) nextItem.netAmountCurrency = netAmountCurrency;
+    if (Number.isFinite(feeAmountCurrency)) nextItem.feeAmountCurrency = feeAmountCurrency;
+    if (Number.isFinite(amountUSD)) {
+      nextItem.amountUSD = amountUSD;
+      nextItem.addedAmount = amountUSD;
+      nextItem.addedUSD = amountUSD;
+      nextItem.added = amountUSD;
+    }
+
+    cache.byCode[code] = nextItem;
+    cache.order = [code].concat(cache.order.filter(function(entryCode){
+      return String(entryCode || '').trim() !== code;
+    }));
+    cache.lastSync = Date.now();
+    try { localStorage.setItem(cacheKey, JSON.stringify(cache)); } catch (_) {}
+  }
+
   function syncInlineWithdrawPaymentsCache(payload){
     const uid = resolveInlineHistoryUid();
     if (!uid) return;
@@ -39286,6 +39624,104 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
         window.__WALLET_REFRESH__({ force: true, skipSkeleton: true });
       }
     } catch (_) {}
+  }
+
+  async function handleInlineDepositSubmit(country, method){
+    if (typeof amountsValid === 'function' && !amountsValid()) {
+      if (typeof showToast === 'function') showToast('أدخل مبلغًا صالحًا للإيداع.', 'error', 4200);
+      else alert('أدخل مبلغًا صالحًا للإيداع.');
+      return null;
+    }
+
+    try {
+      const targetMethod = method || currentMethod || null;
+      const extraCollected = collectDynamicExtraFields(targetMethod);
+      if (!extraCollected.ok) return null;
+
+      const payAmount = Number(sendJOD && sendJOD.value);
+      if (!Number.isFinite(payAmount) || payAmount <= 0) {
+        throw new Error('أدخل مبلغًا صالحًا للإيداع.');
+      }
+
+      const targetCountryId = String(
+        (country && country.id) ||
+        (targetMethod && targetMethod.data && (targetMethod.data.countryId || targetMethod.data.countryCode || '')) ||
+        ''
+      ).trim();
+      const targetCountryName = String(
+        (country && country.data && country.data.name) ||
+        (country && country.name) ||
+        (targetMethod && targetMethod.data && (targetMethod.data.countryName || targetMethod.data.countryLabel || '')) ||
+        ''
+      ).trim();
+      const targetMethodId = String(targetMethod && targetMethod.id || '').trim();
+      const targetMethodName = String(
+        (targetMethod && targetMethod.data && targetMethod.data.name) ||
+        (targetMethod && targetMethod.name) ||
+        ''
+      ).trim();
+      const requiresProofImage = inlineMethodRequiresProofImage(targetMethod);
+      const proofUrl = requiresProofImage
+        ? String((typeof uploadedProofUrl !== 'undefined' ? uploadedProofUrl : '') || '').trim()
+        : '';
+      if (requiresProofImage && !proofUrl) {
+        throw new Error('ارفع صورة الإثبات أولًا.');
+      }
+
+      const idToken = await getIdTokenOrThrow();
+      const guardToken = generateGuardToken('deposit-submit');
+      if (submitDepositBtn) submitDepositBtn.disabled = true;
+
+      const res = await fetch(WORKER + '/deposit/submit', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + idToken,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          countryId: targetCountryId,
+          countryName: targetCountryName,
+          methodId: targetMethodId,
+          methodName: targetMethodName,
+          payAmount: payAmount,
+          proofUrl: proofUrl,
+          extraFields: extraCollected.values,
+          guardToken: guardToken,
+          turnstileToken: guardToken
+        })
+      });
+      const data = await res.json().catch(function(){
+        return {};
+      });
+      if (!res.ok || !data || data.success === false) {
+        throw new Error((data && (data.error || data.message)) || 'فشل تقديم طلب الإيداع');
+      }
+
+      syncInlineDepositPaymentsCache(Object.assign({}, data || {}, {
+        countryName: targetCountryName,
+        methodName: targetMethodName,
+        proofUrl: proofUrl,
+        client_payAmount: payAmount
+      }));
+      refreshInlineHistoryViews();
+      try { closeModalFn(); } catch (_) {}
+
+      const code = String(data.depositCode || data.code || '').trim();
+      const successText = code
+        ? ('تم إرسال طلب الإيداع بنجاح. كود الطلب: ' + code)
+        : 'تم إرسال طلب الإيداع بنجاح.';
+      if (typeof showToast === 'function') showToast(successText, 'success', 5000);
+      else alert(successText);
+      return data;
+    } catch (err) {
+      console.error(err);
+      const message = err && err.message ? err.message : 'فشل تقديم طلب الإيداع';
+      if (typeof showToast === 'function') showToast(message, 'error', 5000);
+      else alert(message);
+      return null;
+    } finally {
+      try { updateSubmitState(); } catch (_) {}
+    }
   }
 
   async function handleInlineWithdrawSubmit(country, method){
@@ -39401,15 +39837,12 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
   }
 
   if (typeof handleSubmitDeposit === 'function') {
-    const __originalInlineHandleSubmitDeposit = handleSubmitDeposit;
     handleSubmitDeposit = async function(country, method){
-      const args = arguments;
-      const ctx = this;
       return withInlineSubmitFeedback(async function(){
         if (isInlineWithdrawFlowActive()) {
           return await handleInlineWithdrawSubmit(country, method);
         }
-        return await __originalInlineHandleSubmitDeposit.apply(ctx, args);
+        return await handleInlineDepositSubmit(country, method);
       });
     };
   }
@@ -39421,10 +39854,10 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       const result = await __originalInlineOpenMethod(m);
       try { bindInlineWithdrawAmountHooks(); } catch (_) {}
       try { seedInlineMethodAmounts(currentMethod || m); } catch (_) {}
+      try { renderInlineMethodInfo(currentMethod || m); } catch (_) {}
       try { refreshNativeInlineMethodUi(currentMethod || m); } catch (_) {}
       try { applyInlineFlowModalState(currentMethod || m); } catch (_) {}
       if (!hasNativeInlineMethodModal()) {
-        try { renderInlineMethodInfo(currentMethod || m); } catch (_) {}
         try { renderInlineExtraFields(currentMethod || m); } catch (_) {}
       }
       if (isInlineWithdrawFlowActive()) {

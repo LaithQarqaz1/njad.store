@@ -5142,11 +5142,22 @@ if (!document.getElementById('header-balance-style')) {
       .header-balance__currency {
         font-size: 12px;
         font-weight: 700;
-        color: inherit;
+        color: var(--balance-currency, var(--balance-text, #f8fafc));
         letter-spacing: 0.3px;
         text-transform: uppercase;
         direction: ltr;
         unicode-bidi: plaintext;
+      }
+      #sidebarCurrencyTrigger,
+      #sidebarCurrencyTrigger .sidebar-currency-pill__label,
+      #sidebarCurrencyTrigger i {
+        color: #99760c !important;
+        -webkit-text-fill-color: #99760c !important;
+        fill: #99760c !important;
+        stroke: #99760c !important;
+        opacity: 1 !important;
+        --fa-primary-color: #99760c !important;
+        --fa-secondary-color: #99760c !important;
       }
 	      .header-balance__value {
 	        direction: ltr;
@@ -5172,7 +5183,7 @@ if (!document.getElementById('header-balance-style')) {
 	      }
       html[data-theme="light"] .header-balance__currency,
       body.light-mode .header-balance__currency {
-        color: inherit;
+        color: var(--balance-currency-light, var(--balance-text-light, #0f172a));
       }
       html[data-theme="light"] .header-balance,
       body.light-mode .header-balance {
@@ -5186,7 +5197,7 @@ if (!document.getElementById('header-balance-style')) {
 	      }
       body.dark-mode .header-balance__currency,
       html[data-theme="dark"] .header-balance__currency {
-        color: inherit;
+        color: var(--balance-currency-dark, var(--balance-text-dark, #f8fafc));
       }
       html[data-theme="light"] .header-levels-btn,
       body.light-mode .header-levels-btn {
@@ -5497,6 +5508,27 @@ function renderHeaderLevelBadge(profile){
   setHeaderLevelsVisibility(false);
   try { headerLevelsBtn.removeAttribute('title'); } catch {}
 }
+const FIXED_SIDEBAR_CURRENCY_BADGE_COLOR = '#99760c';
+function enforceFixedSidebarCurrencyBadgeColor(){
+  const fixedColor = FIXED_SIDEBAR_CURRENCY_BADGE_COLOR;
+  const applyFixedColor = (node) => {
+    if (!node || !node.style || typeof node.style.setProperty !== 'function') return;
+    try { node.style.setProperty('color', fixedColor, 'important'); } catch {}
+    try { node.style.setProperty('-webkit-text-fill-color', fixedColor, 'important'); } catch {}
+    try { node.style.setProperty('fill', fixedColor, 'important'); } catch {}
+    try { node.style.setProperty('stroke', fixedColor, 'important'); } catch {}
+    try { node.style.setProperty('opacity', '1', 'important'); } catch {}
+    try { node.style.setProperty('--fa-primary-color', fixedColor, 'important'); } catch {}
+    try { node.style.setProperty('--fa-secondary-color', fixedColor, 'important'); } catch {}
+  };
+  try {
+    const trigger = document.getElementById('sidebarCurrencyTrigger');
+    applyFixedColor(trigger);
+    if (trigger && typeof trigger.querySelectorAll === 'function') {
+      trigger.querySelectorAll('*').forEach((node) => applyFixedColor(node));
+    }
+  } catch {}
+}
 function setHeaderBalance(text){
   const valueEl = document.getElementById('headerBalanceText') || balanceSpan.querySelector('#headerBalanceText');
   const currencyEl = document.getElementById('headerBalanceCurrency') || balanceSpan.querySelector('#headerBalanceCurrency');
@@ -5508,6 +5540,7 @@ function setHeaderBalance(text){
     } else {
       valueEl.textContent = text == null ? '—' : String(text);
       if (currencyEl) currencyEl.textContent = '—';
+      enforceFixedSidebarCurrencyBadgeColor();
       return;
     }
   }
@@ -5515,22 +5548,26 @@ function setHeaderBalance(text){
   if (!trimmed) {
     valueEl.textContent = '—';
     if (currencyEl) currencyEl.textContent = '—';
+    enforceFixedSidebarCurrencyBadgeColor();
     return;
   }
   const hasDigits = /[0-9]/.test(trimmed);
   if (!hasDigits) {
     valueEl.textContent = trimmed;
     if (currencyEl) currencyEl.textContent = '—';
+    enforceFixedSidebarCurrencyBadgeColor();
     return;
   }
   const parts = splitHeaderBalanceParts(trimmed);
   if (parts) {
     valueEl.textContent = parts.value || trimmed;
     if (currencyEl) currencyEl.textContent = parts.currency || headerGetSelectedCurrencyText() || '—';
+    enforceFixedSidebarCurrencyBadgeColor();
     return;
   }
   valueEl.textContent = trimmed;
   if (currencyEl) currencyEl.textContent = headerGetSelectedCurrencyText() || '—';
+  enforceFixedSidebarCurrencyBadgeColor();
 }
 try {
   window.__setHeaderBalanceDisplay = setHeaderBalance;
@@ -6732,6 +6769,7 @@ sidebarTop.innerHTML = `
   </div>
 `;
 sidebar.appendChild(sidebarTop);
+try { enforceFixedSidebarCurrencyBadgeColor(); } catch {}
 
 function normalizeSidebarUserName(user){
   const safe = (value) => String(value == null ? '' : value).trim();
@@ -6916,7 +6954,10 @@ function closeSidebarCurrencyMenu(){
 function syncSidebarCurrencyLabel(){
   try {
     const label = sidebarTop.querySelector('#sidebarCurrencyLabel') || document.getElementById('sidebarCurrencyLabel');
-    if (!label) return;
+    if (!label) {
+      enforceFixedSidebarCurrencyBadgeColor();
+      return;
+    }
     const code = (typeof window.getSelectedCurrencyCode === 'function')
       ? String(window.getSelectedCurrencyCode() || '').toUpperCase()
       : '';
@@ -6929,6 +6970,7 @@ function syncSidebarCurrencyLabel(){
         btn.setAttribute('aria-selected', active ? 'true' : 'false');
       });
     }
+    enforceFixedSidebarCurrencyBadgeColor();
   } catch {}
 }
 
@@ -8722,12 +8764,12 @@ function wirePageBalanceBox(){
       #supportFloatingWidget .support-dock__badge[data-badge-mode="icon"] {
         top: 0;
         right: 0;
-        min-width: 18px;
-        width: 18px;
-        height: 18px;
+        min-width: 20px;
+        width: 20px;
+        height: 20px;
         padding: 0;
         border-radius: 50%;
-        transform: translate(30%, -30%);
+        transform: translate(26%, -26%);
       }
       #supportFloatingWidget .support-dock__badge .support-badge__text {
         display: block;
@@ -8746,6 +8788,10 @@ function wirePageBalanceBox(){
         text-shadow: none;
         transform: translateY(-1px);
       }
+      #supportFloatingWidget .support-dock__badge[data-badge-mode="icon"] i.fa-headset {
+        font-size: 11px;
+      }
+
       #supportFloatingWidget .support-dock__link[aria-disabled="true"] {
         opacity: 0.56;
         cursor: default;
@@ -9536,6 +9582,9 @@ function wirePageBalanceBox(){
         text-shadow: none;
         transform: translateY(-1px);
       }
+      .support-icon .support-badge[data-badge-mode="icon"] i.fa-headset {
+        font-size: 8px;
+      }
       #sidebar .support-section .support-icon .support-badge {
         top: 0;
         left: auto;
@@ -9581,8 +9630,12 @@ function wirePageBalanceBox(){
         text-shadow: none;
         transform: translateY(-1px);
       }
+      #sidebar .support-section .support-icon .support-badge[data-badge-mode="icon"] i.fa-headset {
+        font-size: 8px;
+      }
+        /* المسافه بين الدعم و الثيم --ليث--*/
       #sidebar .support-theme-toggle {
-        margin: 8px 10px 10px;
+        margin: 5px 10px 10px;
         display: flex;
         justify-content: center;
         align-items: center;
@@ -12277,6 +12330,15 @@ html[data-theme="dark"] #wa-join-modal .wa-modal-content{
       syncActiveSiteTextColors();
     }
 
+    function resolveModeScopedThemeColor(lightValue, darkValue, fallbackValue, mode){
+      const light = normalizeThemeHexColor(lightValue || fallbackValue || "");
+      const dark = normalizeThemeHexColor(darkValue || fallbackValue || "");
+      const appliedMode = normalizeSiteThemeMode(mode || "", "light");
+      return appliedMode === "dark"
+        ? (dark || light || normalizeThemeHexColor(fallbackValue || ""))
+        : (light || dark || normalizeThemeHexColor(fallbackValue || ""));
+    }
+
     const SITE_THEME_RUNTIME_STYLE_ID = "site-theme-runtime-style";
     function ensureSiteThemeRuntimeStyleTag(){
       try {
@@ -12295,12 +12357,77 @@ html[data-theme="dark"] #wa-join-modal .wa-modal-content{
       const style = ensureSiteThemeRuntimeStyleTag();
       const root = document.documentElement;
       if (!style || !root || !root.style) return;
-      const balanceAccentColor = normalizeThemeHexColor(normalizedTheme.balanceAccentColor || "");
-      const sectionTitleColor = normalizeThemeHexColor(normalizedTheme.sectionTitleColor || "");
-      const productTitleColor = normalizeThemeHexColor(normalizedTheme.productTitleColor || "");
-      const productPriceColor = normalizeThemeHexColor(normalizedTheme.productPriceColor || "");
+      const appliedMode = normalizeSiteThemeMode(
+        root.getAttribute("data-theme") || "",
+        normalizedTheme.defaultMode || "light"
+      );
+      const balanceAccentColorLight = normalizeThemeHexColor(
+        normalizedTheme.balanceAccentColorLight || normalizedTheme.balanceAccentColor || ""
+      );
+      const balanceAccentColorDark = normalizeThemeHexColor(
+        normalizedTheme.balanceAccentColorDark || normalizedTheme.balanceAccentColor || ""
+      );
+      const balanceAccentColor = appliedMode === "dark"
+        ? (balanceAccentColorDark || balanceAccentColorLight)
+        : (balanceAccentColorLight || balanceAccentColorDark);
+      const sectionTitleColorLight = normalizeThemeHexColor(
+        normalizedTheme.sectionTitleColorLight || normalizedTheme.sectionTitleColor || ""
+      );
+      const sectionTitleColorDark = normalizeThemeHexColor(
+        normalizedTheme.sectionTitleColorDark || normalizedTheme.sectionTitleColor || ""
+      );
+      const sectionTitleColor = resolveModeScopedThemeColor(
+        sectionTitleColorLight,
+        sectionTitleColorDark,
+        normalizedTheme.sectionTitleColor || "",
+        appliedMode
+      );
+      const productTitleColorLight = normalizeThemeHexColor(
+        normalizedTheme.productTitleColorLight || normalizedTheme.productTitleColor || ""
+      );
+      const productTitleColorDark = normalizeThemeHexColor(
+        normalizedTheme.productTitleColorDark || normalizedTheme.productTitleColor || ""
+      );
+      const productTitleColor = resolveModeScopedThemeColor(
+        productTitleColorLight,
+        productTitleColorDark,
+        normalizedTheme.productTitleColor || "",
+        appliedMode
+      );
+      const productPriceColorLight = normalizeThemeHexColor(
+        normalizedTheme.productPriceColorLight || normalizedTheme.productPriceColor || ""
+      );
+      const productPriceColorDark = normalizeThemeHexColor(
+        normalizedTheme.productPriceColorDark || normalizedTheme.productPriceColor || ""
+      );
+      const productPriceColor = resolveModeScopedThemeColor(
+        productPriceColorLight,
+        productPriceColorDark,
+        normalizedTheme.productPriceColor || "",
+        appliedMode
+      );
+      const textColorLight = normalizeThemeHexColor(
+        normalizedTheme.textColorLight || normalizedTheme.balanceColorLight || ""
+      );
+      const textColorDark = normalizeThemeHexColor(
+        normalizedTheme.textColorDark || normalizedTheme.balanceColorDark || ""
+      );
+      const sidebarTextColorLight = normalizeThemeHexColor(
+        normalizedTheme.sidebarTextColorLight || normalizedTheme.sidebarTextColor || ""
+      );
+      const sidebarTextColorDark = normalizeThemeHexColor(
+        normalizedTheme.sidebarTextColorDark || normalizedTheme.sidebarTextColor || ""
+      );
+      if (balanceAccentColorLight) root.style.setProperty("--site-balance-accent-light", balanceAccentColorLight);
+      else root.style.removeProperty("--site-balance-accent-light");
+      if (balanceAccentColorDark) root.style.setProperty("--site-balance-accent-dark", balanceAccentColorDark);
+      else root.style.removeProperty("--site-balance-accent-dark");
       if (balanceAccentColor) root.style.setProperty("--site-balance-accent", balanceAccentColor);
       else root.style.removeProperty("--site-balance-accent");
+      if (sidebarTextColorLight) root.style.setProperty("--site-sidebar-text-light", sidebarTextColorLight);
+      else root.style.removeProperty("--site-sidebar-text-light");
+      if (sidebarTextColorDark) root.style.setProperty("--site-sidebar-text-dark", sidebarTextColorDark);
+      else root.style.removeProperty("--site-sidebar-text-dark");
       if (sectionTitleColor) root.style.setProperty("--site-section-title", sectionTitleColor);
       else root.style.removeProperty("--site-section-title");
       if (productTitleColor) root.style.setProperty("--site-product-title", productTitleColor);
@@ -12316,47 +12443,139 @@ html[data-theme="dark"] #wa-join-modal .wa-modal-content{
   --site-product-grid-mobile:${normalizedTheme.productGridMobile};
   --site-product-image-shape:${normalizedTheme.productImageShape};
 }
-${balanceAccentColor ? `
-.header-balance,
-.header-balance__currency,
-#balanceHeader,
-#headerBalanceCurrency,
-.header-balance__value,
-#headerBalanceText,
-#balanceAmount,
-#sidebarBalanceValue,
-[data-user-balance]{
-  color:${balanceAccentColor} !important;
+${(textColorLight || textColorDark) ? `
+html[data-theme="light"] .security-page{
+  --sec-text:${textColorLight || textColorDark} !important;
+  --sec-muted:${textColorLight || textColorDark} !important;
+}
+html[data-theme="dark"] .security-page{
+  --sec-text:${textColorDark || textColorLight} !important;
+  --sec-muted:${textColorDark || textColorLight} !important;
+}
+html[data-theme="light"] :is(.wallet-page,.settings-page,.security-page,.content-container,.reviews-page,.transfer-page,.withdraw-page,.agents-page,.telegram-page,#apiInlineRoot,#ordersContainer,#paymentsContainer,.wallet-history-modal,#depositInlineApp,.catalog-inline-host,#purchase-modal){
+  color:${textColorLight || textColorDark} !important;
+}
+html[data-theme="light"] :is(.wallet-page,.settings-page,.security-page,.content-container,.reviews-page,.transfer-page,.withdraw-page,.agents-page,.telegram-page,#apiInlineRoot,#ordersContainer,#paymentsContainer,.wallet-history-modal,#depositInlineApp,.catalog-inline-host,#purchase-modal) :is(p,span,strong,small,a,li,td,th,label,h1,h2,h3,h4,h5,h6,.empty,.device-empty,.security-method-hint,.wallet-history-modal-empty,.levels-empty,.inline-favorites-empty,.catalog-games-empty,.muted,.note,.helper-text){
+  color:inherit !important;
+}
+html[data-theme="dark"] :is(.wallet-page,.settings-page,.security-page,.content-container,.reviews-page,.transfer-page,.withdraw-page,.agents-page,.telegram-page,#apiInlineRoot,#ordersContainer,#paymentsContainer,.wallet-history-modal,#depositInlineApp,.catalog-inline-host,#purchase-modal){
+  color:${textColorDark || textColorLight} !important;
+}
+html[data-theme="dark"] :is(.wallet-page,.settings-page,.security-page,.content-container,.reviews-page,.transfer-page,.withdraw-page,.agents-page,.telegram-page,#apiInlineRoot,#ordersContainer,#paymentsContainer,.wallet-history-modal,#depositInlineApp,.catalog-inline-host,#purchase-modal) :is(p,span,strong,small,a,li,td,th,label,h1,h2,h3,h4,h5,h6,.empty,.device-empty,.security-method-hint,.wallet-history-modal-empty,.levels-empty,.inline-favorites-empty,.catalog-games-empty,.muted,.note,.helper-text){
+  color:inherit !important;
+}
+html[data-theme="light"] .wallet-page :is(h2,h2 span,.txn-title,.txn-details,.txn-details span,.txn-meta,.txn-meta span,.code-btn,.empty,.chip:not([data-filter="pending"]):not([data-filter="approved"]):not([data-filter="rejected"])){
+  color:${textColorLight || textColorDark} !important;
+}
+html[data-theme="dark"] .wallet-page :is(h2,h2 span,.txn-title,.txn-details,.txn-details span,.txn-meta,.txn-meta span,.code-btn,.empty,.chip:not([data-filter="pending"]):not([data-filter="approved"]):not([data-filter="rejected"])){
+  color:${textColorDark || textColorLight} !important;
+}
+html[data-theme="light"] .security-page :is(.security-header h2,.security-header p,.security-method-switch,.security-steps,.security-enabled,.security-note,.security-devices h3,.security-devices p,.device-name,.device-sub,.device-empty,.security-status.info,.security-message,.security-code-title,.security-code-subtitle,.security-close){
+  color:${textColorLight || textColorDark} !important;
+}
+html[data-theme="dark"] .security-page :is(.security-header h2,.security-header p,.security-method-switch,.security-steps,.security-enabled,.security-note,.security-devices h3,.security-devices p,.device-name,.device-sub,.device-empty,.security-status.info,.security-message,.security-code-title,.security-code-subtitle,.security-close){
+  color:${textColorDark || textColorLight} !important;
 }
 ` : ``}
-${sectionTitleColor ? `
-.wallet-page h2,
-.settings-page h2,
-.security-header h2,
-.content-container h2,
-.section-title,
-.footer-title{
-  color:${sectionTitleColor} !important;
+${(sidebarTextColorLight || sidebarTextColorDark) ? `
+html[data-theme="light"] #sidebar :is(.sidebar-user-name,.sidebar-user-id,.sidebar-currency-pill,.sidebar-currency-pill__label,.sidebar-nav-item,.sidebar-nav-item a,.sidebar-currency-option,.lang-pm-select-option,.currency-pm-select-option,.support-title,.support-note,.support-rights,.support-rights a,.support-dev-credit-text-link,.support-dock__item,.support-dock__link){
+  color:${sidebarTextColorLight || sidebarTextColorDark} !important;
+}
+html[data-theme="dark"] #sidebar :is(.sidebar-user-name,.sidebar-user-id,.sidebar-currency-pill,.sidebar-currency-pill__label,.sidebar-nav-item,.sidebar-nav-item a,.sidebar-currency-option,.lang-pm-select-option,.currency-pm-select-option,.support-title,.support-note,.support-rights,.support-rights a,.support-dev-credit-text-link,.support-dock__item,.support-dock__link){
+  color:${sidebarTextColorDark || sidebarTextColorLight} !important;
+}
+html[data-theme="light"] #sidebar :is(.sidebar-currency-option.active,.lang-pm-select-option.selected,.currency-pm-select-option.selected),
+html[data-theme="dark"] #sidebar :is(.sidebar-currency-option.active,.lang-pm-select-option.selected,.currency-pm-select-option.selected){
+  color:#ffffff !important;
 }
 ` : ``}
-${productTitleColor ? `
-.categories > .card h2,
-.catalog-inline-host .categories .card h2,
-.catalog-branch-card h2,
-#catalogOffersContainer .card h2,
-.offer-box.card h2,
-#depositInlineApp .categories .card h2{
-  color:${productTitleColor} !important;
+#sidebarCurrencyTrigger,
+#sidebarCurrencyTrigger .sidebar-currency-pill__label,
+#sidebarCurrencyTrigger i{
+  color:#99760c !important;
+  -webkit-text-fill-color:#99760c !important;
+  fill:#99760c !important;
+  stroke:#99760c !important;
+  opacity:1 !important;
+  --fa-primary-color:#99760c !important;
+  --fa-secondary-color:#99760c !important;
+}
+${(balanceAccentColorLight || balanceAccentColorDark) ? `
+html[data-theme="light"] .header-balance,
+html[data-theme="light"] .header-balance__currency,
+html[data-theme="light"] #balanceHeader,
+html[data-theme="light"] #headerBalanceCurrency,
+html[data-theme="light"] .header-balance__value,
+html[data-theme="light"] #headerBalanceText,
+html[data-theme="light"] #balanceAmount,
+html[data-theme="light"] #sidebarBalanceValue,
+html[data-theme="light"] [data-user-balance]{
+  color:${balanceAccentColorLight || balanceAccentColorDark} !important;
+}
+html[data-theme="dark"] .header-balance,
+html[data-theme="dark"] .header-balance__currency,
+html[data-theme="dark"] #balanceHeader,
+html[data-theme="dark"] #headerBalanceCurrency,
+html[data-theme="dark"] .header-balance__value,
+html[data-theme="dark"] #headerBalanceText,
+html[data-theme="dark"] #balanceAmount,
+html[data-theme="dark"] #sidebarBalanceValue,
+html[data-theme="dark"] [data-user-balance]{
+  color:${balanceAccentColorDark || balanceAccentColorLight} !important;
 }
 ` : ``}
-${productPriceColor ? `
-.offer-price,
-#pm-price,
-.pm-pill,
-.voucher .price,
-#depositInlineApp .categories .card .offer-price,
-.card.catalog-card[data-card-type="product"] .offer-price{
-  color:${productPriceColor} !important;
+${(sectionTitleColorLight || sectionTitleColorDark) ? `
+html[data-theme="light"] .wallet-page h2,
+html[data-theme="light"] .settings-page h2,
+html[data-theme="light"] .security-header h2,
+html[data-theme="light"] .content-container h2,
+html[data-theme="light"] .section-title,
+html[data-theme="light"] .footer-title{
+  color:${sectionTitleColorLight || sectionTitleColorDark} !important;
+}
+html[data-theme="dark"] .wallet-page h2,
+html[data-theme="dark"] .settings-page h2,
+html[data-theme="dark"] .security-header h2,
+html[data-theme="dark"] .content-container h2,
+html[data-theme="dark"] .section-title,
+html[data-theme="dark"] .footer-title{
+  color:${sectionTitleColorDark || sectionTitleColorLight} !important;
+}
+` : ``}
+${(productTitleColorLight || productTitleColorDark) ? `
+html[data-theme="light"] .categories > .card h2,
+html[data-theme="light"] .catalog-inline-host .categories .card h2,
+html[data-theme="light"] .catalog-branch-card h2,
+html[data-theme="light"] #catalogOffersContainer .card h2,
+html[data-theme="light"] .offer-box.card h2,
+html[data-theme="light"] #depositInlineApp .categories .card h2{
+  color:${productTitleColorLight || productTitleColorDark} !important;
+}
+html[data-theme="dark"] .categories > .card h2,
+html[data-theme="dark"] .catalog-inline-host .categories .card h2,
+html[data-theme="dark"] .catalog-branch-card h2,
+html[data-theme="dark"] #catalogOffersContainer .card h2,
+html[data-theme="dark"] .offer-box.card h2,
+html[data-theme="dark"] #depositInlineApp .categories .card h2{
+  color:${productTitleColorDark || productTitleColorLight} !important;
+}
+` : ``}
+${(productPriceColorLight || productPriceColorDark) ? `
+html[data-theme="light"] .offer-price,
+html[data-theme="light"] #pm-price,
+html[data-theme="light"] .pm-pill,
+html[data-theme="light"] .voucher .price,
+html[data-theme="light"] #depositInlineApp .categories .card .offer-price,
+html[data-theme="light"] .card.catalog-card[data-card-type="product"] .offer-price{
+  color:${productPriceColorLight || productPriceColorDark} !important;
+}
+html[data-theme="dark"] .offer-price,
+html[data-theme="dark"] #pm-price,
+html[data-theme="dark"] .pm-pill,
+html[data-theme="dark"] .voucher .price,
+html[data-theme="dark"] #depositInlineApp .categories .card .offer-price,
+html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-price{
+  color:${productPriceColorDark || productPriceColorLight} !important;
 }
 ` : ``}
 .categories,
@@ -12399,16 +12618,31 @@ ${productPriceColor ? `
     grid-template-columns:repeat(${normalizedTheme.productGridMobile},minmax(0,1fr)) !important;
   }
 }
+#sidebarCurrencyTrigger,
+#sidebarCurrencyTrigger *{
+  color:#99760c !important;
+  -webkit-text-fill-color:#99760c !important;
+  fill:#99760c !important;
+  stroke:#99760c !important;
+  opacity:1 !important;
+  --fa-primary-color:#99760c !important;
+  --fa-secondary-color:#99760c !important;
+}
 `;
       style.textContent = css;
     }
 
+    let activeSiteThemeState = null;
     document.addEventListener("theme:change", function(){
       syncActiveSiteTextColors();
+      if (activeSiteThemeState) applySiteThemeDetailRuntimeCss(activeSiteThemeState);
     });
     try {
       window.addEventListener("storage", function(e){
-        if (e && e.key === "theme") syncActiveSiteTextColors();
+        if (e && e.key === "theme") {
+          syncActiveSiteTextColors();
+          if (activeSiteThemeState) applySiteThemeDetailRuntimeCss(activeSiteThemeState);
+        }
       });
     } catch {}
 
@@ -12467,6 +12701,16 @@ ${productPriceColor ? `
         resolveSiteThemePresetColor(name) ??
         ""
       ) || resolveSiteThemePresetColor(name);
+      const siteMainColorLight = normalizeThemeHexColor(
+        src.siteMainColorLight ??
+        src.site_main_color_light ??
+        color
+      );
+      const siteMainColorDark = normalizeThemeHexColor(
+        src.siteMainColorDark ??
+        src.site_main_color_dark ??
+        color
+      );
       const textShared = normalizeThemeHexColor(
         src.textColor ??
         src.text_color ??
@@ -12512,14 +12756,112 @@ ${productPriceColor ? `
         src.balance_dark_color ??
         textShared
       );
+      const sharedSidebarTextColor = normalizeThemeHexColor(
+        src.sidebarTextColor ??
+        src.sidebar_text_color ??
+        src.sidebarColor ??
+        src.sidebar_color ??
+        ""
+      );
+      const sidebarTextColorLight = normalizeThemeHexColor(
+        src.sidebarTextColorLight ??
+        src.sidebar_text_color_light ??
+        sharedSidebarTextColor
+      );
+      const sidebarTextColorDark = normalizeThemeHexColor(
+        src.sidebarTextColorDark ??
+        src.sidebar_text_color_dark ??
+        sharedSidebarTextColor
+      );
+      const sharedBalanceAccentColor = normalizeThemeHexColor(
+        src.balanceAccentColor ??
+        src.balance_accent_color ??
+        src.userBalanceColor ??
+        src.user_balance_color ??
+        src.balanceAmountColor ??
+        src.balance_amount_color ??
+        ""
+      );
+      const balanceAccentColorLight = normalizeThemeHexColor(
+        src.balanceAccentColorLight ??
+        src.balance_accent_color_light ??
+        src.userBalanceColorLight ??
+        src.user_balance_color_light ??
+        src.balanceAmountColorLight ??
+        src.balance_amount_color_light ??
+        sharedBalanceAccentColor
+      );
+      const balanceAccentColorDark = normalizeThemeHexColor(
+        src.balanceAccentColorDark ??
+        src.balance_accent_color_dark ??
+        src.userBalanceColorDark ??
+        src.user_balance_color_dark ??
+        src.balanceAmountColorDark ??
+        src.balance_amount_color_dark ??
+        sharedBalanceAccentColor
+      );
+      const sharedSectionTitleColor = normalizeThemeHexColor(
+        src.sectionTitleColor ??
+        src.section_title_color ??
+        src.categoryTitleColor ??
+        src.category_title_color ??
+        ""
+      );
+      const sectionTitleColorLight = normalizeThemeHexColor(
+        src.sectionTitleColorLight ??
+        src.section_title_color_light ??
+        sharedSectionTitleColor
+      );
+      const sectionTitleColorDark = normalizeThemeHexColor(
+        src.sectionTitleColorDark ??
+        src.section_title_color_dark ??
+        sharedSectionTitleColor
+      );
+      const sharedProductTitleColor = normalizeThemeHexColor(
+        src.productTitleColor ??
+        src.product_title_color ??
+        ""
+      );
+      const productTitleColorLight = normalizeThemeHexColor(
+        src.productTitleColorLight ??
+        src.product_title_color_light ??
+        sharedProductTitleColor
+      );
+      const productTitleColorDark = normalizeThemeHexColor(
+        src.productTitleColorDark ??
+        src.product_title_color_dark ??
+        sharedProductTitleColor
+      );
+      const sharedProductPriceColor = normalizeThemeHexColor(
+        src.productPriceColor ??
+        src.product_price_color ??
+        src.priceColor ??
+        src.price_color ??
+        ""
+      );
+      const productPriceColorLight = normalizeThemeHexColor(
+        src.productPriceColorLight ??
+        src.product_price_color_light ??
+        sharedProductPriceColor
+      );
+      const productPriceColorDark = normalizeThemeHexColor(
+        src.productPriceColorDark ??
+        src.product_price_color_dark ??
+        sharedProductPriceColor
+      );
       return {
         name,
-        color,
-        siteMainColor: color,
+        color: siteMainColorLight || siteMainColorDark || color,
+        siteMainColor: siteMainColorLight || siteMainColorDark || color,
+        siteMainColorLight,
+        siteMainColorDark,
         balanceColorLight: textColorLight,
         balanceColorDark: textColorDark,
         textColorLight,
         textColorDark,
+        sidebarTextColor: sidebarTextColorLight || sidebarTextColorDark || sharedSidebarTextColor,
+        sidebarTextColorLight,
+        sidebarTextColorDark,
         defaultMode: normalizeSiteThemeMode(
           src.defaultMode ??
           src.default_mode ??
@@ -12528,34 +12870,18 @@ ${productPriceColor ? `
           "",
           "light"
         ),
-        balanceAccentColor: normalizeThemeHexColor(
-          src.balanceAccentColor ??
-          src.balance_accent_color ??
-          src.userBalanceColor ??
-          src.user_balance_color ??
-          src.balanceAmountColor ??
-          src.balance_amount_color ??
-          ""
-        ),
-        sectionTitleColor: normalizeThemeHexColor(
-          src.sectionTitleColor ??
-          src.section_title_color ??
-          src.categoryTitleColor ??
-          src.category_title_color ??
-          ""
-        ),
-        productTitleColor: normalizeThemeHexColor(
-          src.productTitleColor ??
-          src.product_title_color ??
-          ""
-        ),
-        productPriceColor: normalizeThemeHexColor(
-          src.productPriceColor ??
-          src.product_price_color ??
-          src.priceColor ??
-          src.price_color ??
-          ""
-        ),
+        balanceAccentColorLight,
+        balanceAccentColorDark,
+        balanceAccentColor: sharedBalanceAccentColor || balanceAccentColorLight || balanceAccentColorDark || "",
+        sectionTitleColor: sectionTitleColorLight || sectionTitleColorDark || sharedSectionTitleColor,
+        sectionTitleColorLight,
+        sectionTitleColorDark,
+        productTitleColor: productTitleColorLight || productTitleColorDark || sharedProductTitleColor,
+        productTitleColorLight,
+        productTitleColorDark,
+        productPriceColor: productPriceColorLight || productPriceColorDark || sharedProductPriceColor,
+        productPriceColorLight,
+        productPriceColorDark,
         categoryGridDesktop: normalizeSiteLayoutCount(
           src.categoryGridDesktop ??
           src.category_grid_desktop ??
@@ -12745,12 +13071,19 @@ ${productPriceColor ? `
 
     function applyTheme(theme){
       const normalizedTheme = normalizeSiteThemeState(theme);
+      activeSiteThemeState = normalizedTheme;
       const name = String(normalizedTheme?.name || "").toLowerCase().trim();
-      const color = normalizedTheme?.color || "";
       const appliedMode = applyDocumentThemeMode(normalizedTheme);
+      const color = resolveModeScopedThemeColor(
+        normalizedTheme?.siteMainColorLight || normalizedTheme?.color || "",
+        normalizedTheme?.siteMainColorDark || normalizedTheme?.color || "",
+        normalizedTheme?.siteMainColor || normalizedTheme?.color || "",
+        appliedMode
+      ) || normalizedTheme?.color || "";
       applySiteAccentColor(color);
       applySiteBalanceTextColors(normalizedTheme);
       applySiteThemeDetailRuntimeCss(normalizedTheme);
+      enforceFixedSidebarCurrencyBadgeColor();
       cacheSiteTheme(normalizedTheme);
       const body = document.body;
       if (!body || !body.classList) {
@@ -12762,13 +13095,26 @@ ${productPriceColor ? `
         name,
         color,
         appliedMode,
+        String(normalizedTheme?.siteMainColorLight || ""),
+        String(normalizedTheme?.siteMainColorDark || ""),
         String(normalizedTheme?.balanceColorLight || ""),
         String(normalizedTheme?.balanceColorDark || ""),
+        String(normalizedTheme?.sidebarTextColor || ""),
+        String(normalizedTheme?.sidebarTextColorLight || ""),
+        String(normalizedTheme?.sidebarTextColorDark || ""),
         String(normalizedTheme?.defaultMode || ""),
+        String(normalizedTheme?.balanceAccentColorLight || ""),
+        String(normalizedTheme?.balanceAccentColorDark || ""),
         String(normalizedTheme?.balanceAccentColor || ""),
         String(normalizedTheme?.sectionTitleColor || ""),
+        String(normalizedTheme?.sectionTitleColorLight || ""),
+        String(normalizedTheme?.sectionTitleColorDark || ""),
         String(normalizedTheme?.productTitleColor || ""),
+        String(normalizedTheme?.productTitleColorLight || ""),
+        String(normalizedTheme?.productTitleColorDark || ""),
         String(normalizedTheme?.productPriceColor || ""),
+        String(normalizedTheme?.productPriceColorLight || ""),
+        String(normalizedTheme?.productPriceColorDark || ""),
         String(normalizedTheme?.categoryGridDesktop || ""),
         String(normalizedTheme?.categoryGridMobile || ""),
         String(normalizedTheme?.categoryImageShape || ""),
