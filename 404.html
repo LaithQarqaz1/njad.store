@@ -3,6 +3,57 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="" type="image/png">
+  <link rel="shortcut icon" href="" type="image/png">
+  <link rel="apple-touch-icon" href="">
+  <script>
+    (function(){
+      function normalizeText(value){
+        var text = String(value == null ? "" : value).trim();
+        var lower = text.toLowerCase();
+        if (lower === "undefined" || lower === "null") return "";
+        return text;
+      }
+      function readCachedSiteIcon(){
+        try {
+          var raw = localStorage.getItem("site:media:v1");
+          if (!raw) return "";
+          var parsed = JSON.parse(raw);
+          if (!parsed || typeof parsed !== "object") return "";
+          var readValue = function(source, path){
+            var parts = String(path || "").split(".").filter(Boolean);
+            var cursor = source;
+            for (var i = 0; i < parts.length; i += 1) {
+              if (!cursor || typeof cursor !== "object") return "";
+              cursor = cursor[parts[i]];
+            }
+            return normalizeText(cursor);
+          };
+          var keys = [
+            "siteImage", "site_image", "appSettings.siteImage", "appSettings.site_image", "app_settings.siteImage", "app_settings.site_image",
+            "siteIcon", "site_icon", "icon", "iconUrl", "icon_url", "favicon", "faviconUrl", "favicon_url", "windowIcon", "window_icon", "windowImage", "window_image",
+            "headerLogo", "header_logo", "logo", "logoUrl", "logo_url"
+          ];
+          for (var idx = 0; idx < keys.length; idx += 1) {
+            var candidate = readValue(parsed, keys[idx]);
+            if (candidate) return candidate;
+          }
+        } catch (_) {}
+        return "";
+      }
+      function applySiteIcon(url){
+        var href = normalizeText(url);
+        if (!href) return;
+        try { window.__SITE_ICON__ = href; } catch (_) {}
+        try {
+          document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]').forEach(function(node){
+            if (node) node.setAttribute("href", href);
+          });
+        } catch (_) {}
+      }
+      applySiteIcon(readCachedSiteIcon());
+    })();
+  </script>
   <title>الصفحة غير موجودة</title>
   <link rel="preload" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <noscript><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet"></noscript>
@@ -10,7 +61,7 @@
   <noscript><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet"></noscript>
   <link rel="preload" href="header.css?v=20260331-22" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <script src="site-core.js?v=20260404-02"></script>
-  <script src="header.js?v=20260403-05"></script>
+  <script src="header.js?v=20260408-02"></script>
   <style>
     :root{
       --bg1:#050910;
@@ -124,9 +175,21 @@
           if (!raw) return "";
           var parsed = JSON.parse(raw);
           if (!parsed || typeof parsed !== "object") return "";
-          var keys = ["siteIcon", "site_icon", "icon", "iconUrl", "icon_url", "favicon", "faviconUrl", "favicon_url", "windowIcon", "window_icon", "windowImage", "window_image"];
+          var readValue = function(source, path){
+            var parts = String(path || "").split(".").filter(Boolean);
+            var cursor = source;
+            for (var idx = 0; idx < parts.length; idx += 1) {
+              if (!cursor || typeof cursor !== "object") return "";
+              cursor = cursor[parts[idx]];
+            }
+            return normalizeText(cursor);
+          };
+          var keys = [
+            "siteImage", "site_image", "appSettings.siteImage", "appSettings.site_image", "app_settings.siteImage", "app_settings.site_image",
+            "siteIcon", "site_icon", "icon", "iconUrl", "icon_url", "favicon", "faviconUrl", "favicon_url", "windowIcon", "window_icon", "windowImage", "window_image"
+          ];
           for (var i = 0; i < keys.length; i += 1) {
-            var candidate = normalizeText(parsed[keys[i]]);
+            var candidate = readValue(parsed, keys[i]);
             if (candidate) return candidate;
           }
         } catch (_) {}

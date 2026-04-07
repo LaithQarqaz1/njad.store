@@ -248,31 +248,48 @@ function readCachedSiteMediaObject(){
     return null;
   }
 }
+function readSiteMediaObjectValue(source, key){
+  const src = source && typeof source === 'object' ? source : null;
+  const path = String(key || '').trim();
+  if (!src || !path) return '';
+  const parts = path.split('.').filter(Boolean);
+  let cursor = src;
+  for (let i = 0; i < parts.length; i += 1) {
+    const part = String(parts[i] || '').trim();
+    if (!part || !cursor || typeof cursor !== 'object') return '';
+    cursor = cursor[part];
+  }
+  return trimSiteMediaUrl(cursor);
+}
 function readCachedSiteMediaCandidate(keys){
   const parsed = readCachedSiteMediaObject();
   if (!parsed || !Array.isArray(keys)) return '';
   for (let i = 0; i < keys.length; i += 1) {
     const key = String(keys[i] || '').trim();
     if (!key) continue;
-    const value = trimSiteMediaUrl(parsed[key]);
+    const value = readSiteMediaObjectValue(parsed, key);
     if (value) return value;
   }
   return '';
 }
+const SITE_ICON_CANDIDATE_KEYS = [
+  'siteImage', 'site_image', 'appSettings.siteImage', 'appSettings.site_image', 'app_settings.siteImage', 'app_settings.site_image',
+  'siteIcon', 'site_icon', 'icon', 'iconUrl', 'icon_url', 'favicon', 'faviconUrl', 'favicon_url', 'windowIcon', 'window_icon', 'windowImage', 'window_image',
+  'headerLogo', 'header_logo', 'logo', 'logoUrl', 'logo_url'
+];
+const SITE_HEADER_CANDIDATE_KEYS = ['headerLogo', 'header_logo', 'logo', 'logoUrl', 'logo_url'];
+const SITE_LOADER_CANDIDATE_KEYS = ['loaderLogo', 'loader_logo', 'loaderImage', 'loader_image', 'preloaderLogo', 'preloader_logo', 'loader'];
 function resolveSiteMediaFallbackUrl(kind, label){
-  const iconKeys = ['siteIcon', 'site_icon', 'icon', 'iconUrl', 'icon_url', 'favicon', 'faviconUrl', 'favicon_url', 'windowIcon', 'window_icon', 'windowImage', 'window_image'];
-  const headerKeys = ['headerLogo', 'header_logo', 'logo', 'logoUrl', 'logo_url'];
-  const loaderKeys = ['loaderLogo', 'loader_logo', 'loaderImage', 'loader_image', 'preloaderLogo', 'preloader_logo', 'loader'];
   const candidates = [];
   if (kind === 'loader') {
     candidates.push(window.__SITE_LOADER_IMAGE__);
-    candidates.push(readCachedSiteMediaCandidate(loaderKeys));
+    candidates.push(readCachedSiteMediaCandidate(SITE_LOADER_CANDIDATE_KEYS));
   } else if (kind === 'header') {
     candidates.push(window.__SITE_HEADER_LOGO__);
-    candidates.push(readCachedSiteMediaCandidate(headerKeys));
+    candidates.push(readCachedSiteMediaCandidate(SITE_HEADER_CANDIDATE_KEYS));
   } else if (kind === 'icon') {
     candidates.push(window.__SITE_ICON__);
-    candidates.push(readCachedSiteMediaCandidate(iconKeys));
+    candidates.push(readCachedSiteMediaCandidate(SITE_ICON_CANDIDATE_KEYS));
   } else if (kind === 'catalog') {
     candidates.push("");
   }
@@ -280,7 +297,10 @@ function resolveSiteMediaFallbackUrl(kind, label){
     const value = trimSiteMediaUrl(candidates[i]);
     if (value) return value;
   }
-  return kind === 'icon' ? buildSiteMediaPlaceholder(kind, label) : '';
+  if (kind === 'icon') {
+    return '';
+  }
+  return '';
 }
 try { window.__createSiteMediaPlaceholderUrl = buildSiteMediaPlaceholder; } catch {}
 try { window.__resolveSiteMediaFallbackUrl = resolveSiteMediaFallbackUrl; } catch {}
@@ -5947,9 +5967,11 @@ function applyAuthUi(user){
   var brand = readHeaderSiteBrandState();
   var showDepositBtn = !(brand.depositTree && brand.depositTree.hideFromSidebar);
   var showWithdrawBtn = !(brand.withdrawTree && brand.withdrawTree.hideFromSidebar);
+  const homeBtn = resolveSidebarNode('homeBtn', typeof homeLi !== 'undefined' ? homeLi : null);
   const loginBtn = resolveSidebarNode('loginSidebarBtn', typeof loginLi !== 'undefined' ? loginLi : null);
   const depositBtn = resolveSidebarNode('depositBtn', typeof depositLi !== 'undefined' ? depositLi : null);
   const paymentsBtn = resolveSidebarNode('paymentsBtn', typeof paymentsLi !== 'undefined' ? paymentsLi : null);
+  const ordersBtn = resolveSidebarNode('ordersBtn', typeof ordersLi !== 'undefined' ? ordersLi : null);
   const walletBtn = resolveSidebarNode('walletBtn', typeof walletLi !== 'undefined' ? walletLi : null);
   const transferBtn = resolveSidebarNode('transferBtn', typeof transferLi !== 'undefined' ? transferLi : null);
   const withdrawBtn = resolveSidebarNode('withdrawBtn', typeof withdrawLi !== 'undefined' ? withdrawLi : null);
@@ -5967,9 +5989,11 @@ function applyAuthUi(user){
       const accountNo = normalizeAccountNoValue(profileUser && (profileUser.accountNo ?? profileUser.account_no ?? profileUser.rank));
       if (accountNo) localStorage.setItem(LAST_ACCOUNT_NO_KEY, String(accountNo));
     } catch {}
+    setSidebarNodeVisibility(homeBtn, true, 'flex');
     setSidebarNodeVisibility(loginBtn, false, 'flex');
     setSidebarNodeVisibility(depositBtn, showDepositBtn, 'flex');
     setSidebarNodeVisibility(paymentsBtn, true, 'flex');
+    setSidebarNodeVisibility(ordersBtn, true, 'flex');
     setSidebarNodeVisibility(walletBtn, true, 'flex');
     setSidebarNodeVisibility(transferBtn, true, 'flex');
     setSidebarNodeVisibility(withdrawBtn, showWithdrawBtn, 'flex');
@@ -5982,11 +6006,13 @@ function applyAuthUi(user){
     try { localStorage.setItem(LAST_LOGGED_KEY, '0'); } catch {}
     try { localStorage.removeItem(LAST_UID_KEY); } catch {}
     try { localStorage.removeItem(LAST_ACCOUNT_NO_KEY); } catch {}
+    setSidebarNodeVisibility(homeBtn, true, 'flex');
     setSidebarNodeVisibility(loginBtn, true, 'flex');
     setSidebarNodeVisibility(depositBtn, false, 'flex');
     setSidebarNodeVisibility(paymentsBtn, false, 'flex');
-    setSidebarNodeVisibility(walletBtn, false, 'flex');
-    setSidebarNodeVisibility(transferBtn, false, 'flex');
+    setSidebarNodeVisibility(ordersBtn, true, 'flex');
+    setSidebarNodeVisibility(walletBtn, true, 'flex');
+    setSidebarNodeVisibility(transferBtn, true, 'flex');
     setSidebarNodeVisibility(withdrawBtn, false, 'flex');
     setSidebarNodeVisibility(securityBtn, false, 'flex');
     setSidebarNodeVisibility(telegramBtn, false, 'flex');
@@ -11189,9 +11215,9 @@ function wirePageBalanceBox(){
         if (!raw) return "";
         const parsed = JSON.parse(raw);
         if (!parsed || typeof parsed !== "object") return "";
-        const keys = ["siteIcon", "site_icon", "icon", "iconUrl", "icon_url", "favicon", "faviconUrl", "favicon_url", "windowIcon", "window_icon", "windowImage", "window_image"];
+        const keys = SITE_ICON_CANDIDATE_KEYS;
         for (let i = 0; i < keys.length; i += 1) {
-          const candidate = String(parsed[keys[i]] || "").trim();
+          const candidate = readSiteMediaObjectValue(parsed, keys[i]);
           if (candidate) return candidate;
         }
       } catch {}
@@ -12439,9 +12465,13 @@ html[data-theme="dark"] #wa-join-modal .wa-modal-content{
   --site-category-grid-desktop:${normalizedTheme.categoryGridDesktop};
   --site-category-grid-mobile:${normalizedTheme.categoryGridMobile};
   --site-category-image-shape:${normalizedTheme.categoryImageShape};
+  --site-category-image-radius:${buildSiteLayoutCornerRadiusValue(normalizedTheme.categoryImageCorners, 18)};
+  --site-category-title-size:${normalizeSiteLayoutTitleSize(normalizedTheme.categoryTitleSize, 15)}px;
   --site-product-grid-desktop:${normalizedTheme.productGridDesktop};
   --site-product-grid-mobile:${normalizedTheme.productGridMobile};
   --site-product-image-shape:${normalizedTheme.productImageShape};
+  --site-product-image-radius:${buildSiteLayoutCornerRadiusValue(normalizedTheme.productImageCorners, 18)};
+  --site-product-title-size:${normalizeSiteLayoutTitleSize(normalizedTheme.productTitleSize, 15)}px;
 }
 ${(textColorLight || textColorDark) ? `
 html[data-theme="light"] .security-page{
@@ -12682,6 +12712,73 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
       const fallbackKey = String(fallback == null ? "" : fallback).trim().toLowerCase();
       return map[fallbackKey] || "1/1";
     }
+    function normalizeSiteLayoutCornerMask(value, fallback){
+      const parseValue = function(rawValue, rawFallback){
+        const text = String(rawValue == null ? "" : rawValue).trim().toLowerCase();
+        if (!text) {
+          return rawFallback === undefined ? null : parseValue(rawFallback, undefined);
+        }
+        if (text === "none" || text === "off" || text === "flat" || text === "square" || text === "0") {
+          return "none";
+        }
+        const normalizedText = text
+          .replace(/top[-_ ]left/g, "tl")
+          .replace(/top[-_ ]right/g, "tr")
+          .replace(/bottom[-_ ]right/g, "br")
+          .replace(/bottom[-_ ]left/g, "bl")
+          .replace(/left[-_ ]top/g, "tl")
+          .replace(/right[-_ ]top/g, "tr")
+          .replace(/right[-_ ]bottom/g, "br")
+          .replace(/left[-_ ]bottom/g, "bl");
+        if (normalizedText === "all" || normalizedText === "full" || normalizedText === "rounded") {
+          return "tl,tr,br,bl";
+        }
+        if (normalizedText === "top" || normalizedText === "toponly" || normalizedText === "upper") {
+          return "tl,tr";
+        }
+        if (normalizedText === "bottom" || normalizedText === "bottomonly" || normalizedText === "lower") {
+          return "br,bl";
+        }
+        const active = new Set();
+        normalizedText.split(/[^a-z]+/g).forEach((token) => {
+          if (token === "tl" || token === "tr" || token === "br" || token === "bl") active.add(token);
+        });
+        if (!active.size) {
+          return rawFallback === undefined ? "tl,tr" : parseValue(rawFallback, undefined);
+        }
+        return ["tl", "tr", "br", "bl"].filter((token) => active.has(token)).join(",");
+      };
+      return parseValue(value, fallback);
+    }
+    function normalizeSiteLayoutTitleSize(value, fallback){
+      const parseValue = (rawValue) => {
+        if (typeof rawValue === "number") return rawValue;
+        const text = String(rawValue == null ? "" : rawValue).trim().toLowerCase();
+        if (!text) return NaN;
+        if (/^-?\d+(?:\.\d+)?rem$/.test(text)) return Number.parseFloat(text) * 16;
+        return Number.parseFloat(text);
+      };
+      const parsed = parseValue(value);
+      const fallbackValue = parseValue(fallback);
+      const resolved = Number.isFinite(parsed)
+        ? parsed
+        : (Number.isFinite(fallbackValue) ? fallbackValue : 15);
+      return Math.max(12, Math.min(32, Math.round(resolved)));
+    }
+    function buildSiteLayoutCornerRadiusValue(mask, radiusPx){
+      const normalizedMask = normalizeSiteLayoutCornerMask(mask, "tl,tr");
+      const active = normalizedMask === "none"
+        ? []
+        : normalizedMask.split(",").map((token) => String(token || "").trim()).filter(Boolean);
+      const activeSet = new Set(active);
+      const safeRadius = Math.max(0, Math.min(48, Math.round(Number(radiusPx) || 18)));
+      return [
+        activeSet.has("tl") ? `${safeRadius}px` : "0px",
+        activeSet.has("tr") ? `${safeRadius}px` : "0px",
+        activeSet.has("br") ? `${safeRadius}px` : "0px",
+        activeSet.has("bl") ? `${safeRadius}px` : "0px"
+      ].join(" ");
+    }
     function normalizeSiteThemeState(raw){
       const src = (raw && typeof raw === "object") ? raw : {};
       const name = String(
@@ -12906,6 +13003,22 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
           "1/1",
           "1/1"
         ),
+        categoryImageCorners: normalizeSiteLayoutCornerMask(
+          src.categoryImageCorners ??
+          src.category_image_corners ??
+          src.categoryCardCorners ??
+          src.category_card_corners ??
+          "tl,tr",
+          "tl,tr"
+        ),
+        categoryTitleSize: normalizeSiteLayoutTitleSize(
+          src.categoryTitleSize ??
+          src.category_title_size ??
+          src.categoryCardTitleSize ??
+          src.category_card_title_size ??
+          15,
+          15
+        ),
         productGridDesktop: normalizeSiteLayoutCount(
           src.productGridDesktop ??
           src.product_grid_desktop ??
@@ -12929,6 +13042,22 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
           src.product_card_shape ??
           "1/1",
           "1/1"
+        ),
+        productImageCorners: normalizeSiteLayoutCornerMask(
+          src.productImageCorners ??
+          src.product_image_corners ??
+          src.productCardCorners ??
+          src.product_card_corners ??
+          "tl,tr",
+          "tl,tr"
+        ),
+        productTitleSize: normalizeSiteLayoutTitleSize(
+          src.productTitleSize ??
+          src.product_title_size ??
+          src.productCardTitleSize ??
+          src.product_card_title_size ??
+          15,
+          15
         )
       };
     }
@@ -13118,9 +13247,13 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
         String(normalizedTheme?.categoryGridDesktop || ""),
         String(normalizedTheme?.categoryGridMobile || ""),
         String(normalizedTheme?.categoryImageShape || ""),
+        String(normalizedTheme?.categoryImageCorners || ""),
+        String(normalizedTheme?.categoryTitleSize || ""),
         String(normalizedTheme?.productGridDesktop || ""),
         String(normalizedTheme?.productGridMobile || ""),
-        String(normalizedTheme?.productImageShape || "")
+        String(normalizedTheme?.productImageShape || ""),
+        String(normalizedTheme?.productImageCorners || ""),
+        String(normalizedTheme?.productTitleSize || "")
       ].join("|");
       if (activeSiteThemeSignature === nextThemeSignature && bodyMatchesSeasonalTheme(body, name)) {
         try { syncMaintenanceTheme(document.getElementById("maintenance-overlay")); } catch {}
@@ -13287,6 +13420,28 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
 
     function normalizeSiteMediaState(raw){
       const src = (raw && typeof raw === "object") ? raw : {};
+      const appSettings = (src.appSettings && typeof src.appSettings === "object")
+        ? src.appSettings
+        : ((src.app_settings && typeof src.app_settings === "object") ? src.app_settings : {});
+      const siteImage = normalizeSiteMediaUrl(
+        src.siteImage ||
+        src.site_image ||
+        appSettings.siteImage ||
+        appSettings.site_image ||
+        src.siteIcon ||
+        src.site_icon ||
+        src.icon ||
+        src.iconUrl ||
+        src.icon_url ||
+        src.favicon ||
+        src.faviconUrl ||
+        src.favicon_url ||
+        src.windowIcon ||
+        src.window_icon ||
+        src.windowImage ||
+        src.window_image ||
+        ""
+      );
       return {
         loaderLogo: normalizeSiteMediaUrl(
           src.loaderLogo ||
@@ -13306,21 +13461,8 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
           src.logo_url ||
           ""
         ),
-        siteIcon: normalizeSiteMediaUrl(
-          src.siteIcon ||
-          src.site_icon ||
-          src.icon ||
-          src.iconUrl ||
-          src.icon_url ||
-          src.favicon ||
-          src.faviconUrl ||
-          src.favicon_url ||
-          src.windowIcon ||
-          src.window_icon ||
-          src.windowImage ||
-          src.window_image ||
-          ""
-        ),
+        siteImage: siteImage,
+        siteIcon: siteImage,
         heroBanners: normalizeSiteMediaBanners(
           src.heroBanners ||
           src.hero_banners ||
@@ -13612,6 +13754,7 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
         localStorage.setItem(SITE_MEDIA_CACHE_KEY, JSON.stringify({
           loaderLogo: normalizeSiteMediaUrl(media?.loaderLogo || ""),
           headerLogo: normalizeSiteMediaUrl(media?.headerLogo || ""),
+          siteImage: normalizeSiteMediaUrl(media?.siteImage || media?.siteIcon || ""),
           siteIcon: normalizeSiteMediaUrl(media?.siteIcon || ""),
           heroBanners: normalizeSiteMediaBanners(media?.heroBanners || [])
         }));
@@ -13717,7 +13860,12 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
         appleIcon.setAttribute("sizes", "180x180");
       }
       setMetaContent('meta[property="og:image"]', next);
+      setMetaContent('meta[property="og:image:secure_url"]', next);
+      setMetaContent('meta[property="og:image:alt"]', "شعار المتجر");
       setMetaContent('meta[name="twitter:image"]', next);
+      setMetaContent('meta[name="twitter:image:src"]', next);
+      setMetaContent('meta[name="msapplication-TileImage"]', next);
+      setMetaContent('meta[itemprop="image"]', next);
       preloadImageAsset(next);
       try {
         window.dispatchEvent(new CustomEvent("site:icon", { detail: { url: next } }));
@@ -13803,13 +13951,14 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
 
     function applySiteMedia(raw){
       const media = normalizeSiteMediaState(raw || {});
-      applySiteIcon(media.siteIcon);
+      applySiteIcon(media.siteImage || media.siteIcon);
       applyLoaderLogo(media.loaderLogo);
       applyHeaderLogo(media.headerLogo);
       applyHeroBanners(media.heroBanners);
       cacheSiteMedia({
         loaderLogo: media.loaderLogo,
         headerLogo: media.headerLogo,
+        siteImage: media.siteImage,
         siteIcon: media.siteIcon,
         heroBanners: media.heroBanners
       });
@@ -14356,7 +14505,10 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
         applyMaintenance(data.maintenance || {});
       });
       runSiteStateStep('media', function(){
-        applySiteMedia(data.media || data.siteMedia || data.branding || {});
+        applySiteMedia({
+          ...(data.media || data.siteMedia || data.branding || {}),
+          appSettings: data.appSettings || data.app_settings || {}
+        });
       });
       runSiteStateBodyStep('notice', function(){
         applySiteNotice(data.notification || data.notice || {});
