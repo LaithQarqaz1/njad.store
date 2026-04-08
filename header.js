@@ -6022,8 +6022,461 @@ function applyAuthUi(user){
   try { applySidebarIdentity(logged ? (effectiveUser || user || null) : null); } catch {}
   try { setSidebarQuickAuthIcon(logged ? (effectiveUser || user || null) : null); } catch {}
   try { syncWalletTreeSidebarUi(logged ? (effectiveUser || user || null) : null); } catch {}
+  try { syncInstallAppSidebarUi(); } catch {}
 }
 try { window.__applyAuthUi = applyAuthUi; } catch {}
+
+const SITE_PWA_SW_URL = "sw.js?v=20260408-08";
+let deferredSiteInstallPrompt = null;
+let activeSiteManifestUrl = "";
+let sitePwaRegistrationPromise = null;
+let siteInstallAutoGuideTimer = 0;
+let siteInstallAutoPromptBound = false;
+const SITE_INSTALL_AUTO_SESSION_KEY = "site:install:auto:v20260408-01";
+
+function normalizeInstallAppText(value){
+  return String(value == null ? "" : value).trim();
+}
+function isSiteInstallStandalone(){
+  try {
+    if (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) return true;
+  } catch {}
+  try {
+    if (window.matchMedia && window.matchMedia("(display-mode: fullscreen)").matches) return true;
+  } catch {}
+  try {
+    if (window.navigator && window.navigator.standalone === true) return true;
+  } catch {}
+  return false;
+}
+function isIosInstallBrowser(){
+  const ua = String(navigator && navigator.userAgent || "").toLowerCase();
+  const platform = String(navigator && navigator.platform || "").toLowerCase();
+  const maxTouchPoints = Number(navigator && navigator.maxTouchPoints || 0);
+  const iosLike = /iphone|ipad|ipod/.test(ua) || platform === "iphone" || platform === "ipad" || platform === "ipod" || (platform === "macintel" && maxTouchPoints > 1);
+  const safariLike = /safari/.test(ua) && !/crios|fxios|edgios|opios|mercury/.test(ua);
+  return !!(iosLike && safariLike);
+}
+function canRegisterSitePwaServiceWorker(){
+  try {
+    if (!("serviceWorker" in navigator)) return false;
+    const protocol = String(window.location && window.location.protocol || "").toLowerCase();
+    if (protocol === "https:") return true;
+    if (protocol !== "http:") return false;
+    const hostname = String(window.location && window.location.hostname || "").trim().toLowerCase();
+    return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
+  } catch (_) {
+    return false;
+  }
+}
+function isInstallAppButtonEnabled(){
+  try {
+    if (window.__ACTIVE_SITE_THEME_STATE__ && typeof window.__ACTIVE_SITE_THEME_STATE__ === "object") {
+      return window.__ACTIVE_SITE_THEME_STATE__.installAppButtonEnabled !== false;
+    }
+  } catch {}
+  try {
+    const cachedTheme = readCachedSiteTheme && readCachedSiteTheme();
+    if (cachedTheme && typeof cachedTheme === "object") {
+      return cachedTheme.installAppButtonEnabled !== false;
+    }
+  } catch {}
+  return true;
+}
+function canOfferInstallApp(){
+  if (isSiteInstallStandalone()) return false;
+  if (isIosInstallBrowser()) return true;
+  return !!(deferredSiteInstallPrompt && typeof deferredSiteInstallPrompt.prompt === "function");
+}
+function hasSeenSiteInstallAutoPromptThisSession(){
+  try {
+    return String(sessionStorage.getItem(SITE_INSTALL_AUTO_SESSION_KEY) || "") === "1";
+  } catch (_) {
+    return false;
+  }
+}
+function markSiteInstallAutoPromptThisSession(){
+  try { sessionStorage.setItem(SITE_INSTALL_AUTO_SESSION_KEY, "1"); } catch {}
+}
+function clearSiteInstallAutoGuideTimer(){
+  if (!siteInstallAutoGuideTimer) return;
+  try { window.clearTimeout(siteInstallAutoGuideTimer); } catch {}
+  siteInstallAutoGuideTimer = 0;
+}
+function disarmSiteInstallAutoPrompt(){
+  if (!siteInstallAutoPromptBound) return;
+  try { document.removeEventListener("click", handleSiteInstallAutoPromptInteraction, true); } catch {}
+  try { window.removeEventListener("keydown", handleSiteInstallAutoPromptInteraction, true); } catch {}
+  siteInstallAutoPromptBound = false;
+}
+function handleSiteInstallAutoPromptInteraction(ev){
+  try {
+    const target = ev && ev.target;
+    if (target && typeof target.closest === "function" && target.closest('#installAppBtn')) return;
+  } catch {}
+  if (isSiteInstallStandalone() || !isInstallAppButtonEnabled() || hasSeenSiteInstallAutoPromptThisSession()) {
+    disarmSiteInstallAutoPrompt();
+    return;
+  }
+  if (!(deferredSiteInstallPrompt && typeof deferredSiteInstallPrompt.prompt === "function")) {
+    disarmSiteInstallAutoPrompt();
+    return;
+  }
+  markSiteInstallAutoPromptThisSession();
+  disarmSiteInstallAutoPrompt();
+  try {
+    window.setTimeout(function(){
+      promptSiteInstallApp();
+    }, 0);
+  } catch (_) {
+    promptSiteInstallApp();
+  }
+}
+function armSiteInstallAutoPrompt(){
+  if (siteInstallAutoPromptBound) return;
+  try { document.addEventListener("click", handleSiteInstallAutoPromptInteraction, true); } catch {}
+  try { window.addEventListener("keydown", handleSiteInstallAutoPromptInteraction, true); } catch {}
+  siteInstallAutoPromptBound = true;
+}
+function syncSiteInstallAutoPrompt(){
+  clearSiteInstallAutoGuideTimer();
+  disarmSiteInstallAutoPrompt();
+}
+function ensureInstallAppGuideDialog(){
+  try {
+    let overlay = document.getElementById('install-app-guide-overlay');
+    if (overlay) return overlay;
+    if (!document.getElementById('install-app-guide-style')) {
+      const style = document.createElement('style');
+      style.id = 'install-app-guide-style';
+      style.textContent = `
+      .install-app-guide-overlay{
+        position:fixed;
+        inset:0;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        padding:16px;
+        background:rgba(3,6,18,.58);
+        backdrop-filter:blur(5px);
+        z-index:16010;
+        opacity:0;
+        pointer-events:none;
+        transition:opacity .18s ease;
+      }
+      .install-app-guide-overlay.is-open{
+        opacity:1;
+        pointer-events:auto;
+      }
+      .install-app-guide-card{
+        width:min(92vw,560px);
+        border-radius:18px;
+        border:1px solid rgba(96,165,250,.28);
+        background:linear-gradient(160deg,#151827 0%,#11131f 100%);
+        box-shadow:0 26px 70px rgba(0,0,0,.52);
+        color:#f8fafc;
+        padding:20px 22px;
+        text-align:right;
+        direction:rtl;
+      }
+      .install-app-guide-title{
+        margin:0 0 10px;
+        font-size:1.28rem;
+        font-weight:800;
+        line-height:1.35;
+        text-align:center;
+      }
+      .install-app-guide-msg{
+        margin:0 0 18px;
+        font-size:1rem;
+        line-height:1.95;
+        text-align:center;
+        color:rgba(241,245,249,.98);
+        white-space:pre-wrap;
+      }
+      .install-app-guide-actions{
+        display:flex;
+        justify-content:center;
+      }
+      .install-app-guide-btn{
+        border:0;
+        border-radius:999px;
+        min-width:110px;
+        padding:10px 18px;
+        font-size:1rem;
+        font-weight:700;
+        cursor:pointer;
+        color:#10111a;
+        background:linear-gradient(135deg,#dbe4ff,#7dd3fc);
+        box-shadow:0 8px 20px rgba(125,211,252,.28);
+      }
+      .install-app-guide-btn:focus-visible{
+        outline:2px solid rgba(191,219,254,.95);
+        outline-offset:2px;
+      }`;
+      (document.head || document.documentElement).appendChild(style);
+    }
+    overlay = document.createElement('div');
+    overlay.id = 'install-app-guide-overlay';
+    overlay.className = 'install-app-guide-overlay';
+    overlay.setAttribute('aria-hidden', 'true');
+    overlay.setAttribute('inert', '');
+    overlay.innerHTML = `
+      <div class="install-app-guide-card" role="dialog" aria-modal="true" aria-labelledby="installAppGuideTitle" aria-describedby="installAppGuideMessage">
+        <h2 id="installAppGuideTitle" class="install-app-guide-title">تنزيل التطبيق</h2>
+        <p id="installAppGuideMessage" class="install-app-guide-msg"></p>
+        <div class="install-app-guide-actions">
+          <button type="button" id="installAppGuideOkBtn" class="install-app-guide-btn">حسنًا</button>
+        </div>
+      </div>
+    `;
+    const finish = function(){
+      if (!overlay || overlay.__dialogDone) return;
+      overlay.__dialogDone = true;
+      const activeEl = document.activeElement;
+      if (activeEl && typeof overlay.contains === "function" && overlay.contains(activeEl) && typeof activeEl.blur === "function") {
+        try { activeEl.blur(); } catch {}
+      }
+      overlay.classList.remove('is-open');
+      overlay.setAttribute('aria-hidden', 'true');
+      overlay.setAttribute('inert', '');
+      const returnFocusEl = overlay.__returnFocusEl;
+      overlay.__returnFocusEl = null;
+      if (returnFocusEl && returnFocusEl !== document.body && document.contains(returnFocusEl) && typeof returnFocusEl.focus === "function") {
+        window.setTimeout(function(){
+          try { returnFocusEl.focus(); } catch {}
+        }, 0);
+      }
+    };
+    overlay.__finish = finish;
+    const okBtn = overlay.querySelector('#installAppGuideOkBtn');
+    if (okBtn) okBtn.addEventListener('click', function(){ finish(); });
+    overlay.addEventListener('click', function(ev){
+      if (ev.target === overlay) finish();
+    });
+    overlay.addEventListener('keydown', function(ev){
+      if (String(ev && ev.key || '') === 'Escape') finish();
+    });
+    (document.body || document.documentElement).appendChild(overlay);
+    return overlay;
+  } catch (_) {
+    return null;
+  }
+}
+function showInstallAppGuideDialog(message){
+  const overlay = ensureInstallAppGuideDialog();
+  if (!overlay) return false;
+  overlay.__dialogDone = false;
+  try {
+    const previousFocus = document.activeElement;
+    overlay.__returnFocusEl = previousFocus && previousFocus !== document.body && !overlay.contains(previousFocus) ? previousFocus : null;
+  } catch (_) {
+    overlay.__returnFocusEl = null;
+  }
+  const msgEl = overlay.querySelector('#installAppGuideMessage');
+  if (msgEl) msgEl.textContent = String(message || '').trim();
+  overlay.removeAttribute('inert');
+  overlay.setAttribute('aria-hidden', 'false');
+  overlay.classList.add('is-open');
+  const okBtn = overlay.querySelector('#installAppGuideOkBtn');
+  if (okBtn) {
+    try { okBtn.focus(); } catch {}
+  }
+  return true;
+}
+function resolveInstallAppAbsoluteUrl(value, fallback){
+  const raw = normalizeInstallAppText(value || fallback);
+  if (!raw) return "";
+  try {
+    const base = normalizeInstallAppText(window.location && window.location.origin) || normalizeInstallAppText(window.location && window.location.href) || "/";
+    return new URL(raw, base).href;
+  } catch (_) {
+    return raw;
+  }
+}
+function revokeSiteManifestUrl(){
+  if (!activeSiteManifestUrl) {
+    try { activeSiteManifestUrl = normalizeInstallAppText(window.__SITE_PWA_MANIFEST_URL__); } catch {}
+  }
+  if (!activeSiteManifestUrl) return;
+  try { URL.revokeObjectURL(activeSiteManifestUrl); } catch {}
+  try { window.__SITE_PWA_MANIFEST_URL__ = ""; } catch {}
+  activeSiteManifestUrl = "";
+}
+function readInstallAppBrandName(){
+  try {
+    const brand = readHeaderSiteBrandState();
+    const storeName = normalizeInstallAppText(brand && brand.storeName);
+    if (storeName) return storeName;
+  } catch {}
+  try {
+    const fallback = normalizeInstallAppText(window.__SITE_STORE_NAME__);
+    if (fallback) return fallback;
+  } catch {}
+  try {
+    const metaTitle = normalizeInstallAppText(document.title);
+    if (metaTitle) return metaTitle;
+  } catch {}
+  try {
+    return normalizeInstallAppText(DEFAULT_SITE_STORE_NAME) || normalizeInstallAppText(window.location && window.location.hostname) || "Njad";
+  } catch (_) {
+    return normalizeInstallAppText(window.location && window.location.hostname) || "Njad";
+  }
+}
+function readInstallAppIconUrl(){
+  try {
+    const fromWindow = normalizeInstallAppText(window.__SITE_ICON__);
+    if (fromWindow) return fromWindow;
+  } catch {}
+  try {
+    const link = document.querySelector('link[rel="icon"], link[rel="apple-touch-icon"]');
+    const href = normalizeInstallAppText(link && (link.getAttribute("href") || link.href));
+    if (href) return href;
+  } catch {}
+  return "";
+}
+function ensureSiteInstallManifest(){
+  if (!document.head || typeof Blob === "undefined" || !(window.URL && typeof window.URL.createObjectURL === "function")) return "";
+  const name = readInstallAppBrandName();
+  const shortName = name.length > 32 ? name.slice(0, 32) : name;
+  const iconUrl = resolveInstallAppAbsoluteUrl(readInstallAppIconUrl(), "");
+  const themeColor = normalizeInstallAppText((document.querySelector('meta[name="theme-color"]') || {}).content) || "#05050b";
+  const appScopeUrl = resolveInstallAppAbsoluteUrl("/", "/");
+  const appStartUrl = resolveInstallAppAbsoluteUrl("/index.html?source=pwa#/", "/index.html?source=pwa#/");
+  const manifest = {
+    id: resolveInstallAppAbsoluteUrl("/?source=pwa", "/?source=pwa"),
+    name: name || "Njad",
+    short_name: shortName || name || "Njad",
+    start_url: appStartUrl,
+    scope: appScopeUrl,
+    display: "standalone",
+    display_override: ["standalone", "minimal-ui", "browser"],
+    background_color: "#05050b",
+    theme_color: themeColor,
+    lang: "ar",
+    dir: "rtl",
+    prefer_related_applications: false
+  };
+  if (iconUrl) {
+    manifest.icons = [
+      { src: iconUrl, sizes: "192x192", type: "image/png", purpose: "any maskable" },
+      { src: iconUrl, sizes: "512x512", type: "image/png", purpose: "any maskable" }
+    ];
+  }
+  let link = null;
+  try { link = document.querySelector('link[rel="manifest"]'); } catch (_) { link = null; }
+  if (!link) {
+    try {
+      link = document.createElement("link");
+      link.rel = "manifest";
+      link.id = "dynamicSiteManifestLink";
+      document.head.appendChild(link);
+    } catch (_) {
+      link = null;
+    }
+  }
+  if (!link) return "";
+  revokeSiteManifestUrl();
+  try {
+    activeSiteManifestUrl = URL.createObjectURL(new Blob([JSON.stringify(manifest)], {
+      type: "application/manifest+json"
+    }));
+    try { window.__SITE_PWA_MANIFEST_URL__ = activeSiteManifestUrl; } catch {}
+    link.setAttribute("href", activeSiteManifestUrl);
+    return activeSiteManifestUrl;
+  } catch (_) {
+    activeSiteManifestUrl = "";
+    return "";
+  }
+}
+function registerSitePwaServiceWorker(){
+  if (!canRegisterSitePwaServiceWorker()) return Promise.resolve(null);
+  if (sitePwaRegistrationPromise) return sitePwaRegistrationPromise;
+  sitePwaRegistrationPromise = navigator.serviceWorker.register(SITE_PWA_SW_URL, { scope: "/" }).catch(function(){
+    return null;
+  });
+  return sitePwaRegistrationPromise;
+}
+function syncInstallAppSidebarUi(){
+  const installBtn = resolveSidebarNode('installAppBtn', document.getElementById('installAppBtn'));
+  const showButton = !!(isInstallAppButtonEnabled() && canOfferInstallApp());
+  if (installBtn) {
+    setSidebarNodeVisibility(installBtn, showButton, 'flex');
+  }
+  try { syncSiteInstallAutoPrompt(); } catch {}
+}
+function showInstallAppInstructions(){
+  if (!isIosInstallBrowser()) return false;
+  return showInstallAppGuideDialog('لتثبيت التطبيق على iPhone أو iPad افتح زر المشاركة في Safari ثم اختر "Add to Home Screen".');
+}
+async function promptSiteInstallApp(){
+  if (isSiteInstallStandalone()) {
+    syncInstallAppSidebarUi();
+    return false;
+  }
+  try { ensureSiteInstallManifest(); } catch {}
+  try { await registerSitePwaServiceWorker(); } catch {}
+  const promptEvent = deferredSiteInstallPrompt;
+  if (promptEvent && typeof promptEvent.prompt === "function") {
+    let didPrompt = false;
+    try {
+      await promptEvent.prompt();
+      didPrompt = true;
+    } catch {}
+    if (!didPrompt) {
+      syncInstallAppSidebarUi();
+      return false;
+    }
+    try { await promptEvent.userChoice; } catch {}
+    deferredSiteInstallPrompt = null;
+    try { window.__DEFERRED_SITE_INSTALL_PROMPT__ = null; } catch {}
+    setTimeout(function(){
+      syncInstallAppSidebarUi();
+    }, 120);
+    return true;
+  }
+  if (isIosInstallBrowser()) {
+    showInstallAppInstructions();
+  } else {
+    syncInstallAppSidebarUi();
+  }
+  return false;
+}
+try {
+  window.addEventListener("beforeinstallprompt", function(ev){
+    deferredSiteInstallPrompt = ev;
+    try { window.__DEFERRED_SITE_INSTALL_PROMPT__ = ev; } catch {}
+    syncInstallAppSidebarUi();
+  });
+} catch {}
+try {
+  window.addEventListener("appinstalled", function(){
+    deferredSiteInstallPrompt = null;
+    try { window.__DEFERRED_SITE_INSTALL_PROMPT__ = null; } catch {}
+    clearSiteInstallAutoGuideTimer();
+    disarmSiteInstallAutoPrompt();
+    syncInstallAppSidebarUi();
+  });
+} catch {}
+try {
+  document.addEventListener("theme:change", function(){
+    try { ensureSiteInstallManifest(); } catch {}
+    syncInstallAppSidebarUi();
+  });
+} catch {}
+if (document.readyState === "loading") {
+  try {
+    document.addEventListener("DOMContentLoaded", function(){
+      try { ensureSiteInstallManifest(); } catch {}
+      try { registerSitePwaServiceWorker(); } catch {}
+      syncInstallAppSidebarUi();
+    }, { once: true });
+  } catch {}
+} else {
+  try { ensureSiteInstallManifest(); } catch {}
+  try { registerSitePwaServiceWorker(); } catch {}
+  try { syncInstallAppSidebarUi(); } catch {}
+}
 
 function clearAuthClientState(){
   let uid = "";
@@ -7056,6 +7509,24 @@ function bindSidebarNavItem(li, targetHash, routeKey){
     }
   } catch {}
 }
+function bindSidebarActionItem(li, handler){
+  if (!li || typeof handler !== 'function') return;
+  const run = function(ev){
+    try {
+      if (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (typeof ev.stopImmediatePropagation === 'function') ev.stopImmediatePropagation();
+      }
+    } catch {}
+    try { handler(); } catch {}
+  };
+  li.onclick = run;
+  try {
+    const link = li.querySelector('a[href]');
+    if (link) link.addEventListener('click', run);
+  } catch {}
+}
 // الرئيسية
 const homeLi = document.createElement('li');
 homeLi.id = 'homeBtn';
@@ -7153,6 +7624,17 @@ telegramLi.innerHTML = '<i class="fa-brands fa-telegram"></i><a href="#" data-i1
 bindSidebarNavItem(telegramLi, '#/telegram', 'telegram');
 telegramLi.style.display = 'none';
 ul.appendChild(telegramLi);
+// تنزيل التطبيق
+const installAppLi = document.createElement('li');
+installAppLi.id = 'installAppBtn';
+installAppLi.className = 'sidebar-nav-item';
+installAppLi.style.setProperty('--sidebar-item-icon', '#60a5fa');
+installAppLi.innerHTML = '<i class="fa-solid fa-download"></i><a href="#">\u062A\u0646\u0632\u064A\u0644\u0020\u0627\u0644\u062A\u0637\u0628\u064A\u0642</a>';
+bindSidebarActionItem(installAppLi, function(){
+  promptSiteInstallApp();
+});
+installAppLi.style.display = 'none';
+ul.appendChild(installAppLi);
 // API docs
 const apiLi = document.createElement('li');
 apiLi.id = 'apiBtn';
@@ -12765,6 +13247,15 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
         : (Number.isFinite(fallbackValue) ? fallbackValue : 15);
       return Math.max(12, Math.min(32, Math.round(resolved)));
     }
+    function normalizeSiteThemeFlag(value, fallback){
+      if (value === true || value === false) return value;
+      if (typeof value === "number") return value !== 0;
+      const text = String(value == null ? "" : value).trim().toLowerCase();
+      if (!text) return !!fallback;
+      if (["1", "true", "yes", "on", "enabled", "active", "visible", "show"].includes(text)) return true;
+      if (["0", "false", "no", "off", "disabled", "inactive", "hidden", "hide"].includes(text)) return false;
+      return !!fallback;
+    }
     function buildSiteLayoutCornerRadiusValue(mask, radiusPx){
       const normalizedMask = normalizeSiteLayoutCornerMask(mask, "tl,tr");
       const active = normalizedMask === "none"
@@ -12979,6 +13470,17 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
         productPriceColor: productPriceColorLight || productPriceColorDark || sharedProductPriceColor,
         productPriceColorLight,
         productPriceColorDark,
+        installAppButtonEnabled: normalizeSiteThemeFlag(
+          src.installAppButtonEnabled ??
+          src.install_app_button_enabled ??
+          src.showInstallAppButton ??
+          src.show_install_app_button ??
+          src.installButtonEnabled ??
+          src.install_button_enabled ??
+          src.showInstallButton ??
+          src.show_install_button,
+          true
+        ),
         categoryGridDesktop: normalizeSiteLayoutCount(
           src.categoryGridDesktop ??
           src.category_grid_desktop ??
@@ -13201,6 +13703,7 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
     function applyTheme(theme){
       const normalizedTheme = normalizeSiteThemeState(theme);
       activeSiteThemeState = normalizedTheme;
+      try { window.__ACTIVE_SITE_THEME_STATE__ = normalizedTheme; } catch {}
       const name = String(normalizedTheme?.name || "").toLowerCase().trim();
       const appliedMode = applyDocumentThemeMode(normalizedTheme);
       const color = resolveModeScopedThemeColor(
@@ -13214,6 +13717,8 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
       applySiteThemeDetailRuntimeCss(normalizedTheme);
       enforceFixedSidebarCurrencyBadgeColor();
       cacheSiteTheme(normalizedTheme);
+      try { ensureSiteInstallManifest(); } catch {}
+      try { syncInstallAppSidebarUi(); } catch {}
       const body = document.body;
       if (!body || !body.classList) {
         schedulePendingThemeApply(normalizedTheme);
@@ -13244,6 +13749,7 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
         String(normalizedTheme?.productPriceColor || ""),
         String(normalizedTheme?.productPriceColorLight || ""),
         String(normalizedTheme?.productPriceColorDark || ""),
+        String(normalizedTheme?.installAppButtonEnabled !== false ? "1" : "0"),
         String(normalizedTheme?.categoryGridDesktop || ""),
         String(normalizedTheme?.categoryGridMobile || ""),
         String(normalizedTheme?.categoryImageShape || ""),
@@ -13947,6 +14453,7 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
       try {
         window.dispatchEvent(new CustomEvent("site:brand", { detail: { ...brand, activeTickerText } }));
       } catch {}
+      try { ensureSiteInstallManifest(); } catch {}
     }
 
     function applySiteMedia(raw){
@@ -13962,6 +14469,7 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
         siteIcon: media.siteIcon,
         heroBanners: media.heroBanners
       });
+      try { ensureSiteInstallManifest(); } catch {}
     }
 
     function normalizeSiteAccessLockState(raw){
