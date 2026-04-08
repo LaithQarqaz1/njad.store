@@ -6026,7 +6026,7 @@ function applyAuthUi(user){
 }
 try { window.__applyAuthUi = applyAuthUi; } catch {}
 
-const SITE_PWA_SW_URL = "sw.js?v=20260408-08";
+const SITE_PWA_SW_URL = "sw.js?v=20260408-17";
 let deferredSiteInstallPrompt = null;
 let activeSiteManifestUrl = "";
 let sitePwaRegistrationPromise = null;
@@ -9996,8 +9996,20 @@ function wirePageBalanceBox(){
       }
       return t || 'dark';
     }
-    function applyTheme(nextTheme){
-      var theme = normalizeTheme(nextTheme) || 'dark';
+    function prefersReducedMotion(){
+      try {
+        return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+      } catch {}
+      return false;
+    }
+    function commitTheme(theme){
+      var handled = false;
+      try {
+        if (typeof window.__applySiteThemeMode === 'function') {
+          handled = window.__applySiteThemeMode(theme) === true;
+        }
+      } catch {}
+      if (handled) return;
       try { localStorage.setItem('theme', theme); } catch {}
       try { document.documentElement.setAttribute('data-theme', theme); } catch {}
       try {
@@ -10010,6 +10022,23 @@ function wirePageBalanceBox(){
         var evt = new CustomEvent('theme:change', { detail: { theme: theme } });
         document.dispatchEvent(evt);
       } catch {}
+    }
+    function applyTheme(nextTheme){
+      var theme = normalizeTheme(nextTheme) || 'dark';
+      try {
+        if (typeof document.startViewTransition === 'function' && !prefersReducedMotion()) {
+          var transition = document.startViewTransition(function(){
+            commitTheme(theme);
+          });
+          try {
+            if (transition && transition.finished && typeof transition.finished.catch === 'function') {
+              transition.finished.catch(function(){});
+            }
+          } catch {}
+          return;
+        }
+      } catch {}
+      commitTheme(theme);
     }
     function syncThemeToggle(scope){
       try {
@@ -10513,20 +10542,8 @@ function wirePageBalanceBox(){
         if (!textAnchor){
           textAnchor = document.createElement('a');
           textAnchor.className = 'support-dev-credit-text-link';
-          // Add link styling
-          textAnchor.style.color = '#3b82f6'; // Blue color
           textAnchor.style.textDecoration = 'none';
           textAnchor.style.transition = 'all 0.2s';
-
-          // Hover effect
-          textAnchor.addEventListener('mouseover', function() {
-            textAnchor.style.color = '#2563eb';
-            textAnchor.style.textDecoration = 'underline';
-          });
-          textAnchor.addEventListener('mouseout', function() {
-            textAnchor.style.color = '#3b82f6';
-            textAnchor.style.textDecoration = 'none';
-          });
         }
         if (CREDIT.href) {
           textAnchor.href = CREDIT.href;
@@ -10543,6 +10560,7 @@ function wirePageBalanceBox(){
         textAnchor.style.display = CREDIT.label ? 'inline-block' : 'none';
         textAnchor.style.pointerEvents = CREDIT.href ? 'auto' : 'none';
         textAnchor.style.cursor = CREDIT.href ? 'pointer' : 'default';
+        textAnchor.style.color = 'inherit';
 
         var devImage = rights.querySelector('img.support-dev-credit-image');
         if (!devImage){
@@ -12460,6 +12478,10 @@ function wirePageBalanceBox(){
         }
         return;
       }
+      const sidebarDarkTop = mixHexColor(palette.strong, "#ffffff", 0.08);
+      const sidebarDarkUpper = mixHexColor(palette.base, "#000000", 0.12);
+      const sidebarDarkMid = mixHexColor(palette.base, "#000000", 0.22);
+      const sidebarDarkBottom = mixHexColor(palette.base, "#000000", 0.34);
       if (!styleEl) {
         styleEl = document.createElement("style");
         styleEl.id = SITE_ACCENT_RUNTIME_STYLE_ID;
@@ -12480,6 +12502,10 @@ function wirePageBalanceBox(){
   --site-accent-runtime-soft-2: ${palette.softStrong};
   --site-accent-runtime-shadow: ${palette.shadow};
   --site-accent-runtime-focus: ${palette.focus};
+  --site-sidebar-surface-light: ${palette.base};
+  --site-sidebar-surface-dark: ${sidebarDarkBottom};
+  --site-sidebar-gradient-light: linear-gradient(180deg, ${palette.light} 0%, ${palette.base} 62%, ${palette.strong} 100%);
+  --site-sidebar-gradient-dark: linear-gradient(180deg, ${sidebarDarkTop} 0%, ${sidebarDarkUpper} 16%, ${sidebarDarkMid} 58%, ${sidebarDarkBottom} 100%);
 }
 html[data-theme="light"]{
   --card-border: ${palette.softStrong};
@@ -12520,9 +12546,6 @@ html[data-theme="dark"] .security-page{
   background: linear-gradient(135deg, ${palette.strong}, ${palette.base}) !important;
   box-shadow: 0 6px 14px ${palette.shadow} !important;
 }
-#sidebar{
-  background: linear-gradient(135deg, ${palette.deeper}, ${palette.base}) !important;
-}
 #sidebar ul li:hover{
   background: ${palette.softStrong} !important;
 }
@@ -12540,10 +12563,6 @@ html[data-theme="dark"] .security-page{
 }
 body.dark-mode .top-header,
 html[data-theme="dark"] .top-header{
-  background: linear-gradient(135deg, ${palette.deeper}, ${palette.strong}) !important;
-}
-body.dark-mode #sidebar,
-html[data-theme="dark"] #sidebar{
   background: linear-gradient(135deg, ${palette.deeper}, ${palette.strong}) !important;
 }
 body.dark-mode label i,
@@ -13778,6 +13797,22 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
       try { window.__PENDING_SITE_THEME__ = null; } catch {}
       log("theme applied", name, color);
     }
+    function applyThemeMode(mode){
+      const nextMode = normalizeSiteThemeMode(mode || "", "");
+      if (!nextMode) return false;
+      try { localStorage.setItem("theme", nextMode); } catch {}
+      const sourceTheme = (activeSiteThemeState && typeof activeSiteThemeState === "object")
+        ? activeSiteThemeState
+        : readCachedSiteTheme();
+      if (sourceTheme && typeof sourceTheme === "object") {
+        applyTheme(sourceTheme);
+        return true;
+      }
+      const appliedMode = applyDocumentThemeMode({ defaultMode: nextMode });
+      try { syncActiveSiteTextColors(); } catch {}
+      return appliedMode === nextMode;
+    }
+    try { window.__applySiteThemeMode = applyThemeMode; } catch {}
 
     const SITE_MEDIA_CACHE_KEY = "site:media:v1";
     const SITE_BRAND_CACHE_KEY = "site:brand:v1";

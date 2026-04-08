@@ -1,10 +1,10 @@
-const SITE_PWA_CACHE = "njad-pwa-v20260408-08";
+const SITE_PWA_CACHE = "njad-pwa-v20260408-17";
 const SITE_PWA_SHELL = [
   "/",
   "/index.html",
-  "/header.css",
+  "/header.css?v=20260408-27",
   "/site-core.js?v=20260404-02",
-  "/header.js?v=20260408-10"
+  "/header.js?v=20260408-27"
 ];
 
 self.addEventListener("install", (event) => {
