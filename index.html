@@ -38023,7 +38023,7 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
         });
       });
     });
-    return out;
+    return dedupeInlineFieldValueEntries(out);
   }
 
   function normalizeInlineDisplayLooseKey(value){
@@ -38031,6 +38031,38 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       .trim()
       .toLowerCase()
       .replace(/[\s_-]+/g, '');
+  }
+
+  function buildInlineDisplayValueFingerprint(label, value){
+    const normalizedLabel = normalizeInlineDisplayLooseKey(label);
+    const normalizedValue = String(value || '').trim().toLowerCase();
+    if (!normalizedValue) return '';
+    return normalizedLabel + '|' + normalizedValue;
+  }
+
+  function dedupeInlineFieldValueEntries(list){
+    const entries = Array.isArray(list) ? list : [];
+    const out = [];
+    const seen = Object.create(null);
+    entries.forEach(function(entry){
+      const source = (entry && typeof entry === 'object') ? entry : null;
+      if (!source) return;
+      const label = String(source.label || source.name || source.title || source.key || '').trim();
+      const value = String(source.value || source.text || source.content || '').trim();
+      const fingerprint = buildInlineDisplayValueFingerprint(label, value);
+      if (!fingerprint || seen[fingerprint]) return;
+      seen[fingerprint] = 1;
+      out.push(source);
+    });
+    return out;
+  }
+
+  function getInlineRawDisplayFields(source){
+    const raw = (source && typeof source === 'object') ? source : {};
+    const data = (raw.data && typeof raw.data === 'object' && !Array.isArray(raw.data)) ? raw.data : {};
+    if (Array.isArray(raw.displayFields)) return raw.displayFields;
+    if (Array.isArray(data.displayFields)) return data.displayFields;
+    return [];
   }
 
   function inlineLabelLooksLikeAdditionalNote(value){
@@ -38146,6 +38178,7 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
   function mergeInlineDisplayFieldLists(primaryFields, secondaryFields){
     const merged = [];
     const seen = Object.create(null);
+    const seenByLabelValue = Object.create(null);
 
     function append(list){
       (Array.isArray(list) ? list : []).forEach(function(entry, idx){
@@ -38160,8 +38193,11 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
           normalizeInlineDisplayLooseKey(label),
           value.toLowerCase()
         ].join('|');
+        const labelValueFingerprint = buildInlineDisplayValueFingerprint(label, value);
         if (seen[fingerprint]) return;
+        if (labelValueFingerprint && seenByLabelValue[labelValueFingerprint]) return;
         seen[fingerprint] = 1;
+        if (labelValueFingerprint) seenByLabelValue[labelValueFingerprint] = 1;
         const nextEntry = {
           key: key || ('display_field_' + (merged.length + 1)),
           label: label || ('تفصيل ' + (merged.length + 1)),
@@ -38205,11 +38241,11 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
     });
     const mergedList = transferTargetFields.length
       ? mergeInlineDisplayFieldLists(transferTargetFields, stripInlineTransferDisplayFields(list, transferTargets))
-      : list;
+      : dedupeInlineFieldValueEntries(list);
     if (mergedList.length) {
       return flowKey === 'withdraw'
-        ? mergedList
-        : appendInlineNoteDisplayField(mergedList, noteValue);
+        ? dedupeInlineFieldValueEntries(mergedList)
+        : appendInlineNoteDisplayField(dedupeInlineFieldValueEntries(mergedList), noteValue);
     }
     return buildInlineInfoDisplayFields(info, flowKey);
   }
@@ -38281,7 +38317,7 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       fields: raw.fields
     });
     normalized.data.displayFields = resolveInlineDisplayFields(
-      Array.isArray(normalized.data.displayFields) ? normalized.data.displayFields : (Array.isArray(raw.displayFields) ? raw.displayFields : []),
+      getInlineRawDisplayFields(raw),
       Array.isArray(normalized.data.transferTargets) ? normalized.data.transferTargets : [],
       normalized.data.info || raw.info || {},
       normalized.data.flow || raw.flow || getCurrentInlineFlowKind(),
@@ -38323,7 +38359,7 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
         fields: source.fields
       });
       normalized.displayFields = resolveInlineDisplayFields(
-        Array.isArray(source.displayFields) ? source.displayFields : (Array.isArray(normalized.displayFields) ? normalized.displayFields : []),
+        getInlineRawDisplayFields(source),
         transferTargets,
         source.info || {},
         normalized.flow || source.flow || getCurrentInlineFlowKind(),
@@ -39443,7 +39479,33 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
         copyable: false
       });
     }
-    return normalizedEntries;
+    const dedupedEntries = [];
+    const seenEntries = Object.create(null);
+    normalizedEntries.forEach(function(entry){
+      if (!entry || typeof entry !== 'object') return;
+      if (entry.kind === 'group') {
+        const nextValues = [];
+        const seenGroupValues = Object.create(null);
+        (Array.isArray(entry.values) ? entry.values : []).forEach(function(item){
+          const value = String(item && item.value || '').trim();
+          const fingerprint = buildInlineDisplayValueFingerprint(entry.label || '', value);
+          if (!fingerprint || seenGroupValues[fingerprint]) return;
+          seenGroupValues[fingerprint] = 1;
+          nextValues.push({
+            value: value,
+            copyable: item && item.copyable !== false
+          });
+        });
+        if (!nextValues.length) return;
+        dedupedEntries.push(Object.assign({}, entry, { values: nextValues }));
+        return;
+      }
+      const fingerprint = buildInlineDisplayValueFingerprint(entry.label || '', entry.value || '');
+      if (!fingerprint || seenEntries[fingerprint]) return;
+      seenEntries[fingerprint] = 1;
+      dedupedEntries.push(entry);
+    });
+    return dedupedEntries;
   }
 
   function flattenInlineMethodInfoCopyableEntries(method){
