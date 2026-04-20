@@ -16486,9 +16486,9 @@ window.__I18N_DICT__ = {
           panel.className = 'calendar-panel';
           panel.innerHTML = `
             <div class="calendar-header">
-              <button type="button" class="cal-nav" id="historyCalPrev">â€¹</button>
+              <button type="button" class="cal-nav" id="historyCalPrev">&#x2039;</button>
               <div class="cal-title" id="historyCalTitle"></div>
-              <button type="button" class="cal-nav" id="historyCalNext">â€؛</button>
+              <button type="button" class="cal-nav" id="historyCalNext">&#x203A;</button>
             </div>
             <div class="calendar-sub">
               <div class="calendar-mode">
@@ -18516,9 +18516,9 @@ function openCalendar(){
     panel.className = 'calendar-panel';
     panel.innerHTML = `
       <div class="calendar-header">
-        <button type="button" class="cal-nav" id="calPrev">â€¹</button>
+        <button type="button" class="cal-nav" id="calPrev">&#x2039;</button>
         <div class="cal-title" id="calTitle"></div>
-        <button type="button" class="cal-nav" id="calNext">â€؛</button>
+        <button type="button" class="cal-nav" id="calNext">&#x203A;</button>
       </div>
       <div class="calendar-sub">
         <div class="calendar-mode">
@@ -20864,8 +20864,8 @@ function attachCopyCodeButtons() {
       if (!code) return;
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(code).then(() => {
-          btn.textContent = "âœ…";
-          setTimeout(() => { btn.textContent = "ًں“‹"; }, 1200);
+          btn.textContent = "\u2714";
+          setTimeout(() => { btn.textContent = "\u{1F4CB}"; }, 1200);
         }).catch(() => alert(ordersT("orders.error.copyFailed", "تعذر نسخ الكود، انسخه يدويًا.", "Could not copy the code, copy it manually.", "Impossible de copier le code, copiez-le manuellement.")));
       } else {
         alert(ordersT("orders.error.copyManualPrefix", "انسخ الكود يدويًا: ", "Copy manually: ", "Copiez manuellement: ") + code);
@@ -34213,7 +34213,7 @@ button#logoutBtn:hover{background:#990000}
 
       function start(){
         stop();
-        if (realCount > 1) timer = setInterval(prev, 7000);
+        if (realCount > 1) timer = setInterval(next, 7000);
       }
       function stop(){ if(timer){ clearInterval(timer); timer=null; } }
 
@@ -35236,7 +35236,7 @@ button#logoutBtn:hover{background:#990000}
 
       <div class="modal hidden" id="totpLoginModal">
         <div class="modal-content totp-modal">
-          <button class="totp-close" id="totpLoginClose" type="button" aria-label="إغلاق">أ—</button>
+          <button class="totp-close" id="totpLoginClose" type="button" aria-label="إغلاق">&times;</button>
           <h3>التحقق بخطوتين</h3>
           <p class="totp-subtitle" id="totpLoginSubtitle">أدخل رمز Google Authenticator المكوّن من 6 أرقام.</p>
           <div class="input-group">
@@ -43870,7 +43870,7 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
     `;
 
     const close = document.createElement("button");
-    close.textContent = "أ—";
+    close.textContent = "\u00D7";
     close.setAttribute("aria-label","إغلاق");
     close.style.cssText = `
       position:absolute; top:12px; inset-inline-start:12px;
@@ -44223,7 +44223,7 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
     `;
 
     const close = document.createElement("button");
-    close.textContent = "أ—";
+    close.textContent = "\u00D7";
     close.setAttribute("aria-label", "إغلاق");
     close.style.cssText = `
       position:absolute; top:12px; inset-inline-start:12px;
@@ -47645,9 +47645,31 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
     return Math.round((n + Number.EPSILON) * 100) / 100;
   }
 
+  function normalizeCatalogNumberText(value) {
+    return String(value == null ? "" : value)
+      .trim()
+      .replace(/[٠-٩]/g, function(digit){ return String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)); })
+      .replace(/[۰-۹]/g, function(digit){ return String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)); })
+      .replace(/[\u066B\u066C,\s]+/g, function(match){
+        return match === "\u066B" ? "." : "";
+      });
+  }
+
+  function parseCatalogOrderNumber(value, fallback) {
+    if (value == null || value === "") return fallback;
+    if (typeof value === "number") return Number.isFinite(value) ? value : fallback;
+    const text = normalizeCatalogNumberText(value);
+    if (!text) return fallback;
+    const n = Number(text);
+    return Number.isFinite(n) ? n : fallback;
+  }
+
   function toOrder(value) {
-    const n = Number(value);
-    return Number.isFinite(n) ? n : 0;
+    return parseCatalogOrderNumber(value, 0);
+  }
+
+  function toCatalogSortOrder(value) {
+    return parseCatalogOrderNumber(value, Number.MAX_SAFE_INTEGER);
   }
 
   function sortItemsByOrder(items) {
@@ -47755,7 +47777,7 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       if (!catalog.categories[key]) {
         catalog.categories[key] = {
           name: String(pathName || key),
-          order: Number(order) || 0,
+          order: toOrder(order),
           imageUrl: imageUrl || ""
         };
       }
@@ -47945,7 +47967,7 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
         id: key,
         key: key,
         name: labelForCategory(key, pathName || rawKey),
-        order: Number(order) || 0,
+        order: toOrder(order),
         imageUrl: imageUrl || ""
       });
     }
@@ -53179,7 +53201,7 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
             '    </div>',
             '    <div id="telegramLinkCodeModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="telegramLinkCodeTitle">',
             '      <div class="modal-content security-code-modal">',
-            '        <button class="security-close" id="telegramLinkCodeClose" type="button" aria-label="إغلاق">أ—</button>',
+            '        <button class="security-close" id="telegramLinkCodeClose" type="button" aria-label="إغلاق">&times;</button>',
             '        <h3 id="telegramLinkCodeTitle" class="security-code-title">أدخل رمز الربط</h3>',
             '        <p id="telegramLinkCodeSubtitle" class="security-code-subtitle">تم إرسال الرمز إلى تيليغرام.</p>',
             '        <input id="telegramLinkCodeInput" class="security-code-input" type="tel" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456">',
@@ -56183,7 +56205,7 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
             '</main>',
             '  <div id="securityAlertModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="securityAlertTitle">',
             '    <div class="modal-content security-modal">',
-            '      <button class="security-close" id="securityAlertClose" type="button" aria-label="إغلاق">أ—</button>',
+            '      <button class="security-close" id="securityAlertClose" type="button" aria-label="إغلاق">&times;</button>',
             '      <h3 id="securityAlertTitle">تنبيه</h3>',
             '      <p class="security-message" id="securityAlertMessage"></p>',
             '      <button class="security-btn" id="securityAlertOk" type="button">حسنًا</button>',
@@ -56191,7 +56213,7 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
             '  </div>',
             '  <div id="securityEmailCodeModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="securityEmailCodeTitle">',
             '    <div class="modal-content security-code-modal">',
-            '      <button class="security-close" id="securityEmailCodeClose" type="button" aria-label="إغلاق">أ—</button>',
+            '      <button class="security-close" id="securityEmailCodeClose" type="button" aria-label="إغلاق">&times;</button>',
             '      <h3 id="securityEmailCodeTitle" class="security-code-title">أدخل رمز التحقق</h3>',
             '      <p id="securityEmailCodeSubtitle" class="security-code-subtitle">تم إرسال الرمز إلى تيليغرام.</p>',
             '      <input id="securityEmailCodeInput" class="security-code-input" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456" />',
@@ -56955,7 +56977,7 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
             '  </div>',
             '  <div id="transferTotpModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="transferTotpTitle">',
             '    <div class="modal-content totp-modal">',
-            '      <button class="totp-close" id="transferTotpClose" type="button" aria-label="إغلاق">أ—</button>',
+            '      <button class="totp-close" id="transferTotpClose" type="button" aria-label="إغلاق">&times;</button>',
             '      <h3 id="transferTotpTitle">رمز التحقق</h3>',
             '      <p class="totp-subtitle" id="transferTotpSubtitle">من فضلك افتح تطبيق Google Authenticator وأدخل الكود المكون من 6 أرقام.</p>',
             '      <div class="input-group">',
@@ -58395,7 +58417,7 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
               address: String(item.address || item.location || item.place || item.city || '').trim().slice(0, 240),
               phone: normalizeAgentPhone(item.phone || item.number || item.mobile || item.tel || ''),
               whatsapp: normalizeAgentWhatsapp(item.whatsapp || item.whatsApp || item.whatsappNumber || item.whatsapp_number || item.whatsappUrl || item.whatsapp_url || item.wa || ''),
-              order: Number(item.order || item.rank || item.position || (index + 1)) || (index + 1)
+              order: parseCatalogOrderNumber(item.order || item.rank || item.position, index + 1)
             };
           }).filter(Boolean).sort(function(a, b){
             if ((a.order || 0) !== (b.order || 0)) return (a.order || 0) - (b.order || 0);
@@ -60703,6 +60725,22 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
           if (/^javascript:/i.test(text)) return '';
           return text;
         }
+        function readCatalogSortOrderLocal(value){
+          try {
+            if (typeof toCatalogSortOrder === "function") {
+              return toCatalogSortOrder(value);
+            }
+          } catch(_){}
+          if (value == null || value === "") return Number.MAX_SAFE_INTEGER;
+          var text = String(value).trim()
+            .replace(/[٠-٩]/g, function(digit){ return String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)); })
+            .replace(/[۰-۹]/g, function(digit){ return String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)); })
+            .replace(/[\u066B\u066C,\s]+/g, function(match){
+              return match === "\u066B" ? "." : "";
+            });
+          var parsed = Number(text);
+          return Number.isFinite(parsed) ? parsed : Number.MAX_SAFE_INTEGER;
+        }
         var _extractGamesFromTree = (typeof extractGamesFromTree === "function")
           ? extractGamesFromTree
           : function(tree){
@@ -60799,7 +60837,7 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
         var ENABLE_PROVIDER_TREE_PREFETCH = false;
         var DEFAULT_BASE = (window.__getSiteWorkerBaseDefault ? window.__getSiteWorkerBaseDefault({ trailingSlash: true }) : (String(window.location.origin || '').replace(/\/+$/, '') + "/"));
         var FETCH_TTL = 2 * 60 * 1000;
-        var CATALOG_CACHE_PREFIX = "catalog:cache:v4:";
+        var CATALOG_CACHE_PREFIX = "catalog:cache:v7:";
         var PROVIDER_SYNC_TTL = 10 * 60 * 1000;
         var PROVIDER_SYNC_RETRY_TTL = 2 * 60 * 1000;
         var PROVIDER_FORCE_TTL = 30 * 1000;
@@ -62518,7 +62556,7 @@ function normalizeCategory(value){
                 return {
                   key: catKey,
                   name: meta.name || meta.label || meta.title || catKey,
-                  order: Number(meta.order) || 0,
+                  order: readCatalogSortOrderLocal(meta.order),
                   imageUrl: meta.imageUrl || meta.image || meta.categoryImage || ""
                 };
               }).filter(function(cat){ return !!(cat && cat.key); });
@@ -62666,7 +62704,7 @@ function normalizeCategory(value){
                   return {
                     key: catKey,
                     name: meta.name || meta.label || meta.title || catKey,
-                    order: Number(meta.order) || 0,
+                    order: readCatalogSortOrderLocal(meta.order),
                     imageUrl: _sanitizeInlineMediaUrlLocal(meta.imageUrl || meta.image || meta.categoryImage || "")
                   };
                 }).filter(function(cat){ return !!(cat && cat.key); });
@@ -62696,7 +62734,7 @@ function normalizeCategory(value){
     id: key,
     key: key,
     name: name,
-    order: Number(cat && cat.order) || 0,
+    order: readCatalogSortOrderLocal(cat && cat.order),
     imageUrl: _sanitizeInlineMediaUrlLocal((cat && (cat.imageUrl || cat.image || cat.categoryImage)) || imageByCategory[key] || "")
   };
 });
@@ -65267,7 +65305,7 @@ function normalizeCategory(value){
 
           var closeBtn = document.createElement('button');
           closeBtn.type = 'button';
-          closeBtn.textContent = 'أ—';
+          closeBtn.textContent = '\u00D7';
           closeBtn.setAttribute('aria-label', 'إغلاق');
           closeBtn.style.cssText = 'position:absolute;top:14px;inset-inline-start:18px;width:38px;height:38px;border-radius:50%;border:0;font-size:22px;font-weight:700;cursor:pointer;';
           closeBtn.style.background = dark ? 'rgba(255,255,255,.08)' : 'rgba(15,23,42,.08)';
@@ -65275,7 +65313,7 @@ function normalizeCategory(value){
 
           var icon = success ? createSuccessOrderAnimation(chargeText) : document.createElement('div');
           if (!success) {
-            icon.textContent = 'âڑ ï¸ڈ';
+            icon.textContent = '\u26A0\uFE0F';
             icon.style.cssText = 'width:96px;height:96px;border-radius:50%;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:44px;font-weight:700;';
             icon.style.background = accentBg;
             icon.style.color = accent;
@@ -65393,30 +65431,30 @@ function normalizeCategory(value){
         var urlRegex = /https?:\/\/[^\s<>\"']+/gi;
 
         var CATEGORY_ICON_RULES = [
-          { icon: 'ًں¤–', keywords: ['gpt', 'شات gpt', 'بريميوم'] },
-          { icon: 'ًںژµ', keywords: ['طھظٹظƒ طھظˆظƒ', 'tiktok'] },
-          { icon: 'ًں“ک', keywords: ['فيسبوك', 'facebook'] },
-          { icon: 'ًں“¸', keywords: ['انستجرام', 'انستا', 'instagram'] },
-          { icon: 'â–¶ï¸ڈ', keywords: ['يوتيوب', 'youtube'] },
-          { icon: 'âœˆï¸ڈ', keywords: ['تيليجرام', 'تيلجرام', 'تليجرام', 'telegram'] },
-          { icon: 'ًںں¢', keywords: ['واتس', 'whatsapp'] },
-          { icon: 'ًں‘»', keywords: ['سناب', 'snap'] },
-          { icon: 'ًںگ¦', keywords: ['تويتر', 'twitter', 'ريتويت'] },
-          { icon: 'ًں’¼', keywords: ['لينكد', 'linkedin'] },
-          { icon: 'ًںژ§', keywords: ['سبوتيفاي', 'spotify'] },
-          { icon: 'ًںژ®', keywords: ['بلاستيشن', 'بلايستيشن', 'playstation', ' ps', 'ps5', 'psn', 'تويتش', 'twitch'] },
-          { icon: 'ًں’³', keywords: ['visa', 'فيزا'] },
-          { icon: 'ًںڈ†', keywords: ['vip', 'نجوم', 'premium'] },
-          { icon: 'âœ…', keywords: ['توثيق', 'verified'] },
-          { icon: 'ًں“°', keywords: ['جرايد', 'جريدة', 'google', 'جوجل'] },
-          { icon: 'ًں•¹ï¸ڈ', keywords: ['ظƒظٹظƒ', 'kick', 'بيغو', 'bigo'] },
-          { icon: 'ًںژ¯', keywords: ['رشق', 'خدمات'] },
-          { icon: 'ًںŒگ', keywords: ['قنوات', 'قناة', 'channel'] },
-          { icon: 'ًں“ˆ', keywords: ['ساعات', 'minutes', 'مشاهدات', 'views'] },
-          { icon: 'ًں“±', keywords: ['kwai', 'كواى', 'كواي'] },
-          { icon: 'ًں’¬', keywords: ['تعليقات', 'comments'] },
-          { icon: 'ًں’–', keywords: ['لايك', 'likes'] },
-          { icon: 'ًں‘¥', keywords: ['متابعين', 'followers', 'اعضاء'] }
+          { icon: '\u{1F916}', keywords: ['gpt', 'شات gpt', 'بريميوم'] },
+          { icon: '\u{1F3B5}', keywords: ['طھظٹظƒ طھظˆظƒ', 'tiktok'] },
+          { icon: '\u{1F4D8}', keywords: ['فيسبوك', 'facebook'] },
+          { icon: '\u{1F4F8}', keywords: ['انستجرام', 'انستا', 'instagram'] },
+          { icon: '\u25B6\uFE0F', keywords: ['يوتيوب', 'youtube'] },
+          { icon: '\u2708\uFE0F', keywords: ['تيليجرام', 'تيلجرام', 'تليجرام', 'telegram'] },
+          { icon: '\u{1F4AC}', keywords: ['واتس', 'whatsapp'] },
+          { icon: '\u{1F47B}', keywords: ['سناب', 'snap'] },
+          { icon: '\u{1F426}', keywords: ['تويتر', 'twitter', 'ريتويت'] },
+          { icon: '\u{1F4BC}', keywords: ['لينكد', 'linkedin'] },
+          { icon: '\u{1F3A7}', keywords: ['سبوتيفاي', 'spotify'] },
+          { icon: '\u{1F3AE}', keywords: ['بلاستيشن', 'بلايستيشن', 'playstation', ' ps', 'ps5', 'psn', 'تويتش', 'twitch'] },
+          { icon: '\u{1F4B3}', keywords: ['visa', 'فيزا'] },
+          { icon: '\u{1F451}', keywords: ['vip', 'نجوم', 'premium'] },
+          { icon: '\u2705', keywords: ['توثيق', 'verified'] },
+          { icon: '\u{1F4F0}', keywords: ['جرايد', 'جريدة', 'google', 'جوجل'] },
+          { icon: '\u{1F3A5}', keywords: ['ظƒظٹظƒ', 'kick', 'بيغو', 'bigo'] },
+          { icon: '\u{1F680}', keywords: ['رشق', 'خدمات'] },
+          { icon: '\u{1F4E1}', keywords: ['قنوات', 'قناة', 'channel'] },
+          { icon: '\u{1F4C8}', keywords: ['ساعات', 'minutes', 'مشاهدات', 'views'] },
+          { icon: '\u{1F4F1}', keywords: ['kwai', 'كواى', 'كواي'] },
+          { icon: '\u{1F4AC}', keywords: ['تعليقات', 'comments'] },
+          { icon: '\u{1F44D}', keywords: ['لايك', 'likes'] },
+          { icon: '\u{1F465}', keywords: ['متابعين', 'followers', 'اعضاء'] }
         ];
 
         function getCategoryIcon(label){
@@ -68861,7 +68899,7 @@ function normalizeCategory(value){
         <span aria-hidden="true">&times;</span>
       </button>
       <div class="wa-badge" role="text">
-        <span class="wa-wave" aria-hidden="true">ًں‘‹</span>
+        <span class="wa-wave" aria-hidden="true">&#x1F44B;</span>
         <div class="wa-badge-text">
           <span class="wa-badge-sub" id="wa-badge-sub">حياكم الله في</span>
           <strong class="wa-badge-brand" id="wa-badge-brand"></strong>
