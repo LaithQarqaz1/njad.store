@@ -67,11 +67,85 @@
           el.style.pointerEvents = "none";
         } catch (_) {}
       }
+      function getStartupRouteKey(){
+        try {
+          var raw = String(location.hash || "").replace(/^#\/?/, "").trim().toLowerCase();
+          return raw.split("/").filter(Boolean)[0] || "";
+        } catch (_) {}
+        return "";
+      }
+      function isProtectedStartupRoute(){
+        var key = getStartupRouteKey();
+        return key === "deposit" || key === "edaa" || key === "withdraw" || key === "sahb" || key === "security";
+      }
+      function isExternalStartupOpen(){
+        try {
+          var ua = String(navigator.userAgent || "").toLowerCase();
+          var ref = String(document.referrer || "").toLowerCase();
+          var search = String(location.search || "").toLowerCase();
+          return /whatsapp|fb_iab|fban|fbav|instagram|telegram|line/.test(ua) ||
+            /whatsapp|wa\.me|chat\.whatsapp|facebook|instagram|telegram|t\.co|bit\.ly/.test(ref) ||
+            /(?:[?&](?:utm_source|source|src|ref)=whatsapp\b|whatsapp|wa_)/.test(search);
+        } catch (_) {}
+        return false;
+      }
+      function canForceStartupLoader(){
+        try {
+          if (isProtectedStartupRoute()) return false;
+          if (!document.documentElement.classList.contains("google-redirect-pending")) return true;
+          var startedAt = Number(window.__GOOGLE_REDIRECT_EARLY_STARTED_AT__ || 0) || 0;
+          return !startedAt || (Date.now() - startedAt) > 2500;
+        } catch (_) {}
+        return true;
+      }
+      function removeStartupClass(node, name){
+        try {
+          if (node && node.classList) node.classList.remove(name);
+        } catch (_) {}
+      }
+      function forceHideStartupLoader(reason){
+        try {
+          if (!canForceStartupLoader()) return;
+          window.__LOADER_HOLD_ACTIVE__ = false;
+          window.__INLINE_WALLET_ROUTE_PENDING__ = false;
+          removeStartupClass(document.documentElement, "google-redirect-pending");
+          removeStartupClass(document.documentElement, "auth-request-loader-pending");
+          removeStartupClass(document.documentElement, "pre-inline-route");
+          removeStartupClass(document.documentElement, "pre-login-route");
+          removeStartupClass(document.documentElement, "inline-wallet-route-pending");
+          if (document.body) {
+            removeStartupClass(document.body, "auth-request-loader-pending");
+            removeStartupClass(document.body, "login-route-active");
+            removeStartupClass(document.body, "inline-wallet-route-pending");
+          }
+          hideStartupLoader();
+          var el = document.getElementById("preloader");
+          if (el && reason) el.setAttribute("data-startup-failsafe", String(reason).slice(0, 60));
+        } catch (_) {}
+      }
+      function scheduleStartupFailsafe(reason, delay){
+        try {
+          window.setTimeout(function(){ forceHideStartupLoader(reason); }, delay);
+        } catch (_) {}
+      }
+      try { window.__forceHideStartupLoader = forceHideStartupLoader; } catch (_) {}
       if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", hideStartupLoader, { once: true });
+        document.addEventListener("DOMContentLoaded", hideStartupLoader, false);
       } else {
         hideStartupLoader();
       }
+      if (isExternalStartupOpen()) {
+        scheduleStartupFailsafe("external-open", 3200);
+        scheduleStartupFailsafe("external-open-long", 6500);
+        scheduleStartupFailsafe("external-open-final", 11000);
+      } else {
+        scheduleStartupFailsafe("startup-soft", 6500);
+        scheduleStartupFailsafe("startup-long", 12000);
+      }
+      try { window.addEventListener("pageshow", function(){ scheduleStartupFailsafe("pageshow", 900); }, false); } catch (_) {}
+      try { window.addEventListener("load", function(){ scheduleStartupFailsafe("load", 900); }, false); } catch (_) {}
+      try { window.addEventListener("error", function(){ scheduleStartupFailsafe("startup-error", 0); }, true); } catch (_) {}
+      try { window.addEventListener("unhandledrejection", function(){ scheduleStartupFailsafe("startup-rejection", 0); }, false); } catch (_) {}
     })();
   </script>
   <link id="dynamicSiteManifestLink" rel="manifest" href="/manifest.webmanifest">
@@ -1082,8 +1156,8 @@
     }
     #preloader .loader{
       position:relative;
-      width:96px;
-      height:96px;
+      width:128px;
+      height:128px;
       border-radius:50%;
       --c1:var(--site-accent-runtime,#6b7280);
       --c2:var(--site-accent-runtime-light,#94a3b8);
@@ -1099,15 +1173,15 @@
       position:absolute;
       inset:0;
       border-radius:50%;
-      -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 7px),#000 calc(100% - 6px));
-              mask:radial-gradient(farthest-side,transparent calc(100% - 7px),#000 calc(100% - 6px));
+      -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 8px),#000 calc(100% - 7px));
+              mask:radial-gradient(farthest-side,transparent calc(100% - 8px),#000 calc(100% - 7px));
     }
     #preloader .loader::before{
       background:conic-gradient(from 0deg,var(--c1) 0 140deg,transparent 140deg 360deg);
       animation:startup-loader-spin .8s linear infinite;
     }
     #preloader .loader::after{
-      inset:9px;
+      inset:10px;
       background:conic-gradient(from 180deg,var(--c3) 0 110deg,transparent 110deg 360deg);
       animation:startup-loader-spin .9s linear infinite reverse;
     }
