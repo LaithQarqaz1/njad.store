@@ -1,0 +1,24 @@
+{
+  "id": "/?source=pwa",
+  "name": "njad.store",
+  "short_name": "njad",
+  "start_url": "/index.html?source=pwa#/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "background_color": "#0C0C0C",
+  "theme_color": "#0C0C0C",
+  "lang": "ar",
+  "dir": "rtl",
+  "prefer_related_applications": false,
+  "icons": [
+    { "src": "https://api.njad.store/site-icon.png?v=admin-20260510-07", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "https://api.njad.store/site-icon.png?v=admin-20260510-07", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    { "name": "تسجيل الدخول", "short_name": "الدخول", "url": "/login" },
+    { "name": "الإعدادات", "short_name": "إعدادات", "url": "/settings" },
+    { "name": "طلباتي", "short_name": "طلباتي", "url": "/orders" },
+    { "name": "المحفظة", "short_name": "المحفظة", "url": "/wallet" }
+  ]
+}
