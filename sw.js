@@ -1,5 +1,5 @@
-const SITE_PWA_CACHE = "njadstore1-pwa-v20260510-21";
-const SITE_PWA_BUILD = "20260510-21";
+const SITE_PWA_CACHE = "njadstore1-pwa-v20260511-05";
+const SITE_PWA_BUILD = "20260511-05";
 const SITE_PWA_FETCH_TIMEOUT_MS = 8000;
 const SITE_FIREBASE_HELPER_ORIGIN = "https://njadstore1.firebaseapp.com";
 const SITE_FIREBASE_INIT_JSON = JSON.stringify({
@@ -15,14 +15,14 @@ const SITE_PWA_SHELL = [
   "/",
   "/index.html",
   "/header.css?v=20260509-02",
-  "/site-core.js?v=20260510-20",
-  "/header.js?v=20260510-21",
+  "/site-core.js?v=20260511-05",
+  "/header.js?v=20260511-05",
   "/qr-code-styling.js?v=20260510-01",
   "/site-qr.js?v=20260510-01",
   "/reviews-inline.js?v=20260510-01",
   "/wallet-inline.js?v=20260510-01",
   "/calendar-inline.js?v=20260510-01",
-  "/login-inline.js?v=20260510-20",
+  "/login-inline.js?v=20260511-02",
   "/manifest.webmanifest",
   "/vendor/intl-tel-input/18.1.1/css/intlTelInput.min.css",
   "/vendor/intl-tel-input/18.1.1/img/flags.png",

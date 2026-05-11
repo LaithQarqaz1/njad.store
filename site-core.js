@@ -36,6 +36,567 @@ try { window.__SITE_CORE_DEFAULT_RUNTIME__ = SITE_CORE_DEFAULT_RUNTIME; } catch 
 (function (global) {
   "use strict";
 
+  function installAuthSessionStorageBundle() {
+    try {
+      var storage = global.localStorage;
+      if (!storage) return;
+      var proto = Object.getPrototypeOf(storage);
+      if (!proto || proto.__siteAuthSessionBundlePatched) return;
+
+      var nativeGetItem = proto.getItem;
+      var nativeSetItem = proto.setItem;
+      var nativeRemoveItem = proto.removeItem;
+      var nativeKey = proto.key;
+      var BUNDLE_KEY = "auth:session:bundle:v1";
+      var CURRENCY_STATE_KEY = "currency:state:v1";
+      var SITE_APPEARANCE_KEY = "site:appearance:v1";
+      var PROFILE_PREFIX = "auth:profile:cache:";
+      var API_ACCESS_PREFIX = "api:access:enabled:";
+      var BALANCE_PREFIX = "balance:cache:";
+      var directKeys = {
+        "session:device:id": true,
+        "session:device:seed": true,
+        "sessionKeyInfo": true,
+        "postLoginPayload": true,
+        "auth:lastLoggedIn": true,
+        "auth:lastUid": true,
+        "session:lastUid": true,
+        "auth:lastAccountNo": true
+      };
+      var currencyKeys = {
+        "currency:selected": true,
+        "currency:rates:cache": true
+      };
+      var appearanceKeys = {
+        "site:theme:v1": "theme",
+        "site:media:v1": "media",
+        "site:wa-join:v1": "waJoin"
+      };
+
+      function isLocalStorageTarget(target) {
+        try { return target === storage || target === global.localStorage; }
+        catch (_) { return false; }
+      }
+
+      function safeKey(value) {
+        return String(value == null ? "" : value);
+      }
+
+      function parseJsonObject(raw) {
+        try {
+          var parsed = JSON.parse(String(raw || ""));
+          return parsed && typeof parsed === "object" ? parsed : null;
+        } catch (_) {
+          return null;
+        }
+      }
+
+      function readJsonStorage(key) {
+        try {
+          var raw = nativeGetItem.call(storage, key);
+          var parsed = raw ? JSON.parse(raw) : {};
+          return parsed && typeof parsed === "object" ? parsed : {};
+        } catch (_) {
+          return {};
+        }
+      }
+
+      function hasMeaningfulStorageValues(value) {
+        try {
+          var src = value && typeof value === "object" ? value : {};
+          return Object.keys(src).some(function (key) {
+            return key !== "v" && key !== "updatedAt";
+          });
+        } catch (_) {
+          return false;
+        }
+      }
+
+      function writeJsonStorage(key, value) {
+        try {
+          var src = value && typeof value === "object" ? value : {};
+          if (!hasMeaningfulStorageValues(src)) {
+            nativeRemoveItem.call(storage, key);
+            return src;
+          }
+          src.v = src.v || 1;
+          src.updatedAt = Date.now();
+          nativeSetItem.call(storage, key, JSON.stringify(src));
+          return src;
+        } catch (_) {
+          return value;
+        }
+      }
+
+      function parseCountriesStorageKey(key) {
+        var match = /^edaa:(deposit|withdraw):countries(?::(meta))?:v3:(.+)$/i.exec(safeKey(key));
+        if (!match) return null;
+        return {
+          flow: String(match[1] || "deposit").toLowerCase() === "withdraw" ? "withdraw" : "deposit",
+          kind: match[2] ? "meta" : "data",
+          scope: String(match[3] || "").trim()
+        };
+      }
+
+      function getCountriesBundleKey(info) {
+        return "edaa:" + info.flow + ":countries:bundle:v3:" + info.scope;
+      }
+
+      function parseUserStateStorageKey(key) {
+        var k = safeKey(key);
+        if (k.indexOf(API_ACCESS_PREFIX) === 0) {
+          return { uid: k.slice(API_ACCESS_PREFIX.length).trim(), field: "apiAccessEnabled" };
+        }
+        if (k.indexOf(BALANCE_PREFIX) === 0) {
+          return { uid: k.slice(BALANCE_PREFIX.length).trim(), field: "balance" };
+        }
+        return null;
+      }
+
+      function getUserStateBundleKey(info) {
+        return "auth:user-state:v1:" + info.uid;
+      }
+
+      function readBundle() {
+        try {
+          var raw = nativeGetItem.call(storage, BUNDLE_KEY);
+          var parsed = raw ? JSON.parse(raw) : {};
+          return parsed && typeof parsed === "object" ? parsed : {};
+        } catch (_) {
+          return {};
+        }
+      }
+
+      function hasObjectValues(obj) {
+        try { return !!(obj && typeof obj === "object" && Object.keys(obj).length); }
+        catch (_) { return false; }
+      }
+
+      function compactBundle(source) {
+        var src = source && typeof source === "object" ? source : {};
+        var out = { v: 1, updatedAt: Date.now() };
+        if (hasObjectValues(src.device)) {
+          out.device = {};
+          if (src.device.id) out.device.id = String(src.device.id);
+          if (src.device.seed) out.device.seed = String(src.device.seed);
+        }
+        if (hasObjectValues(src.sessionKeyInfo)) out.sessionKeyInfo = src.sessionKeyInfo;
+        if (hasObjectValues(src.postLoginPayload)) out.postLoginPayload = src.postLoginPayload;
+        if (hasObjectValues(src.last)) {
+          out.last = {};
+          if (src.last.loggedIn != null && src.last.loggedIn !== "") out.last.loggedIn = String(src.last.loggedIn);
+          if (src.last.uid) out.last.uid = String(src.last.uid);
+          if (src.last.accountNo != null && src.last.accountNo !== "") out.last.accountNo = String(src.last.accountNo);
+        }
+        if (hasObjectValues(src.profiles)) {
+          out.profiles = {};
+          Object.keys(src.profiles).forEach(function (uid) {
+            var key = String(uid || "").trim();
+            if (!key) return;
+            var profile = src.profiles[uid];
+            if (profile && typeof profile === "object") out.profiles[key] = profile;
+          });
+        }
+        return out;
+      }
+
+      function writeBundle(bundle) {
+        try {
+          var compact = compactBundle(bundle);
+          nativeSetItem.call(storage, BUNDLE_KEY, JSON.stringify(compact));
+          return compact;
+        } catch (_) {
+          return bundle;
+        }
+      }
+
+      function ensureNested(bundle) {
+        if (!bundle.device || typeof bundle.device !== "object") bundle.device = {};
+        if (!bundle.last || typeof bundle.last !== "object") bundle.last = {};
+        if (!bundle.profiles || typeof bundle.profiles !== "object") bundle.profiles = {};
+        return bundle;
+      }
+
+      function isVirtualAuthKey(key) {
+        var k = safeKey(key);
+        return !!(directKeys[k] || k.indexOf(PROFILE_PREFIX) === 0);
+      }
+
+      function isVirtualStorageKey(key) {
+        var k = safeKey(key);
+        return !!(
+          isVirtualAuthKey(k) ||
+          currencyKeys[k] ||
+          Object.prototype.hasOwnProperty.call(appearanceKeys, k) ||
+          parseCountriesStorageKey(k) ||
+          parseUserStateStorageKey(k)
+        );
+      }
+
+      function getVirtualAuthValue(key) {
+        var k = safeKey(key);
+        var bundle = readBundle();
+        var sessionInfo = bundle.sessionKeyInfo && typeof bundle.sessionKeyInfo === "object" ? bundle.sessionKeyInfo : null;
+        var postLogin = bundle.postLoginPayload && typeof bundle.postLoginPayload === "object" ? bundle.postLoginPayload : null;
+        var last = bundle.last && typeof bundle.last === "object" ? bundle.last : {};
+        var device = bundle.device && typeof bundle.device === "object" ? bundle.device : {};
+        if (k === "session:device:id") return device.id || (sessionInfo && sessionInfo.deviceId) || (postLogin && postLogin.deviceId) || null;
+        if (k === "session:device:seed") return device.seed || null;
+        if (k === "sessionKeyInfo") return sessionInfo ? JSON.stringify(sessionInfo) : null;
+        if (k === "postLoginPayload") return postLogin ? JSON.stringify(postLogin) : null;
+        if (k === "auth:lastUid" || k === "session:lastUid") return last.uid || (sessionInfo && sessionInfo.uid) || (postLogin && postLogin.uid) || null;
+        if (k === "auth:lastAccountNo") return last.accountNo || (postLogin && postLogin.accountNo) || null;
+        if (k === "auth:lastLoggedIn") {
+          if (last.loggedIn != null && last.loggedIn !== "") return String(last.loggedIn);
+          return (last.uid || (sessionInfo && sessionInfo.uid) || (postLogin && postLogin.uid)) ? "1" : null;
+        }
+        if (k.indexOf(PROFILE_PREFIX) === 0) {
+          var uid = k.slice(PROFILE_PREFIX.length).trim();
+          var profile = uid && bundle.profiles && bundle.profiles[uid];
+          return profile ? JSON.stringify(profile) : null;
+        }
+        return null;
+      }
+
+      function setVirtualAuthValue(key, value) {
+        var k = safeKey(key);
+        var raw = String(value == null ? "" : value);
+        var bundle = ensureNested(readBundle());
+        if (k === "session:device:id") {
+          bundle.device.id = raw;
+        } else if (k === "session:device:seed") {
+          bundle.device.seed = raw;
+        } else if (k === "sessionKeyInfo") {
+          var sessionInfo = parseJsonObject(raw);
+          if (sessionInfo) {
+            bundle.sessionKeyInfo = sessionInfo;
+            if (sessionInfo.deviceId) bundle.device.id = String(sessionInfo.deviceId);
+            if (sessionInfo.uid) bundle.last.uid = String(sessionInfo.uid);
+          } else {
+            delete bundle.sessionKeyInfo;
+          }
+        } else if (k === "postLoginPayload") {
+          var postLogin = parseJsonObject(raw);
+          if (postLogin) {
+            bundle.postLoginPayload = postLogin;
+            if (postLogin.deviceId) bundle.device.id = String(postLogin.deviceId);
+            if (postLogin.uid) bundle.last.uid = String(postLogin.uid);
+            if (postLogin.accountNo != null && postLogin.accountNo !== "") bundle.last.accountNo = String(postLogin.accountNo);
+            bundle.last.loggedIn = "1";
+          } else {
+            delete bundle.postLoginPayload;
+          }
+        } else if (k === "auth:lastLoggedIn") {
+          bundle.last.loggedIn = raw;
+        } else if (k === "auth:lastUid" || k === "session:lastUid") {
+          bundle.last.uid = raw;
+        } else if (k === "auth:lastAccountNo") {
+          bundle.last.accountNo = raw;
+        } else if (k.indexOf(PROFILE_PREFIX) === 0) {
+          var uid = k.slice(PROFILE_PREFIX.length).trim();
+          if (uid) {
+            var profile = parseJsonObject(raw);
+            if (profile) bundle.profiles[uid] = profile;
+            else delete bundle.profiles[uid];
+          }
+        }
+        writeBundle(bundle);
+      }
+
+      function removeVirtualAuthValue(key) {
+        var k = safeKey(key);
+        var bundle = ensureNested(readBundle());
+        if (k === "session:device:id") delete bundle.device.id;
+        else if (k === "session:device:seed") delete bundle.device.seed;
+        else if (k === "sessionKeyInfo") delete bundle.sessionKeyInfo;
+        else if (k === "postLoginPayload") delete bundle.postLoginPayload;
+        else if (k === "auth:lastLoggedIn") delete bundle.last.loggedIn;
+        else if (k === "auth:lastUid" || k === "session:lastUid") delete bundle.last.uid;
+        else if (k === "auth:lastAccountNo") delete bundle.last.accountNo;
+        else if (k.indexOf(PROFILE_PREFIX) === 0) {
+          var uid = k.slice(PROFILE_PREFIX.length).trim();
+          if (uid && bundle.profiles) delete bundle.profiles[uid];
+        }
+        writeBundle(bundle);
+      }
+
+      function getVirtualCountriesValue(info) {
+        var bundle = readJsonStorage(getCountriesBundleKey(info));
+        var payload = info.kind === "meta" ? bundle.meta : bundle.data;
+        return payload && typeof payload === "object" ? JSON.stringify(payload) : null;
+      }
+
+      function setVirtualCountriesValue(info, value) {
+        if (!info || !info.scope) return;
+        var key = getCountriesBundleKey(info);
+        var bundle = readJsonStorage(key);
+        var payload = parseJsonObject(value);
+        if (payload) bundle[info.kind === "meta" ? "meta" : "data"] = payload;
+        else delete bundle[info.kind === "meta" ? "meta" : "data"];
+        writeJsonStorage(key, bundle);
+      }
+
+      function removeVirtualCountriesValue(info) {
+        if (!info || !info.scope) return;
+        var key = getCountriesBundleKey(info);
+        var bundle = readJsonStorage(key);
+        delete bundle[info.kind === "meta" ? "meta" : "data"];
+        writeJsonStorage(key, bundle);
+      }
+
+      function getVirtualUserStateValue(info) {
+        if (!info || !info.uid) return null;
+        var bundle = readJsonStorage(getUserStateBundleKey(info));
+        var value = bundle[info.field];
+        return value == null ? null : String(value);
+      }
+
+      function setVirtualUserStateValue(info, value) {
+        if (!info || !info.uid) return;
+        var key = getUserStateBundleKey(info);
+        var bundle = readJsonStorage(key);
+        bundle[info.field] = String(value == null ? "" : value);
+        writeJsonStorage(key, bundle);
+      }
+
+      function removeVirtualUserStateValue(info) {
+        if (!info || !info.uid) return;
+        var key = getUserStateBundleKey(info);
+        var bundle = readJsonStorage(key);
+        delete bundle[info.field];
+        writeJsonStorage(key, bundle);
+      }
+
+      function getVirtualCurrencyValue(key) {
+        var bundle = readJsonStorage(CURRENCY_STATE_KEY);
+        if (key === "currency:selected") return bundle.selected ? String(bundle.selected) : null;
+        if (key === "currency:rates:cache") {
+          return bundle.ratesCache && typeof bundle.ratesCache === "object"
+            ? JSON.stringify(bundle.ratesCache)
+            : null;
+        }
+        return null;
+      }
+
+      function setVirtualCurrencyValue(key, value) {
+        var bundle = readJsonStorage(CURRENCY_STATE_KEY);
+        if (key === "currency:selected") {
+          bundle.selected = String(value == null ? "" : value);
+        } else if (key === "currency:rates:cache") {
+          var rates = parseJsonObject(value);
+          if (rates) bundle.ratesCache = rates;
+          else delete bundle.ratesCache;
+        }
+        writeJsonStorage(CURRENCY_STATE_KEY, bundle);
+      }
+
+      function removeVirtualCurrencyValue(key) {
+        var bundle = readJsonStorage(CURRENCY_STATE_KEY);
+        if (key === "currency:selected") delete bundle.selected;
+        else if (key === "currency:rates:cache") delete bundle.ratesCache;
+        writeJsonStorage(CURRENCY_STATE_KEY, bundle);
+      }
+
+      function getVirtualAppearanceValue(key) {
+        var field = appearanceKeys[safeKey(key)];
+        if (!field) return null;
+        var bundle = readJsonStorage(SITE_APPEARANCE_KEY);
+        var value = bundle[field];
+        return value && typeof value === "object" ? JSON.stringify(value) : null;
+      }
+
+      function setVirtualAppearanceValue(key, value) {
+        var field = appearanceKeys[safeKey(key)];
+        if (!field) return;
+        var bundle = readJsonStorage(SITE_APPEARANCE_KEY);
+        var parsed = parseJsonObject(value);
+        if (parsed) bundle[field] = parsed;
+        else delete bundle[field];
+        writeJsonStorage(SITE_APPEARANCE_KEY, bundle);
+      }
+
+      function removeVirtualAppearanceValue(key) {
+        var field = appearanceKeys[safeKey(key)];
+        if (!field) return;
+        var bundle = readJsonStorage(SITE_APPEARANCE_KEY);
+        delete bundle[field];
+        writeJsonStorage(SITE_APPEARANCE_KEY, bundle);
+      }
+
+      function takeNativeVirtualValue(key) {
+        try {
+          var raw = nativeGetItem.call(storage, key);
+          if (raw == null) return null;
+          setVirtualStorageValue(key, raw);
+          nativeRemoveItem.call(storage, key);
+          return raw;
+        } catch (_) {
+          return null;
+        }
+      }
+
+      function getVirtualStorageValue(key) {
+        var k = safeKey(key);
+        var migrated = takeNativeVirtualValue(k);
+        if (migrated != null) return migrated;
+        if (isVirtualAuthKey(k)) return getVirtualAuthValue(k);
+        var countryInfo = parseCountriesStorageKey(k);
+        if (countryInfo) return getVirtualCountriesValue(countryInfo);
+        var userStateInfo = parseUserStateStorageKey(k);
+        if (userStateInfo) return getVirtualUserStateValue(userStateInfo);
+        if (currencyKeys[k]) return getVirtualCurrencyValue(k);
+        if (Object.prototype.hasOwnProperty.call(appearanceKeys, k)) return getVirtualAppearanceValue(k);
+        return null;
+      }
+
+      function setVirtualStorageValue(key, value) {
+        var k = safeKey(key);
+        if (isVirtualAuthKey(k)) {
+          setVirtualAuthValue(k, value);
+          return;
+        }
+        var countryInfo = parseCountriesStorageKey(k);
+        if (countryInfo) {
+          setVirtualCountriesValue(countryInfo, value);
+          return;
+        }
+        var userStateInfo = parseUserStateStorageKey(k);
+        if (userStateInfo) {
+          setVirtualUserStateValue(userStateInfo, value);
+          return;
+        }
+        if (currencyKeys[k]) {
+          setVirtualCurrencyValue(k, value);
+          return;
+        }
+        if (Object.prototype.hasOwnProperty.call(appearanceKeys, k)) {
+          setVirtualAppearanceValue(k, value);
+        }
+      }
+
+      function removeVirtualStorageValue(key) {
+        var k = safeKey(key);
+        if (isVirtualAuthKey(k)) {
+          removeVirtualAuthValue(k);
+          return;
+        }
+        var countryInfo = parseCountriesStorageKey(k);
+        if (countryInfo) {
+          removeVirtualCountriesValue(countryInfo);
+          return;
+        }
+        var userStateInfo = parseUserStateStorageKey(k);
+        if (userStateInfo) {
+          removeVirtualUserStateValue(userStateInfo);
+          return;
+        }
+        if (currencyKeys[k]) {
+          removeVirtualCurrencyValue(k);
+          return;
+        }
+        if (Object.prototype.hasOwnProperty.call(appearanceKeys, k)) {
+          removeVirtualAppearanceValue(k);
+        }
+      }
+
+      function migrateLegacyAuthKeys() {
+        var changed = false;
+        function migrate(key) {
+          try {
+            var raw = nativeGetItem.call(storage, key);
+            if (raw == null) return;
+            setVirtualStorageValue(key, raw);
+            nativeRemoveItem.call(storage, key);
+            changed = true;
+          } catch (_) {}
+        }
+        Object.keys(directKeys).forEach(migrate);
+        Object.keys(currencyKeys).forEach(migrate);
+        Object.keys(appearanceKeys).forEach(migrate);
+        try {
+          var keys = [];
+          for (var i = 0; i < storage.length; i += 1) {
+            var key = String(nativeKey.call(storage, i) || "");
+            if (
+              key.indexOf(PROFILE_PREFIX) === 0 ||
+              parseCountriesStorageKey(key) ||
+              parseUserStateStorageKey(key)
+            ) {
+              keys.push(key);
+            }
+          }
+          keys.forEach(migrate);
+        } catch (_) {}
+        if (changed) writeBundle(readBundle());
+      }
+
+      migrateLegacyAuthKeys();
+
+      proto.getItem = function (key) {
+        if (isLocalStorageTarget(this) && isVirtualStorageKey(key)) return getVirtualStorageValue(key);
+        return nativeGetItem.call(this, key);
+      };
+      proto.setItem = function (key, value) {
+        if (isLocalStorageTarget(this) && isVirtualStorageKey(key)) {
+          setVirtualStorageValue(key, value);
+          return;
+        }
+        return nativeSetItem.call(this, key, value);
+      };
+      proto.removeItem = function (key) {
+        if (isLocalStorageTarget(this) && isVirtualStorageKey(key)) {
+          removeVirtualStorageValue(key);
+          return;
+        }
+        return nativeRemoveItem.call(this, key);
+      };
+
+      proto.__siteAuthSessionBundlePatched = true;
+      try { global.__AUTH_SESSION_BUNDLE_STORAGE_KEY__ = BUNDLE_KEY; } catch (_) {}
+      try { global.__CURRENCY_STATE_BUNDLE_STORAGE_KEY__ = CURRENCY_STATE_KEY; } catch (_) {}
+      try { global.__SITE_APPEARANCE_BUNDLE_STORAGE_KEY__ = SITE_APPEARANCE_KEY; } catch (_) {}
+    } catch (_) {}
+  }
+
+  function runLocalStorageMaintenance() {
+    try {
+      var storage = global.localStorage;
+      if (!storage) return;
+      var googleFlowDebugEnabled = false;
+      try {
+        googleFlowDebugEnabled = !!(
+          storage.getItem("site:google:flow:debug") === "1" ||
+          /(?:^|[?&])googleFlowDebug=1(?:&|$)/.test(String(global.location && global.location.search || ""))
+        );
+      } catch (_) {}
+      var staleKeys = [
+        "site:state:secure:v1",
+        "site:state:v1",
+        "i18n:runtime",
+        "site:google:redirect:early:status:v1",
+        "admin:credentials:password:v1"
+      ];
+      if (!googleFlowDebugEnabled) staleKeys.push("site:google:flow:logs:v1");
+      staleKeys.forEach(function (key) {
+        try { storage.removeItem(key); } catch (_) {}
+      });
+
+      var staleCountriesPattern = /^edaa:(?:deposit|withdraw):countries(?::meta)?:v[12]$/;
+      for (var i = storage.length - 1; i >= 0; i -= 1) {
+        var key = "";
+        try { key = String(storage.key(i) || ""); } catch (_) { key = ""; }
+        if (!key) continue;
+        if (staleCountriesPattern.test(key)) {
+          try { storage.removeItem(key); } catch (_) {}
+        }
+      }
+    } catch (_) {}
+  }
+
+  installAuthSessionStorageBundle();
+  runLocalStorageMaintenance();
+  try { global.__runSiteLocalStorageMaintenance = runLocalStorageMaintenance; } catch (_) {}
+
   function isPlainObject(value) {
     return !!value && typeof value === "object" && !Array.isArray(value);
   }

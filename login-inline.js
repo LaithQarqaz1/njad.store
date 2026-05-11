@@ -72,7 +72,10 @@
   const GOOGLE_AUTHORIZED_ORIGIN = "https://njad.store";
   const GOOGLE_AUTHORIZED_REDIRECT_URI = GOOGLE_AUTHORIZED_ORIGIN + "/__/auth/handler";
   const TOTP_RECOVERY_DISABLED_SIGNAL = "__totp_recovery_disabled__";
-  const GOOGLE_FLOW_LOG_LIMIT = 160;
+  const GOOGLE_FLOW_LOG_LIMIT = 30;
+  const GOOGLE_FLOW_DEBUG_STORAGE_KEY = "site:google:flow:debug";
+  const googleFlowMemoryLogs = [];
+  let googleFlowStorageDebugEnabled = null;
   const FIREBASE_COMPAT_SOURCES = [
     "/vendor/firebase/9.23.0/firebase-app-compat.js",
     "/vendor/firebase/9.23.0/firebase-auth-compat.js",
@@ -117,7 +120,27 @@
     return String(value);
   }
 
+  function isGoogleFlowStorageDebugEnabled() {
+    if (googleFlowStorageDebugEnabled !== null) return googleFlowStorageDebugEnabled;
+    let enabled = false;
+    try {
+      enabled = !!(
+        window.__GOOGLE_FLOW_DEBUG__ === true ||
+        /(?:^|[?&])googleFlowDebug=1(?:&|$)/.test(String(location.search || "")) ||
+        localStorage.getItem(GOOGLE_FLOW_DEBUG_STORAGE_KEY) === "1"
+      );
+    } catch (_) {
+      enabled = false;
+    }
+    googleFlowStorageDebugEnabled = enabled;
+    if (!enabled) {
+      try { localStorage.removeItem(GOOGLE_FLOW_LOG_KEY); } catch (_) {}
+    }
+    return enabled;
+  }
+
   function readGoogleFlowLogs() {
+    if (!isGoogleFlowStorageDebugEnabled()) return googleFlowMemoryLogs.slice();
     try {
       const raw = localStorage.getItem(GOOGLE_FLOW_LOG_KEY);
       const list = raw ? JSON.parse(raw) : [];
@@ -128,6 +151,7 @@
   }
 
   function writeGoogleFlowLogs(list) {
+    if (!isGoogleFlowStorageDebugEnabled()) return;
     try { localStorage.setItem(GOOGLE_FLOW_LOG_KEY, JSON.stringify(list)); } catch (_) {}
   }
 
@@ -169,12 +193,11 @@
       })(),
       meta: normalizeDebugValue(meta)
     };
-    const list = readGoogleFlowLogs();
-    list.push(entry);
-    if (list.length > GOOGLE_FLOW_LOG_LIMIT) {
-      list.splice(0, list.length - GOOGLE_FLOW_LOG_LIMIT);
+    googleFlowMemoryLogs.push(entry);
+    if (googleFlowMemoryLogs.length > GOOGLE_FLOW_LOG_LIMIT) {
+      googleFlowMemoryLogs.splice(0, googleFlowMemoryLogs.length - GOOGLE_FLOW_LOG_LIMIT);
     }
-    writeGoogleFlowLogs(list);
+    writeGoogleFlowLogs(googleFlowMemoryLogs.slice());
   }
 
   function getErrorMeta(err) {
@@ -212,6 +235,7 @@
         } catch (_) {}
       },
       clear: () => {
+        try { googleFlowMemoryLogs.splice(0, googleFlowMemoryLogs.length); } catch (_) {}
         try { localStorage.removeItem(GOOGLE_FLOW_LOG_KEY); } catch (_) {}
         clearGoogleFlowTask();
       }
@@ -642,17 +666,45 @@
   }
   try { if (!window.getDeviceFingerprint) window.getDeviceFingerprint = getDeviceId; } catch (_) {}
 
+  const dispatchLocalEvent = (name, detail = {}) => {
+    try {
+      if (typeof window.dispatchEvent === "function" && typeof window.CustomEvent === "function") {
+        window.dispatchEvent(new CustomEvent(name, { detail }));
+      }
+    } catch (_) {}
+  };
+  const notifySessionKeyUpdated = (payload = {}) => {
+    dispatchLocalEvent("sessionkey:updated", {
+      uid: String(payload.uid || payload.userUid || payload.user_uid || ""),
+      sessionKey: String(payload.sessionKey || payload.session_key || ""),
+      deviceId: String(payload.deviceId || payload.device_id || "")
+    });
+  };
+  const notifyAuthUiFromPayload = (payload = {}) => {
+    if (!payload || typeof payload !== "object") return;
+    const uid = String(payload.uid || payload.userUid || payload.user_uid || "").trim();
+    if (!uid) return;
+    const authUser = { ...payload, uid };
+    try { window.__AUTH_LAST_USER__ = authUser; } catch (_) {}
+    try { if (typeof window.__applyAuthUi === "function") window.__applyAuthUi(authUser); } catch (_) {}
+    try { if (typeof window.__syncSupportFloatingAuthVisibility === "function") window.__syncSupportFloatingAuthVisibility(authUser); } catch (_) {}
+    try { if (typeof window.__syncSupportChatVisibility === "function") window.__syncSupportChatVisibility(authUser); } catch (_) {}
+    dispatchLocalEvent("auth:ui-state", { logged: true, user: authUser });
+  };
+
   const saveSessionLocal = (obj = {}) => {
     const payload = { ...obj };
     if (!payload.deviceId) payload.deviceId = getDeviceId();
     try { if (payload.deviceId) localStorage.setItem(DEVICE_ID_STORAGE_KEY, String(payload.deviceId)); } catch (_) {}
     try { localStorage.setItem("sessionKeyInfo", JSON.stringify(payload)); } catch (_) {}
+    notifySessionKeyUpdated(payload);
   };
   const getSessionLocal = () => {
     try { return JSON.parse(localStorage.getItem("sessionKeyInfo") || "null"); } catch (_) { return null; }
   };
   const POST_LOGIN_STORAGE_KEY = "postLoginPayload";
   const TRANSIENT_AUTH_PREFIX = "__SITE_AUTH__:";
+  const GUEST_PROVIDER_GAMES_CACHE_KEY = "catalog:cache:v9:guest:provider-games";
   const normalizeAccountNo = (value) => {
     const n = Number(value);
     if (!Number.isFinite(n) || n <= 0) return 0;
@@ -662,12 +714,26 @@
     if (!payload || typeof payload !== "object") return 0;
     return normalizeAccountNo(payload.accountNo ?? payload.account_no ?? payload.rank);
   };
+  const clearGuestProviderGamesCatalogCache = () => {
+    try { localStorage.removeItem(GUEST_PROVIDER_GAMES_CACHE_KEY); } catch (_) {}
+    try { window.__CATALOG_TREE_CACHE__ = null; } catch (_) {}
+    try { window.__CATALOG_CATALOG_CACHE__ = null; } catch (_) {}
+    try {
+      if (typeof window.dispatchEvent === "function" && typeof window.CustomEvent === "function") {
+        window.dispatchEvent(new CustomEvent("catalog:guest-cache-cleared", {
+          detail: { key: GUEST_PROVIDER_GAMES_CACHE_KEY }
+        }));
+      }
+    } catch (_) {}
+  };
   const savePostLoginPayload = (payload = {}) => {
     const data = { ...payload, ts: Date.now() };
     if (!data.deviceId) data.deviceId = getDeviceId();
+    clearGuestProviderGamesCatalogCache();
     try { localStorage.setItem(POST_LOGIN_STORAGE_KEY, JSON.stringify(data)); } catch (_) {}
     try { window.name = TRANSIENT_AUTH_PREFIX + JSON.stringify(data); } catch (_) {}
     try { window.__POST_LOGIN_PAYLOAD__ = data; } catch (_) {}
+    notifyAuthUiFromPayload(data);
   };
   const readPostLoginPayload = () => {
     try {
@@ -2453,6 +2519,57 @@
     try { window.location.hash = '#/'; } catch (_) { window.location.href = 'index.html'; }
   }
 
+  function beginPostLoginNavigationLoader(){
+    try { window.__AUTH_POST_LOGIN_NAV_PENDING__ = true; } catch (_) {}
+    try { document.documentElement.classList.add("auth-request-loader-pending"); } catch (_) {}
+    try { if (document.body) document.body.classList.add("auth-request-loader-pending"); } catch (_) {}
+    try {
+      if (typeof window.__holdPageLoader === "function") {
+        window.__holdPageLoader();
+      } else if (typeof showPageLoader === "function") {
+        showPageLoader({ hold: true, replay: true });
+      } else {
+        forceGooglePreloaderVisible();
+      }
+    } catch (_) {}
+  }
+
+  function finishPostLoginNavigationLoader(){
+    try { window.__AUTH_POST_LOGIN_NAV_PENDING__ = false; } catch (_) {}
+    try { document.documentElement.classList.remove("auth-request-loader-pending"); } catch (_) {}
+    try { if (document.body) document.body.classList.remove("auth-request-loader-pending"); } catch (_) {}
+    try {
+      if (typeof window.__releasePageLoader === "function") {
+        window.__releasePageLoader();
+      } else if (typeof hidePageLoader === "function") {
+        hidePageLoader();
+      } else {
+        forceGooglePreloaderHidden();
+      }
+    } catch (_) {}
+  }
+
+  function schedulePostLoginNavigationLoaderRelease(){
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      try { window.removeEventListener("hashchange", finish); } catch (_) {}
+      setTimeout(finishPostLoginNavigationLoader, 450);
+    };
+    try { window.addEventListener("hashchange", finish, { once: true }); } catch (_) {}
+    setTimeout(finish, 1300);
+  }
+
+  function goHomeAfterAuthSuccess(){
+    beginPostLoginNavigationLoader();
+    try {
+      goHome();
+    } finally {
+      schedulePostLoginNavigationLoaderRelease();
+    }
+  }
+
   function clearAuthLocalArtifacts() {
     try { localStorage.removeItem("sessionKeyInfo"); } catch (_) {}
     try { localStorage.removeItem(POST_LOGIN_STORAGE_KEY); } catch (_) {}
@@ -3408,7 +3525,7 @@
         username: basePayload.username || "",
         photoURL: (user && user.photoURL) ? user.photoURL : (basePayload.photoURL || "")
       });
-      goHome();
+      goHomeAfterAuthSuccess();
     } catch (err) {
       try { console.error("performManualLogin error", err); } catch (_) {}
       const code = err && err.code ? String(err.code) : "";
@@ -3464,7 +3581,7 @@
         username: cached.username || "",
         photoURL: (user && user.photoURL) ? user.photoURL : (cached.photoURL || cached.photoUrl || "")
       });
-      goHome();
+      goHomeAfterAuthSuccess();
     } catch (err) {
       if (loginError) loginError.textContent = translateFirebaseError(err);
     }
@@ -3566,7 +3683,7 @@
           username: basePayload.username || "",
           photoURL: (user && user.photoURL) ? user.photoURL : (basePayload.photoURL || "")
         });
-        goHome();
+        goHomeAfterAuthSuccess();
         return;
       }
 
@@ -3943,7 +4060,7 @@
       clearGoogleFlowTask();
       resetGoogleFlow();
       hideGoogleRedirectLoader();
-      goHome();
+      goHomeAfterAuthSuccess();
     } catch (error) {
       if (error?.code === "totp_cancelled") {
         pushGoogleFlowLog("google_finalize_totp_cancelled", { uid: uidMasked });
@@ -4010,7 +4127,7 @@
             });
             resetGoogleFlow();
             hideGoogleRedirectLoader();
-            goHome();
+            goHomeAfterAuthSuccess();
             return;
           }
         } catch (fallbackErr) {
@@ -4277,7 +4394,10 @@
       hideGoogleRedirectLoader();
       const errorMeta = getErrorMeta(err);
       const normalizedCode = normalizeUiErrorCode(err?.code || err?.message || "");
-      if (normalizedCode === "auth/popup-closed-by-user") clearGoogleFlowTask();
+      const isUserCancelledGoogleFlow =
+        normalizedCode === "auth/popup-closed-by-user" ||
+        normalizedCode === "auth/cancelled-popup-request";
+      if (isUserCancelledGoogleFlow) clearGoogleFlowTask();
       pushGoogleFlowLog("google_signin_error", { entryPoint, error: errorMeta, normalizedCode });
       logGoogleConsole("error", "google_signin_error", { entryPoint, error: errorMeta, normalizedCode });
       if (normalizedCode === "auth/unauthorized-domain") {
@@ -4285,11 +4405,11 @@
         const authDomain = getFirebaseAuthDomainSafe();
         pushGoogleFlowLog("google_signin_unauthorized_domain", { entryPoint, host, authDomain });
         setGoogleFlowTask("google_signin_unauthorized_domain", { entryPoint, host, authDomain });
-      } else {
+      } else if (!isUserCancelledGoogleFlow) {
         setGoogleFlowTask("google_signin_error", { entryPoint, error: errorMeta, normalizedCode });
       }
       if (loginError) {
-        loginError.textContent = translateFirebaseError(err);
+        loginError.textContent = isUserCancelledGoogleFlow ? "" : translateFirebaseError(err);
       }
     } finally {
       googleBusy = false;
@@ -4354,12 +4474,11 @@
         }
       }
       if (!finalResult || !finalResult.user) {
-        pushGoogleFlowLog("google_redirect_result_empty");
+        pushGoogleFlowLog("google_redirect_result_empty_cancelled");
         hideGoogleRedirectLoader();
-        if (targetErrorEl) {
-          targetErrorEl.textContent = getUnauthorizedDomainMessage();
-        }
+        if (targetErrorEl) targetErrorEl.textContent = "";
         clearGoogleRedirectPending();
+        clearGoogleFlowTask();
         return false;
       }
       clearGoogleRedirectPending();
@@ -4381,9 +4500,14 @@
       clearGoogleRedirectPending();
       hideGoogleRedirectLoader();
       const targetErrorEl = byId("loginError") || byId("registerError");
-      if (targetErrorEl) targetErrorEl.textContent = translateFirebaseError(err);
-      pushGoogleFlowLog("google_redirect_result_error", { error: getErrorMeta(err) });
-      logGoogleConsole("warn", "google_redirect_result_error", { error: getErrorMeta(err) });
+      const normalizedCode = normalizeUiErrorCode(err?.code || err?.message || "");
+      const isUserCancelledGoogleFlow =
+        normalizedCode === "auth/popup-closed-by-user" ||
+        normalizedCode === "auth/cancelled-popup-request";
+      if (isUserCancelledGoogleFlow) clearGoogleFlowTask();
+      if (targetErrorEl) targetErrorEl.textContent = isUserCancelledGoogleFlow ? "" : translateFirebaseError(err);
+      pushGoogleFlowLog("google_redirect_result_error", { error: getErrorMeta(err), normalizedCode });
+      logGoogleConsole("warn", "google_redirect_result_error", { error: getErrorMeta(err), normalizedCode });
       return false;
     }
   }

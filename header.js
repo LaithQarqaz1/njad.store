@@ -105,7 +105,7 @@ function shouldEnableRealtime(feature){
     } catch {}
   });
   window.addEventListener('storage', function(e){
-    if (e && (e.key === 'theme' || e.key === 'site:theme:v1')) sync();
+    if (e && (e.key === 'theme' || e.key === 'site:theme:v1' || e.key === 'site:appearance:v1')) sync();
   });
 })();
 
@@ -388,6 +388,19 @@ body.inline-wallet-route-pending #preloader.closing {
   z-index: 200000 !important;
 }
 
+html.deposit-countries-loader-pending #preloader,
+body.deposit-countries-loader-pending #preloader,
+html.deposit-countries-loader-pending #preloader.hidden,
+body.deposit-countries-loader-pending #preloader.hidden,
+html.deposit-countries-loader-pending #preloader.closing,
+body.deposit-countries-loader-pending #preloader.closing {
+  display: flex !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  z-index: 200000 !important;
+}
+
 html.google-redirect-pending #preloader,
 html.google-redirect-pending #preloader.hidden,
 html.google-redirect-pending #preloader.closing {
@@ -422,6 +435,24 @@ body.inline-wallet-route-pending #preloader.entering .loader {
 html.inline-wallet-route-pending #preloader:not(.preparing-intro):not(.entering) .loader,
 body.inline-wallet-route-pending #preloader:not(.preparing-intro):not(.entering) .loader {
   opacity: 1 !important;
+  transform: scale(1) !important;
+  animation: loader-pulse 1.2s ease-in-out infinite !important;
+}
+
+html.deposit-countries-loader-pending #preloader .loader,
+body.deposit-countries-loader-pending #preloader .loader,
+html.deposit-countries-loader-pending #preloader.hidden .loader,
+body.deposit-countries-loader-pending #preloader.hidden .loader,
+html.deposit-countries-loader-pending #preloader.closing .loader,
+body.deposit-countries-loader-pending #preloader.closing .loader {
+  display: grid !important;
+  place-items: center !important;
+  position: relative !important;
+  width: 128px !important;
+  height: 128px !important;
+  border-radius: 50% !important;
+  opacity: 1 !important;
+  visibility: visible !important;
   transform: scale(1) !important;
   animation: loader-pulse 1.2s ease-in-out infinite !important;
 }
@@ -743,17 +774,29 @@ function showPageLoader(opts){
     }
     try {
       clearTimeout(window.__NAV_LOADER_TIMEOUT__);
-      if (!hold) {
+      const autoHide = !!(opts && opts.autoHide);
+      if (!hold && autoHide) {
         window.__NAV_LOADER_TIMEOUT__ = setTimeout(function(){
           try { sessionStorage.removeItem('nav:loader:expected'); sessionStorage.removeItem('nav:loader:showAt'); } catch(_){ }
           try { hidePageLoader(); } catch(_){ }
-        }, 300);
+        }, 1200);
       }
     } catch {}
   } catch {}
 }
 function shouldKeepPageLoaderVisible(){
   try {
+    try {
+      if (window.__AUTH_POST_LOGIN_NAV_PENDING__ === true) return true;
+      if (window.__DEPOSIT_INLINE_COUNTRIES_LOADING__ === true) return true;
+      if (window.__CATALOG_INLINE_LOADING__ === true) return true;
+      if (window.__DEPOSIT_INLINE_LOADING__ === true) return true;
+      if (document.documentElement && document.documentElement.classList.contains('google-redirect-pending')) return true;
+      if (document.documentElement && document.documentElement.classList.contains('deposit-countries-loader-pending')) return true;
+      if (document.body && document.body.classList.contains('deposit-countries-loader-pending')) return true;
+      if (document.documentElement && document.documentElement.classList.contains('auth-request-loader-pending')) return true;
+      if (document.body && document.body.classList.contains('auth-request-loader-pending')) return true;
+    } catch {}
     try {
       if (window.__INLINE_WALLET_ROUTE_PENDING__ === true) return true;
       if (document.documentElement && document.documentElement.classList.contains('inline-wallet-route-pending')) return true;
@@ -829,12 +872,23 @@ function hidePageLoader(opts){
     return true;
   }
   function clearStaleLoaderState(reason){
+    const hardClearReason = reason === 'startup-long';
+    try {
+      if (!hardClearReason && window.__LOADER_HOLD_ACTIVE__ === true) return;
+    } catch {}
+    try {
+      if (isProtectedLoaderRoute() && !hardClearReason) return;
+    } catch {}
     try {
       if (typeof shouldKeepPageLoaderVisible === 'function' && shouldKeepPageLoaderVisible() && isProtectedLoaderRoute()) return;
+    } catch {}
+    try {
+      if (!hardClearReason && typeof shouldKeepPageLoaderVisible === 'function' && shouldKeepPageLoaderVisible()) return;
     } catch {}
     if (!canClearGoogleRedirectLoader()) return;
     try { window.__LOADER_HOLD_ACTIVE__ = false; } catch {}
     try { window.__INLINE_WALLET_ROUTE_PENDING__ = false; } catch {}
+    try { window.__DEPOSIT_INLINE_LOADING__ = false; } catch {}
     try {
       sessionStorage.removeItem('nav:loader:expected');
       sessionStorage.removeItem('nav:loader:showAt');
@@ -867,7 +921,7 @@ function hidePageLoader(opts){
   try { window.addEventListener('error', function(){ schedule('error', 0); }, true); } catch {}
   try { window.addEventListener('unhandledrejection', function(){ schedule('unhandledrejection', 0); }); } catch {}
   schedule('startup', 7500);
-  schedule('startup-long', 13000);
+  schedule('startup-long', 30000);
 })();
 window.addEventListener('pageshow', (event) => {
   try {
@@ -6876,7 +6930,7 @@ function applyAuthUi(user){
 }
 try { window.__applyAuthUi = applyAuthUi; } catch {}
 
-const SITE_PWA_SW_URL = "sw.js?v=20260510-21";
+const SITE_PWA_SW_URL = "sw.js?v=20260511-02";
 let deferredSiteInstallPrompt = null;
 let activeSiteManifestUrl = "";
 let sitePwaRegistrationPromise = null;
@@ -10024,7 +10078,7 @@ function initMobileDock(){
     window.addEventListener('pageshow', updateActive);
     window.addEventListener('site:theme', renderDock);
     window.addEventListener('site-state-updated', renderDock);
-    window.addEventListener('storage', (ev) => { if (!ev || ev.key === 'site:theme:v1' || ev.key === 'theme') renderDock(); });
+    window.addEventListener('storage', (ev) => { if (!ev || ev.key === 'site:theme:v1' || ev.key === 'site:appearance:v1' || ev.key === 'theme') renderDock(); });
   } catch {}
 }
 initMobileDock();
@@ -13711,7 +13765,9 @@ function wirePageBalanceBox(){
         syncSupportChatVisibility(window.__AUTH_LAST_USER__ || null);
       });
       window.addEventListener('storage', function(ev){
-        if (!ev || ev.key === 'sessionKeyInfo' || ev.key === 'auth:lastLoggedIn') {
+        var authBundleKey = '';
+        try { authBundleKey = String(window.__AUTH_SESSION_BUNDLE_STORAGE_KEY__ || 'auth:session:bundle:v1'); } catch (_) { authBundleKey = 'auth:session:bundle:v1'; }
+        if (!ev || ev.key === 'sessionKeyInfo' || ev.key === 'auth:lastLoggedIn' || ev.key === authBundleKey) {
           syncSupportChatVisibility(window.__AUTH_LAST_USER__ || null);
         }
         if (!ev || ev.key === 'site:media:v1') {
@@ -15752,6 +15808,18 @@ function wirePageBalanceBox(){
     let siteNoticeCloseGuardUntil = 0;
     const SITE_WA_JOIN_CACHE_KEY = "site:wa-join:v1";
 
+    function writeSiteJsonCacheIfChanged(key, value){
+      try {
+        const next = JSON.stringify(value);
+        if (!next) return false;
+        if (localStorage.getItem(key) === next) return false;
+        localStorage.setItem(key, next);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
     function normalizeSiteNoticeState(raw){
       const src = (raw && typeof raw === "object") ? raw : {};
       const enabledRaw = src.enabled ?? src.on ?? src.active;
@@ -15881,7 +15949,7 @@ function wirePageBalanceBox(){
     function applySiteWaJoin(raw){
       const source = (raw && typeof raw === "object") ? raw : { enabled: false };
       const config = normalizeSiteWaJoinState(source);
-      try { localStorage.setItem(SITE_WA_JOIN_CACHE_KEY, JSON.stringify(config)); } catch {}
+      writeSiteJsonCacheIfChanged(SITE_WA_JOIN_CACHE_KEY, config);
       try {
         if (typeof window.__applyWaJoinConfig === "function") {
           window.__applyWaJoinConfig(config);
@@ -17649,7 +17717,7 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
     });
     try {
       window.addEventListener("storage", function(e){
-        if (e && e.key === "theme") {
+        if (e && (e.key === "theme" || e.key === "site:appearance:v1")) {
           syncActiveSiteTextColors();
           if (activeSiteThemeState) applySiteThemeDetailRuntimeCss(activeSiteThemeState);
         }
@@ -18180,7 +18248,7 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
     function cacheSiteTheme(theme){
       try {
         const normalized = normalizeSiteThemeState(theme);
-        localStorage.setItem(SITE_THEME_CACHE_KEY, JSON.stringify(normalized));
+        writeSiteJsonCacheIfChanged(SITE_THEME_CACHE_KEY, normalized);
       } catch {}
     }
 
@@ -18413,6 +18481,7 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
 
     const SITE_MEDIA_CACHE_KEY = "site:media:v1";
     const SITE_BRAND_CACHE_KEY = "site:brand:v1";
+    const SITE_APPEARANCE_CACHE_KEY = "site:appearance:v1";
     const DEFAULT_SITE_LOADER_LOGO = resolveSiteMediaFallbackUrl("loader");
     const DEFAULT_SITE_HEADER_LOGO = resolveSiteMediaFallbackUrl("header");
     const DEFAULT_SITE_ICON = resolveSiteMediaFallbackUrl("icon");
@@ -18905,19 +18974,19 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
 
     function cacheSiteMedia(media){
       try {
-        localStorage.setItem(SITE_MEDIA_CACHE_KEY, JSON.stringify({
+        writeSiteJsonCacheIfChanged(SITE_MEDIA_CACHE_KEY, {
           loaderLogo: normalizeSiteMediaUrl(media?.loaderLogo || ""),
           headerLogo: normalizeSiteMediaUrl(media?.headerLogo || ""),
           siteImage: normalizeSiteMediaUrl(media?.siteImage || media?.siteIcon || ""),
           siteIcon: normalizeSiteMediaUrl(media?.siteIcon || ""),
           heroBanners: normalizeSiteMediaBanners(media?.heroBanners || [])
-        }));
+        });
       } catch {}
     }
 
     function cacheSiteBrand(brand){
       try {
-        localStorage.setItem(SITE_BRAND_CACHE_KEY, JSON.stringify(normalizeSiteBrandState(brand || {})));
+        writeSiteJsonCacheIfChanged(SITE_BRAND_CACHE_KEY, normalizeSiteBrandState(brand || {}));
       } catch {}
     }
 
@@ -19259,6 +19328,8 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
 
     const SITE_STATE_CACHE_KEY = "site:state:secure:v1";
     const SITE_STATE_CACHE_VERSION = 1;
+    const SITE_STATE_CACHE_ENABLED = false;
+    let siteStateCacheDisabledCleanupDone = false;
 
     function sortSiteStateCacheValue(value){
       if (Array.isArray(value)) return value.map(sortSiteStateCacheValue);
@@ -19384,10 +19455,21 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
 
     function clearSiteStateCache(){
       try { localStorage.removeItem(SITE_STATE_CACHE_KEY); } catch {}
+      try { localStorage.removeItem("site:state:v1"); } catch {}
+    }
+
+    function clearDisabledSiteStateCacheOnce(){
+      if (siteStateCacheDisabledCleanupDone) return;
+      siteStateCacheDisabledCleanupDone = true;
+      clearSiteStateCache();
     }
 
     function writeSiteStateCache(data, options){
       try {
+        if (!SITE_STATE_CACHE_ENABLED) {
+          clearDisabledSiteStateCacheOnce();
+          return false;
+        }
         if (!data || typeof data !== "object") return false;
         const payload = {
           v: SITE_STATE_CACHE_VERSION,
@@ -19425,6 +19507,10 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
 
     function readSiteStateCache(){
       try {
+        if (!SITE_STATE_CACHE_ENABLED) {
+          clearDisabledSiteStateCacheOnce();
+          return null;
+        }
         const raw = localStorage.getItem(SITE_STATE_CACHE_KEY);
         if (!raw) return null;
         const envelope = JSON.parse(raw);
@@ -19708,7 +19794,7 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
         applySiteBrand(resolveSiteBrandRaw(data));
       });
       runSiteStateStep('theme', function(){
-        applyTheme(data.theme || {});
+        applyTheme(data.theme || data.siteTheme || data.site_theme || data.design || data.siteDesign || data.site_design || data);
       });
       runSiteStateBodyStep('maintenance', function(){
         applyMaintenance(data.maintenance || {});
@@ -19736,6 +19822,12 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
           window.__applySupportContactsConfig(data || {});
         }
       });
+      try {
+        if (typeof window.dispatchEvent === 'function' && typeof window.CustomEvent === 'function') {
+          window.dispatchEvent(new CustomEvent('site-state-applied', { detail: data }));
+          window.dispatchEvent(new CustomEvent('site-state-updated', { detail: data }));
+        }
+      } catch {}
       return true;
     }
 
@@ -19860,6 +19952,19 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
       window.addEventListener('storage', function(e){
         const key = e && typeof e.key === 'string' ? e.key : '';
         if (!key) return;
+        if (key === SITE_APPEARANCE_CACHE_KEY) {
+          if (e.newValue) {
+            try {
+              const appearance = JSON.parse(e.newValue) || {};
+              if (appearance.theme) applyTheme(appearance.theme);
+              if (appearance.media) applySiteMedia(appearance.media);
+              if (appearance.waJoin) applySiteWaJoin(appearance.waJoin);
+              return;
+            } catch (_) {}
+          }
+          refreshSiteStateFromNetwork('storage-appearance').catch(function(){ return false; });
+          return;
+        }
         if (key === SITE_MEDIA_CACHE_KEY) {
           if (e.newValue) {
             try {
