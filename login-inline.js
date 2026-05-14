@@ -34,6 +34,22 @@
     ? window.__getSiteFirebaseConfig()
     : (window.__FIREBASE_CONFIG__ || null);
 
+  function readSiteSetting(path, fallback) {
+    try {
+      if (typeof window.__getSiteSetting === "function") {
+        const value = window.__getSiteSetting(path, fallback);
+        return value == null ? fallback : value;
+      }
+    } catch (_) {}
+    return fallback;
+  }
+
+  function normalizeGoogleRedirectOrigin(value) {
+    const text = String(value || "").trim().replace(/\/+$/, "");
+    if (!text) return "";
+    try { return new URL(text).origin; } catch (_) { return text; }
+  }
+
   function hasFirebaseWebConfig() {
     const cfg = (firebaseConfig && typeof firebaseConfig === "object") ? firebaseConfig : null;
     if (!cfg) return false;
@@ -69,8 +85,16 @@
   const GOOGLE_FLOW_TASK_KEY = "site:google:flow:task:v1";
   const GOOGLE_REDIRECT_PENDING_KEY = "site:google:redirect:pending:v1";
   const GOOGLE_REDIRECT_PENDING_TTL_MS = 15 * 60 * 1000;
-  const GOOGLE_AUTHORIZED_ORIGIN = "https://njad.store";
-  const GOOGLE_AUTHORIZED_REDIRECT_URI = GOOGLE_AUTHORIZED_ORIGIN + "/__/auth/handler";
+  const GOOGLE_AUTHORIZED_ORIGIN = normalizeGoogleRedirectOrigin(
+    readSiteSetting("auth.googleRedirectOrigin", "") ||
+    (firebaseConfig && firebaseConfig.authDomain ? ("https://" + firebaseConfig.authDomain) : "") ||
+    (window.location && window.location.origin) ||
+    ""
+  );
+  const GOOGLE_AUTHORIZED_REDIRECT_URI = String(
+    readSiteSetting("auth.googleRedirectUri", "") ||
+    (GOOGLE_AUTHORIZED_ORIGIN + String(readSiteSetting("auth.googleRedirectPath", "/__/auth/handler") || "/__/auth/handler"))
+  ).trim();
   const TOTP_RECOVERY_DISABLED_SIGNAL = "__totp_recovery_disabled__";
   const GOOGLE_FLOW_LOG_LIMIT = 30;
   const GOOGLE_FLOW_DEBUG_STORAGE_KEY = "site:google:flow:debug";

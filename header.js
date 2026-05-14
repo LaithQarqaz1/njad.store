@@ -1,6 +1,6 @@
 // Deobfuscated and cleaned header logic
 
-// Runtime config, router base, and Firebase bootstrap now come from site-core.js.
+// Runtime config, router base, and Firebase bootstrap now come from site-bundle.js.
 // Realtime Firestore toggle (to reduce "channel?VER=8" requests)
 function shouldEnableRealtime(feature){
   return false;
@@ -279,6 +279,7 @@ const SITE_ICON_CANDIDATE_KEYS = [
 ];
 const SITE_HEADER_CANDIDATE_KEYS = ['headerLogo', 'header_logo', 'logo', 'logoUrl', 'logo_url'];
 const SITE_LOADER_CANDIDATE_KEYS = ['loaderLogo', 'loader_logo', 'loaderImage', 'loader_image', 'preloaderLogo', 'preloader_logo', 'loader'];
+const SITE_LOADER_FALLBACK_CANDIDATE_KEYS = SITE_LOADER_CANDIDATE_KEYS.concat(SITE_ICON_CANDIDATE_KEYS, SITE_HEADER_CANDIDATE_KEYS);
 function resolveSiteMediaFallbackUrl(kind, label){
   const candidates = [];
   if (kind === 'loader') {
@@ -304,6 +305,24 @@ function resolveSiteMediaFallbackUrl(kind, label){
 }
 try { window.__createSiteMediaPlaceholderUrl = buildSiteMediaPlaceholder; } catch {}
 try { window.__resolveSiteMediaFallbackUrl = resolveSiteMediaFallbackUrl; } catch {}
+
+function resolveSiteLoaderLogoCandidates(primary){
+  const out = [];
+  const seen = new Set();
+  function push(value){
+    const text = trimSiteMediaUrl(value);
+    if (!text || seen.has(text)) return;
+    seen.add(text);
+    out.push(text);
+  }
+  push(primary);
+  try { push(window.__SITE_LOADER_IMAGE__); } catch {}
+  push(readCachedSiteMediaCandidate(SITE_LOADER_CANDIDATE_KEYS));
+  try { push(window.__SITE_ICON__); } catch {}
+  try { push(window.__SITE_HEADER_LOGO__); } catch {}
+  push(readCachedSiteMediaCandidate(SITE_LOADER_FALLBACK_CANDIDATE_KEYS));
+  return out;
+}
 
 // Preload image asset used elsewhere
 (function(){
@@ -388,12 +407,38 @@ body.inline-wallet-route-pending #preloader.closing {
   z-index: 200000 !important;
 }
 
+html.inline-route-pending #preloader,
+body.inline-route-pending #preloader,
+html.inline-route-pending #preloader.hidden,
+body.inline-route-pending #preloader.hidden,
+html.inline-route-pending #preloader.closing,
+body.inline-route-pending #preloader.closing {
+  display: flex !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  z-index: 200000 !important;
+}
+
 html.deposit-countries-loader-pending #preloader,
 body.deposit-countries-loader-pending #preloader,
 html.deposit-countries-loader-pending #preloader.hidden,
 body.deposit-countries-loader-pending #preloader.hidden,
 html.deposit-countries-loader-pending #preloader.closing,
 body.deposit-countries-loader-pending #preloader.closing {
+  display: flex !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  z-index: 200000 !important;
+}
+
+html.catalog-loader-pending #preloader,
+body.catalog-loader-pending #preloader,
+html.catalog-loader-pending #preloader.hidden,
+body.catalog-loader-pending #preloader.hidden,
+html.catalog-loader-pending #preloader.closing,
+body.catalog-loader-pending #preloader.closing {
   display: flex !important;
   opacity: 1 !important;
   visibility: visible !important;
@@ -424,6 +469,18 @@ body.inline-wallet-route-pending #preloader.preparing-intro .loader {
   animation: loader-pulse 1.2s ease-in-out infinite !important;
 }
 
+html.inline-route-pending #preloader .loader,
+body.inline-route-pending #preloader .loader,
+html.inline-route-pending #preloader.hidden .loader,
+body.inline-route-pending #preloader.hidden .loader,
+html.inline-route-pending #preloader.closing .loader,
+body.inline-route-pending #preloader.closing .loader {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: scale(1) !important;
+  animation: loader-pulse 1.2s ease-in-out infinite !important;
+}
+
 html.inline-wallet-route-pending #preloader.entering .loader,
 body.inline-wallet-route-pending #preloader.entering .loader {
   opacity: 1 !important;
@@ -445,6 +502,24 @@ html.deposit-countries-loader-pending #preloader.hidden .loader,
 body.deposit-countries-loader-pending #preloader.hidden .loader,
 html.deposit-countries-loader-pending #preloader.closing .loader,
 body.deposit-countries-loader-pending #preloader.closing .loader {
+  display: grid !important;
+  place-items: center !important;
+  position: relative !important;
+  width: 128px !important;
+  height: 128px !important;
+  border-radius: 50% !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: scale(1) !important;
+  animation: loader-pulse 1.2s ease-in-out infinite !important;
+}
+
+html.catalog-loader-pending #preloader .loader,
+body.catalog-loader-pending #preloader .loader,
+html.catalog-loader-pending #preloader.hidden .loader,
+body.catalog-loader-pending #preloader.hidden .loader,
+html.catalog-loader-pending #preloader.closing .loader,
+body.catalog-loader-pending #preloader.closing .loader {
   display: grid !important;
   place-items: center !important;
   position: relative !important;
@@ -568,6 +643,8 @@ body.dark-mode .loader {
 }
 
 .loader img.loader-logo {
+  position: relative;
+  z-index: 1;
   width: 72px;
   height: 72px;
   object-fit: contain;
@@ -600,7 +677,27 @@ function ensureSiteLoaderLogoNode(loaderNode){
     img.decoding = 'async';
     try { img.fetchPriority = 'high'; } catch {}
     img.loading = 'eager';
+    img.addEventListener('load', function(){
+      try { img.hidden = false; } catch {}
+      try { img.style.display = ''; } catch {}
+    });
     img.addEventListener('error', function(){
+      try {
+        const current = trimSiteMediaUrl(img.getAttribute('src') || '');
+        const primary = trimSiteMediaUrl(img.getAttribute('data-loader-logo-primary') || current);
+        const candidates = resolveSiteLoaderLogoCandidates(primary);
+        const currentIndex = candidates.indexOf(current);
+        const startIndex = currentIndex >= 0 ? currentIndex + 1 : 0;
+        for (let idx = startIndex; idx < candidates.length; idx += 1) {
+          const next = candidates[idx];
+          if (!next || next === current) continue;
+          img.setAttribute('data-loader-logo-fallback-index', String(idx));
+          img.hidden = false;
+          img.style.display = '';
+          img.src = next;
+          return;
+        }
+      } catch {}
       try { img.removeAttribute('src'); } catch {}
       try { img.removeAttribute('srcset'); } catch {}
       try { img.hidden = true; } catch {}
@@ -731,6 +828,14 @@ function schedulePageLoaderHideDisplay(el, delay){
     window.__PAGE_LOADER_HIDE_TIMER__ = setTimeout(function(){
       try {
         if (el) {
+          try {
+            if (typeof shouldKeepPageLoaderVisible === 'function' && shouldKeepPageLoaderVisible()) {
+              if (typeof isCatalogPageLoaderActive === 'function' && isCatalogPageLoaderActive() && typeof window.__catalogForcePageLoaderVisible === 'function') {
+                window.__catalogForcePageLoaderVisible();
+              }
+              return;
+            }
+          } catch(_){}
           el.classList.remove('entering', 'closing');
           el.classList.add('hidden');
           el.style.display = 'none';
@@ -784,14 +889,26 @@ function showPageLoader(opts){
     } catch {}
   } catch {}
 }
+function isCatalogPageLoaderActive(){
+  try {
+    if (window.__CATALOG_INLINE_LOADING__ === true) return true;
+    if (Number(window.__CATALOG_PAGE_LOADER_ACTIVE_COUNT__ || 0) > 0) return true;
+    if (document.documentElement && document.documentElement.classList.contains('catalog-loader-pending')) return true;
+    if (document.body && document.body.classList.contains('catalog-loader-pending')) return true;
+  } catch {}
+  return false;
+}
 function shouldKeepPageLoaderVisible(){
   try {
     try {
+      if (isCatalogPageLoaderActive()) return true;
       if (window.__AUTH_POST_LOGIN_NAV_PENDING__ === true) return true;
       if (window.__DEPOSIT_INLINE_COUNTRIES_LOADING__ === true) return true;
       if (window.__CATALOG_INLINE_LOADING__ === true) return true;
       if (window.__DEPOSIT_INLINE_LOADING__ === true) return true;
       if (document.documentElement && document.documentElement.classList.contains('google-redirect-pending')) return true;
+      if (document.documentElement && document.documentElement.classList.contains('inline-route-pending')) return true;
+      if (document.body && document.body.classList.contains('inline-route-pending')) return true;
       if (document.documentElement && document.documentElement.classList.contains('deposit-countries-loader-pending')) return true;
       if (document.body && document.body.classList.contains('deposit-countries-loader-pending')) return true;
       if (document.documentElement && document.documentElement.classList.contains('auth-request-loader-pending')) return true;
@@ -821,6 +938,11 @@ function shouldKeepPageLoaderVisible(){
 function hidePageLoader(opts){
   try {
     const allowForceHide = !!(opts && opts.force);
+    if (allowForceHide) {
+      try {
+        if (isCatalogPageLoaderActive() && !(opts && opts.ignoreCatalogLoading === true)) return;
+      } catch {}
+    }
     let holdActive = false;
     try { holdActive = !!window.__LOADER_HOLD_ACTIVE__; } catch {}
     if (!holdActive) {
@@ -860,7 +982,7 @@ function hidePageLoader(opts){
   }
   function isProtectedLoaderRoute(){
     const key = getCurrentInlineRouteKey();
-    return key === 'deposit' || key === 'edaa' || key === 'withdraw' || key === 'sahb' || key === 'security';
+    return key === 'deposit' || key === 'edaa' || key === 'security';
   }
   function canClearGoogleRedirectLoader(){
     try {
@@ -889,6 +1011,20 @@ function hidePageLoader(opts){
     try { window.__LOADER_HOLD_ACTIVE__ = false; } catch {}
     try { window.__INLINE_WALLET_ROUTE_PENDING__ = false; } catch {}
     try { window.__DEPOSIT_INLINE_LOADING__ = false; } catch {}
+    if (hardClearReason) {
+      try { window.__CATALOG_INLINE_LOADING__ = false; } catch {}
+      try { window.__CATALOG_PAGE_LOADER_ACTIVE_COUNT__ = 0; } catch {}
+      try {
+        if (window.__CATALOG_PAGE_LOADER_KEEPALIVE_TIMER__) {
+          clearInterval(window.__CATALOG_PAGE_LOADER_KEEPALIVE_TIMER__);
+          window.__CATALOG_PAGE_LOADER_KEEPALIVE_TIMER__ = null;
+        }
+      } catch {}
+      try {
+        if (document.documentElement) document.documentElement.classList.remove('catalog-loader-pending');
+        if (document.body) document.body.classList.remove('catalog-loader-pending');
+      } catch {}
+    }
     try {
       sessionStorage.removeItem('nav:loader:expected');
       sessionStorage.removeItem('nav:loader:showAt');
@@ -896,10 +1032,10 @@ function hidePageLoader(opts){
     try {
       const root = document.documentElement;
       if (root) {
-        root.classList.remove('google-redirect-pending', 'auth-request-loader-pending', 'pre-inline-route', 'pre-login-route', 'inline-wallet-route-pending');
+        root.classList.remove('google-redirect-pending', 'auth-request-loader-pending', 'pre-inline-route', 'pre-login-route', 'inline-wallet-route-pending', 'inline-route-pending');
       }
       if (document.body) {
-        document.body.classList.remove('auth-request-loader-pending', 'login-route-active', 'inline-wallet-route-pending');
+        document.body.classList.remove('auth-request-loader-pending', 'login-route-active', 'inline-wallet-route-pending', 'inline-route-pending');
       }
     } catch {}
     try { hidePageLoader({ force: true }); } catch {}
@@ -1068,8 +1204,6 @@ window.addEventListener('pageshow', (event) => {
     if (!href) return true;
     const v = href.trim();
     if (!v || v === '#') return true;
-    // Hash-only navigation handled by SPA router; don't block with loader.
-    if (v.startsWith('#/')) return true;
     if (v.startsWith('javascript:')) return true;
     if (v.startsWith('mailto:') || v.startsWith('tel:')) return true;
     if (v.startsWith('#') && !v.startsWith('#/')) return true;
@@ -1090,7 +1224,8 @@ window.addEventListener('pageshow', (event) => {
       try { url = new URL(href, location.href); } catch { return; }
       if (!sameOrigin(url)) return;
       if (url.pathname === location.pathname && url.search === location.search && url.hash === location.hash) return;
-      showPageLoader();
+      const hashRoute = url.pathname === location.pathname && url.search === location.search && /^#\//.test(url.hash || '');
+      showPageLoader(hashRoute ? { replay: true, autoHide: true } : undefined);
     } catch {}
   }
   document.addEventListener('pointerdown', handleNav, true);
@@ -2216,7 +2351,6 @@ const I18N_TEXT = {
     'nav.orders': '\u0637\u0644\u0628\u0627\u062A\u064A',
     'nav.wallet': '\u0627\u0644\u0645\u062D\u0641\u0638\u0629',
     'nav.transfer': '\u062A\u062D\u0648\u064A\u0644\u0020\u0627\u0644\u0631\u0635\u064A\u062F',
-    'nav.withdraw': '\u0633\u062D\u0628\u0020\u0627\u0644\u0631\u0635\u064A\u062F',
     'nav.reviews': '\u0627\u0644\u062A\u0642\u064A\u064A\u0645\u0627\u062A',
     'nav.agents': '\u0648\u0643\u0644\u0627\u0626\u0646\u0627',
     'nav.telegram': '\u0631\u0628\u0637\u0020\u062A\u064A\u0644\u064A\u063A\u0631\u0627\u0645',
@@ -2291,7 +2425,6 @@ const I18N_TEXT = {
     'nav.orders': 'My Orders',
     'nav.wallet': 'My Wallet',
     'nav.transfer': 'Balance Transfer',
-    'nav.withdraw': 'Withdraw Balance',
     'nav.reviews': 'Reviews',
     'nav.agents': 'Agents',
     'nav.telegram': 'Telegram Link',
@@ -2366,7 +2499,6 @@ const I18N_TEXT = {
     'nav.orders': 'Mes commandes',
     'nav.wallet': 'Mon portefeuille',
     'nav.transfer': 'Transfert de solde',
-    'nav.withdraw': 'Retrait de solde',
     'nav.reviews': 'Avis',
     'nav.agents': 'Agents',
     'nav.telegram': 'Lien Telegram',
@@ -6108,6 +6240,7 @@ const PROFILE_CACHE_PREFIX = 'auth:profile:cache:';
 const LAST_LOGGED_KEY = 'auth:lastLoggedIn';
 const BANNED_SESSION_UID_KEY = 'auth:bannedUid:session';
 let __HEADER_LEVEL_PROFILE_CACHE = null;
+let __HEADER_LEVEL_BAD_IMAGE_URL = '';
 function markBannedSessionUid(uid){
   const safeUid = String(uid || '').trim();
   if (!safeUid) return;
@@ -6160,14 +6293,29 @@ function writeCachedProfile(uid, profile){
   const key = getProfileCacheKey(uid);
   if (!key) return;
   try {
+    const existing = readCachedProfile(uid) || {};
+    const incomingLevel = String(profile?.level || '').trim();
+    const incomingLevelId = profile?.levelId ?? profile?.level_id ?? null;
+    const incomingLevelNo = profile?.levelNo ?? profile?.level_no ?? null;
+    const hasIncomingLevelFields = !!(
+      profile &&
+      typeof profile === 'object' &&
+      (
+        Object.prototype.hasOwnProperty.call(profile, 'level') ||
+        Object.prototype.hasOwnProperty.call(profile, 'levelId') ||
+        Object.prototype.hasOwnProperty.call(profile, 'level_id') ||
+        Object.prototype.hasOwnProperty.call(profile, 'levelNo') ||
+        Object.prototype.hasOwnProperty.call(profile, 'level_no')
+      )
+    );
     const safe = {
-      displayName: String(profile?.displayName || profile?.name || profile?.username || '').trim(),
-      username: String(profile?.username || '').trim(),
-      email: String(profile?.email || '').trim(),
-      photoURL: String(profile?.photoURL || profile?.photoUrl || profile?.avatar || '').trim(),
-      level: String(profile?.level || '').trim(),
-      levelId: profile?.levelId ?? profile?.level_id ?? null,
-      levelNo: profile?.levelNo ?? profile?.level_no ?? null
+      displayName: String(profile?.displayName || profile?.name || profile?.username || existing.displayName || '').trim(),
+      username: String(profile?.username || existing.username || '').trim(),
+      email: String(profile?.email || existing.email || '').trim(),
+      photoURL: String(profile?.photoURL || profile?.photoUrl || profile?.avatar || existing.photoURL || '').trim(),
+      level: hasIncomingLevelFields ? incomingLevel : String(existing.level || '').trim(),
+      levelId: hasIncomingLevelFields ? incomingLevelId : (existing.levelId ?? existing.level_id ?? null),
+      levelNo: hasIncomingLevelFields ? incomingLevelNo : (existing.levelNo ?? existing.level_no ?? null)
     };
     localStorage.setItem(key, JSON.stringify(safe));
   } catch {}
@@ -6191,6 +6339,34 @@ function resolveSidebarCachedProfile(user){
   }
   if (!uid) return null;
   return readCachedProfile(uid);
+}
+function readHeaderCachedLevelProfile(){
+  try {
+    let uid = '';
+    try {
+      if (window.__AUTH_LAST_USER__ && window.__AUTH_LAST_USER__.uid) uid = String(window.__AUTH_LAST_USER__.uid || '').trim();
+    } catch {}
+    if (!uid) {
+      try {
+        const current = (typeof firebase !== 'undefined' && firebase && typeof firebase.auth === 'function')
+          ? firebase.auth().currentUser
+          : null;
+        if (current && current.uid) uid = String(current.uid || '').trim();
+      } catch {}
+    }
+    if (!uid) {
+      try {
+        const payload = readPostLoginPayload && readPostLoginPayload();
+        uid = String(payload && payload.uid || '').trim();
+      } catch {}
+    }
+    if (!uid) {
+      try { uid = String(localStorage.getItem(LAST_UID_KEY) || '').trim(); } catch {}
+    }
+    return uid ? readCachedProfile(uid) : null;
+  } catch {
+    return null;
+  }
 }
 function headerNormalizeLevelId(value){
   const n = Number(value);
@@ -6376,26 +6552,54 @@ function renderHeaderLevelBadge(profile){
   if (profile && typeof profile === 'object') {
     __HEADER_LEVEL_PROFILE_CACHE = profile;
   } else if (profile === null) {
-    __HEADER_LEVEL_PROFILE_CACHE = null;
+    const cachedProfile = readHeaderCachedLevelProfile();
+    if (cachedProfile && headerResolveCurrentLevelEntry(cachedProfile)) {
+      __HEADER_LEVEL_PROFILE_CACHE = cachedProfile;
+    } else if (!__HEADER_LEVEL_PROFILE_CACHE) {
+      __HEADER_LEVEL_PROFILE_CACHE = null;
+    }
+  } else if (!__HEADER_LEVEL_PROFILE_CACHE) {
+    const cachedProfile = readHeaderCachedLevelProfile();
+    if (cachedProfile) __HEADER_LEVEL_PROFILE_CACHE = cachedProfile;
   }
   const entry = headerResolveCurrentLevelEntry(__HEADER_LEVEL_PROFILE_CACHE);
   const imageUrl = String(entry && entry.imageUrl || '').trim();
+  if (imageUrl && __HEADER_LEVEL_BAD_IMAGE_URL && imageUrl === __HEADER_LEVEL_BAD_IMAGE_URL) {
+    headerLevelsBtn.classList.remove('header-levels-btn--image');
+    headerLevelsBtn.innerHTML = '<span class="header-levels-btn__fallback"><i class="fa-solid fa-medal" aria-hidden="true"></i></span>';
+    setHeaderLevelsVisibility(true);
+    try { headerLevelsBtn.setAttribute('title', 'عرض المستويات'); } catch {}
+    return;
+  }
   headerLevelsBtn.classList.toggle('header-levels-btn--image', !!imageUrl);
-  headerLevelsBtn.innerHTML = '';
   if (imageUrl) {
     setHeaderLevelsVisibility(true);
+    const currentImg = headerLevelsBtn.querySelector && headerLevelsBtn.querySelector('img.header-levels-btn__img');
+    const currentUrl = String(headerLevelsBtn.dataset && headerLevelsBtn.dataset.levelImageUrl || '').trim();
+    if (currentImg && currentUrl === imageUrl) {
+      headerLevelsBtn.setAttribute('title', 'عرض المستويات - ' + String(entry && entry.label || '').trim());
+      return;
+    }
     const img = document.createElement('img');
     img.className = 'header-levels-btn__img';
     img.src = imageUrl;
+    try { img.dataset.levelImageUrl = imageUrl; } catch {}
     img.alt = '';
     img.loading = 'eager';
     try { img.fetchPriority = 'high'; } catch {}
     img.setAttribute('aria-hidden', 'true');
-    img.addEventListener('error', () => { renderHeaderLevelBadge(null); }, { once: true });
+    img.addEventListener('error', () => {
+      __HEADER_LEVEL_BAD_IMAGE_URL = imageUrl;
+      try { delete headerLevelsBtn.dataset.levelImageUrl; } catch {}
+      renderHeaderLevelBadge({});
+    }, { once: true });
+    headerLevelsBtn.innerHTML = '';
+    try { headerLevelsBtn.dataset.levelImageUrl = imageUrl; } catch {}
     headerLevelsBtn.appendChild(img);
     headerLevelsBtn.setAttribute('title', 'عرض المستويات - ' + String(entry && entry.label || '').trim());
     return;
   }
+  try { delete headerLevelsBtn.dataset.levelImageUrl; } catch {}
   headerLevelsBtn.classList.remove('header-levels-btn--image');
   headerLevelsBtn.innerHTML = '<span class="header-levels-btn__fallback"><i class="fa-solid fa-medal" aria-hidden="true"></i></span>';
   setHeaderLevelsVisibility(true);
@@ -6722,17 +6926,7 @@ function headerNormalizeSiteBrandState(raw){
       src.depositCategory ??
       src.deposit_category,
       'الإيداع'
-    ),
-    withdrawTree: normalizeWalletTreeEntry(
-      src.withdrawTree ??
-      src.withdraw_tree ??
-      src.withdrawItem ??
-      src.withdraw_item ??
-      src.withdrawCategory ??
-      src.withdraw_category,
-      'سحب الرصيد'
-    )
-  };
+    ),};
 }
 function readHeaderSiteBrandState(){
   try {
@@ -6819,26 +7013,17 @@ function resolveEffectiveSidebarUser(user){
 function syncWalletTreeSidebarUi(user){
   var brand = readHeaderSiteBrandState();
   var depositBtn = resolveSidebarNode('depositBtn', typeof depositLi !== 'undefined' ? depositLi : null);
-  var withdrawBtn = resolveSidebarNode('withdrawBtn', typeof withdrawLi !== 'undefined' ? withdrawLi : null);
   var sidebarTheme = readHeaderSidebarTheme();
   var depositThemeLabel = sidebarTheme && sidebarTheme.navItems && sidebarTheme.navItems.deposit
     ? normalizeHeaderSidebarLabel(sidebarTheme.navItems.deposit.label, '')
     : '';
-  var withdrawThemeLabel = sidebarTheme && sidebarTheme.navItems && sidebarTheme.navItems.withdraw
-    ? normalizeHeaderSidebarLabel(sidebarTheme.navItems.withdraw.label, '')
-    : '';
   var defaultDepositLabel = HEADER_SIDEBAR_THEME_DEFAULTS.navItems.deposit.label;
-  var defaultWithdrawLabel = HEADER_SIDEBAR_THEME_DEFAULTS.navItems.withdraw.label;
   var customDepositLabel = depositThemeLabel && depositThemeLabel !== defaultDepositLabel ? depositThemeLabel : '';
-  var customWithdrawLabel = withdrawThemeLabel && withdrawThemeLabel !== defaultWithdrawLabel ? withdrawThemeLabel : '';
   setSidebarNavLabel(depositBtn, customDepositLabel || (brand.depositTree && brand.depositTree.title), 'nav.deposit', defaultDepositLabel);
-  setSidebarNavLabel(withdrawBtn, customWithdrawLabel || (brand.withdrawTree && brand.withdrawTree.title), 'nav.withdraw', defaultWithdrawLabel);
   var effectiveUser = resolveEffectiveSidebarUser(user);
   var isLoggedIn = isSidebarLoggedIn(effectiveUser);
   var showDepositBtn = !!(isLoggedIn && !(brand.depositTree && brand.depositTree.hideFromSidebar));
-  var showWithdrawBtn = !!(isLoggedIn && !(brand.withdrawTree && brand.withdrawTree.hideFromSidebar));
   setSidebarNodeVisibility(depositBtn, showDepositBtn, 'flex');
-  setSidebarNodeVisibility(withdrawBtn, showWithdrawBtn, 'flex');
   try {
     var depositDockBtn = document.querySelector('.mobile-dock .dock-item[data-key="deposit"]');
     setSidebarNodeVisibility(depositDockBtn, showDepositBtn, '');
@@ -6855,7 +7040,6 @@ function applyAuthUi(user){
   try { window.__AUTH_LAST_USER__ = logged ? (effectiveUser || user || null) : null; } catch {}
   var brand = readHeaderSiteBrandState();
   var showDepositBtn = !(brand.depositTree && brand.depositTree.hideFromSidebar);
-  var showWithdrawBtn = !(brand.withdrawTree && brand.withdrawTree.hideFromSidebar);
   const homeBtn = resolveSidebarNode('homeBtn', typeof homeLi !== 'undefined' ? homeLi : null);
   const loginBtn = resolveSidebarNode('loginSidebarBtn', typeof loginLi !== 'undefined' ? loginLi : null);
   const depositBtn = resolveSidebarNode('depositBtn', typeof depositLi !== 'undefined' ? depositLi : null);
@@ -6863,7 +7047,6 @@ function applyAuthUi(user){
   const ordersBtn = resolveSidebarNode('ordersBtn', typeof ordersLi !== 'undefined' ? ordersLi : null);
   const walletBtn = resolveSidebarNode('walletBtn', typeof walletLi !== 'undefined' ? walletLi : null);
   const transferBtn = resolveSidebarNode('transferBtn', typeof transferLi !== 'undefined' ? transferLi : null);
-  const withdrawBtn = resolveSidebarNode('withdrawBtn', typeof withdrawLi !== 'undefined' ? withdrawLi : null);
   const securityBtn = resolveSidebarNode('securityBtn', typeof securityLi !== 'undefined' ? securityLi : null);
   const telegramBtn = resolveSidebarNode('telegramBtn', typeof telegramLi !== 'undefined' ? telegramLi : null);
   var depositDockBtn = null;
@@ -6885,7 +7068,6 @@ function applyAuthUi(user){
     setSidebarNodeVisibility(ordersBtn, true, 'flex');
     setSidebarNodeVisibility(walletBtn, true, 'flex');
     setSidebarNodeVisibility(transferBtn, true, 'flex');
-    setSidebarNodeVisibility(withdrawBtn, showWithdrawBtn, 'flex');
     setSidebarNodeVisibility(securityBtn, true, 'flex');
     setSidebarNodeVisibility(telegramBtn, true, 'flex');
     setSidebarNodeVisibility(depositDockBtn, showDepositBtn, '');
@@ -6903,7 +7085,6 @@ function applyAuthUi(user){
     setSidebarNodeVisibility(ordersBtn, false, 'flex');
     setSidebarNodeVisibility(walletBtn, false, 'flex');
     setSidebarNodeVisibility(transferBtn, false, 'flex');
-    setSidebarNodeVisibility(withdrawBtn, false, 'flex');
     setSidebarNodeVisibility(securityBtn, false, 'flex');
     setSidebarNodeVisibility(telegramBtn, false, 'flex');
     setSidebarNodeVisibility(depositDockBtn, false, '');
@@ -6930,7 +7111,8 @@ function applyAuthUi(user){
 }
 try { window.__applyAuthUi = applyAuthUi; } catch {}
 
-const SITE_PWA_SW_URL = "sw.js?v=20260511-02";
+const SITE_PWA_SW_URL = "sw.js?v=20260514-12";
+const SITE_PWA_CACHE_DISABLED = true;
 let deferredSiteInstallPrompt = null;
 let activeSiteManifestUrl = "";
 let sitePwaRegistrationPromise = null;
@@ -6962,6 +7144,7 @@ function isIosInstallBrowser(){
   return !!(iosLike && safariLike);
 }
 function canRegisterSitePwaServiceWorker(){
+  if (SITE_PWA_CACHE_DISABLED) return false;
   try {
     if (!("serviceWorker" in navigator)) return false;
     const protocol = String(window.location && window.location.protocol || "").toLowerCase();
@@ -6972,6 +7155,43 @@ function canRegisterSitePwaServiceWorker(){
   } catch (_) {
     return false;
   }
+}
+async function clearSitePwaRuntimeCaches(){
+  if (!("caches" in window)) return [];
+  try {
+    const cacheNames = await caches.keys();
+    return await Promise.all((cacheNames || []).map(function(cacheName){
+      const name = String(cacheName || "");
+      const prefixes = (window.__getSiteSetting && window.__getSiteSetting("pwa.legacyCachePrefixes", [])) || [];
+      if (Array.isArray(prefixes) && prefixes.some(function(prefix){ return prefix && name.indexOf(String(prefix)) === 0; })) {
+        try { return caches.delete(cacheName); } catch (_) { return false; }
+      }
+      return false;
+    }));
+  } catch (_) {
+    return [];
+  }
+}
+async function unregisterSitePwaServiceWorkers(){
+  if (!("serviceWorker" in navigator)) return [];
+  try {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    return await Promise.all((registrations || []).map(function(registration){
+      try { return registration.unregister(); } catch (_) { return false; }
+    }));
+  } catch (_) {
+    return [];
+  }
+}
+function disableSitePwaCacheRuntime(){
+  if (sitePwaRegistrationPromise) return sitePwaRegistrationPromise;
+  sitePwaRegistrationPromise = Promise.all([
+    unregisterSitePwaServiceWorkers(),
+    clearSitePwaRuntimeCaches()
+  ]).catch(function(){
+    return null;
+  });
+  return sitePwaRegistrationPromise;
 }
 function isInstallAppButtonEnabled(){
   try {
@@ -7221,7 +7441,7 @@ function setStaticSiteManifestLink(){
       link = null;
     }
   }
-  if (link && manifestUrl) link.setAttribute("href", manifestUrl);
+  if (link && manifestUrl && link.getAttribute("href") !== manifestUrl) link.setAttribute("href", manifestUrl);
   revokeSiteManifestUrl();
   return manifestUrl;
 }
@@ -7301,67 +7521,11 @@ function readInstallAppIconUrl(){
   return "";
 }
 function ensureSiteInstallManifest(){
-  if (!document.head) return "";
-  if (typeof Blob === "undefined" || !(window.URL && typeof window.URL.createObjectURL === "function")) return setStaticSiteManifestLink();
-  const name = readInstallAppBrandName();
-  const shortName = name.length > 32 ? name.slice(0, 32) : name;
-  const iconUrl = resolveInstallAppAbsoluteUrl(readInstallAppIconUrl(), "");
-  const themeColor = normalizeInstallAppText((document.querySelector('meta[name="theme-color"]') || {}).content) || "#0C0C0C";
-  const appScopeUrl = resolveInstallAppAbsoluteUrl("/", "/");
-  const appStartUrl = resolveInstallAppAbsoluteUrl("/index.html?source=pwa#/", "/index.html?source=pwa#/");
-  const manifest = {
-    id: resolveInstallAppAbsoluteUrl("/?source=pwa", "/?source=pwa"),
-    name: name || "njad.store",
-    short_name: shortName || name || "njad.store",
-    start_url: appStartUrl,
-    scope: appScopeUrl,
-    display: "standalone",
-    display_override: ["standalone", "minimal-ui", "browser"],
-    background_color: "#0C0C0C",
-    theme_color: themeColor,
-    lang: "ar",
-    dir: "rtl",
-    prefer_related_applications: false
-  };
-  if (iconUrl) {
-    manifest.icons = [
-      { src: iconUrl, sizes: "192x192", purpose: "any" },
-      { src: iconUrl, sizes: "512x512", purpose: "any" }
-    ];
-  }
-  let link = null;
-  try { link = document.querySelector('link[rel="manifest"]'); } catch (_) { link = null; }
-  if (!link) {
-    try {
-      link = document.createElement("link");
-      link.rel = "manifest";
-      link.id = "dynamicSiteManifestLink";
-      document.head.appendChild(link);
-    } catch (_) {
-      link = null;
-    }
-  }
-  if (!link) return "";
   revokeSiteManifestUrl();
-  try {
-    activeSiteManifestUrl = URL.createObjectURL(new Blob([JSON.stringify(manifest)], {
-      type: "application/manifest+json"
-    }));
-    try { window.__SITE_PWA_MANIFEST_URL__ = activeSiteManifestUrl; } catch {}
-    link.setAttribute("href", activeSiteManifestUrl);
-    return activeSiteManifestUrl;
-  } catch (_) {
-    activeSiteManifestUrl = "";
-    return setStaticSiteManifestLink();
-  }
+  return setStaticSiteManifestLink();
 }
 function registerSitePwaServiceWorker(){
-  if (!canRegisterSitePwaServiceWorker()) return Promise.resolve(null);
-  if (sitePwaRegistrationPromise) return sitePwaRegistrationPromise;
-  sitePwaRegistrationPromise = navigator.serviceWorker.register(SITE_PWA_SW_URL, { scope: "/" }).catch(function(){
-    return null;
-  });
-  return sitePwaRegistrationPromise;
+  return disableSitePwaCacheRuntime();
 }
 function syncInstallAppSidebarUi(){
   const installBtn = resolveSidebarNode('installAppBtn', document.getElementById('installAppBtn'));
@@ -8187,11 +8351,11 @@ function navigateHomeHash(targetHash, routeKey){
   }
   const normalizedKey = (function(){
     const explicit = String(routeKey || '').trim().toLowerCase();
-    if (explicit) return explicit === 'edaa' ? 'deposit' : (explicit === 'sahb' ? 'withdraw' : explicit);
+    if (explicit) return explicit === 'edaa' ? 'deposit' : explicit;
     try {
       const first = String(target || '').replace(/^#\/?/, '').split('/').filter(Boolean)[0] || '';
       const key = first.trim().toLowerCase();
-      return key === 'edaa' ? 'deposit' : (key === 'sahb' ? 'withdraw' : key);
+      return key === 'edaa' ? 'deposit' : key;
     } catch {
       return '';
     }
@@ -8209,6 +8373,7 @@ function navigateHomeHash(targetHash, routeKey){
         return;
       }
     } catch {}
+    try { if (typeof showPageLoader === 'function') showPageLoader({ replay: true, autoHide: true }); } catch {}
     const currentHash = String(location.hash || '').toLowerCase();
     const nextHash = String(target || '').toLowerCase();
     try {
@@ -8392,7 +8557,6 @@ const HEADER_SIDEBAR_THEME_DEFAULTS = Object.freeze({
     orders: Object.freeze({ label: 'طلباتي', iconClass: 'fa-solid fa-cart-shopping', lightColor: '#ef4444', darkColor: '#f87171' }),
     wallet: Object.freeze({ label: 'المحفظة', iconClass: 'fa-solid fa-wallet', lightColor: '#facc15', darkColor: '#fde047' }),
     transfer: Object.freeze({ label: 'تحويل الرصيد', iconClass: 'fa-solid fa-right-left', lightColor: '#3b82f6', darkColor: '#60a5fa' }),
-    withdraw: Object.freeze({ label: 'سحب الرصيد', iconClass: 'fa-solid fa-money-bill-transfer', lightColor: '#fb7185', darkColor: '#fda4af' }),
     reviews: Object.freeze({ label: 'التقييمات', iconClass: 'fa-solid fa-star', lightColor: '#f43f5e', darkColor: '#fb7185' }),
     agents: Object.freeze({ label: 'وكلاؤنا', iconClass: 'fa-solid fa-user-tie', lightColor: '#10b981', darkColor: '#34d399' }),
     security: Object.freeze({ label: 'حماية الحساب', iconClass: 'fa-solid fa-shield-halved', lightColor: '#8b5cf6', darkColor: '#a78bfa' }),
@@ -8614,7 +8778,6 @@ function applyHeaderSidebarTheme(user){
       { key: 'orders', id: 'ordersBtn', i18nKey: 'nav.orders', label: 'طلباتي' },
       { key: 'wallet', id: 'walletBtn', i18nKey: 'nav.wallet', label: 'المحفظة' },
       { key: 'transfer', id: 'transferBtn', i18nKey: 'nav.transfer', label: 'تحويل الرصيد' },
-      { key: 'withdraw', id: 'withdrawBtn', i18nKey: 'nav.withdraw', label: 'سحب الرصيد' },
       { key: 'reviews', id: 'reviewsBtn', i18nKey: 'nav.reviews', label: 'التقييمات' },
       { key: 'agents', id: 'agentsBtn', i18nKey: 'nav.agents', label: 'وكلاؤنا' },
       { key: 'security', id: 'securityBtn', i18nKey: 'nav.security', label: 'حماية الحساب' },
@@ -8891,15 +9054,6 @@ transferLi.innerHTML = '<i class="fa-solid fa-right-left"></i><a href="#" data-i
 bindSidebarNavItem(transferLi, '#/transfer', 'transfer');
 transferLi.style.display = 'none';
 ul.appendChild(transferLi);
-// سحب الرصيد
-const withdrawLi = document.createElement('li');
-withdrawLi.id = 'withdrawBtn';
-withdrawLi.className = 'sidebar-nav-item';
-withdrawLi.style.setProperty('--sidebar-item-icon', '#fb7185');
-withdrawLi.innerHTML = '<i class="fa-solid fa-money-bill-transfer"></i><a href="#" data-i18n="nav.withdraw">\u0633\u062D\u0628\u0020\u0627\u0644\u0631\u0635\u064A\u062F</a>';
-bindSidebarNavItem(withdrawLi, '#/withdraw', 'withdraw');
-withdrawLi.style.display = 'none';
-ul.appendChild(withdrawLi);
 // الرئيسية
 const reviewsLi = document.createElement('li');
 reviewsLi.id = 'reviewsBtn';
@@ -9650,7 +9804,6 @@ function initMobileDock(){
       orders: { iconClass: 'fa-solid fa-cart-shopping', label: 'طلباتي', href: 'index.html#/orders', route: '#/orders' },
       wallet: { iconClass: 'fa-solid fa-wallet', label: 'محفظتي', href: 'index.html#/wallet', route: '#/wallet' },
       transfer: { iconClass: 'fa-solid fa-right-left', label: 'تحويل الرصيد', href: 'index.html#/transfer', route: '#/transfer' },
-      withdraw: { iconClass: 'fa-solid fa-money-bill-transfer', label: 'سحب الرصيد', href: 'index.html#/withdraw', route: '#/withdraw' },
       reviews: { iconClass: 'fa-solid fa-star', label: 'التقييمات', href: 'index.html#/reviews', route: '#/reviews', public: true },
       agents: { iconClass: 'fa-solid fa-user-tie', label: 'وكلاؤنا', href: 'index.html#/agents', route: '#/agents', public: true },
       security: { iconClass: 'fa-solid fa-shield-halved', label: 'حماية الحساب', href: 'index.html#/security', route: '#/security' },
@@ -9701,8 +9854,6 @@ function initMobileDock(){
         main: '',
         deposit: 'deposit',
         edaa: 'deposit',
-        withdraw: 'withdraw',
-        sahb: 'withdraw',
         payments: 'dafaati',
         dafaati: 'dafaati',
         orders: 'orders',
@@ -9843,10 +9994,9 @@ function initMobileDock(){
       if (key === 'agents') {
         try { if (readHeaderSiteAgentsState().enabled !== true) return false; } catch {}
       }
-      if (key === 'deposit' || key === 'withdraw') {
+      if (key === 'deposit') {
         const brand = readHeaderSiteBrandState();
         if (key === 'deposit' && brand.depositTree && brand.depositTree.hideFromSidebar) return false;
-        if (key === 'withdraw' && brand.withdrawTree && brand.withdrawTree.hideFromSidebar) return false;
       }
       return true;
     }
@@ -9864,7 +10014,6 @@ function initMobileDock(){
         const first = String(hash || '').replace(/^#\/?/, '').split('/').filter(Boolean)[0] || '';
         const key = String(first || fallbackKey || '').trim().toLowerCase();
         if (key === 'edaa') return 'deposit';
-        if (key === 'sahb') return 'withdraw';
         if (key === 'payments') return 'dafaati';
         return key || 'home';
       } catch {
@@ -10043,7 +10192,6 @@ function initMobileDock(){
         else if (hash === '#/deposit' || hash === '#/edaa') key = 'deposit';
         else if (hash === '#/dafaati') key = 'payments';
         else if (hash === '#/transfer') key = 'transfer';
-        else if (hash === '#/withdraw' || hash === '#/sahb') key = 'withdraw';
         else if (hash === '#/security') key = 'security';
         else if (hash === '#/telegram') key = 'telegram';
         else if (hash === '#/api') key = 'api';
@@ -10965,12 +11113,12 @@ function wirePageBalanceBox(){
       #supportFloatingWidget {
         --support-dock-gradient: linear-gradient(
           145deg,
-          var(--site-accent-runtime-light, var(--primary-light, var(--accent-theme, #969cff))) 0%,
-          var(--site-accent-runtime, var(--accent-theme, #7076eb)) 54%,
-          var(--site-accent-runtime-strong, var(--primary-dark, var(--accent-theme, #4f55cd))) 100%
+          var(--site-accent-runtime-light, var(--primary-light, var(--accent-theme, #cbd5e1))) 0%,
+          var(--site-accent-runtime, var(--accent-theme, #64748b)) 54%,
+          var(--site-accent-runtime-strong, var(--primary-dark, var(--accent-theme, #334155))) 100%
         );
         --support-dock-shadow:
-          0 16px 28px rgba(var(--site-accent-rgb, 106, 111, 232), 0.28),
+          0 16px 28px rgba(var(--site-accent-rgb, 107, 114, 128), 0.28),
           0 8px 18px rgba(9, 14, 38, 0.16);
         position: fixed;
         left: max(12px, calc(env(safe-area-inset-left, 0px) + 12px));
@@ -11013,6 +11161,32 @@ function wirePageBalanceBox(){
       #waJoinShortcutButton.support-auth-hidden {
         display: none !important;
       }
+      body.modal-open .mobile-dock,
+      body.modal-open #supportFloatingWidget,
+      body.modal-open #waJoinShortcutButton,
+      body.modal-open #siteSupportChatFab,
+      body:has(#purchase-modal.show) .mobile-dock,
+      body:has(#purchase-modal.show) #supportFloatingWidget,
+      body:has(#purchase-modal.show) #waJoinShortcutButton,
+      body:has(#purchase-modal.show) #siteSupportChatFab,
+      body:has(#catalogInlineHost.catalog-modal-only #purchase-modal.show) .mobile-dock,
+      body:has(#catalogInlineHost.catalog-modal-only #purchase-modal.show) #supportFloatingWidget,
+      body:has(#catalogInlineHost.catalog-modal-only #purchase-modal.show) #waJoinShortcutButton,
+      body:has(#catalogInlineHost.catalog-modal-only #purchase-modal.show) #siteSupportChatFab,
+      body:has(#depositInlineApp.method-modal-open) .mobile-dock,
+      body:has(#depositInlineApp.method-modal-open) #supportFloatingWidget,
+      body:has(#depositInlineApp.method-modal-open) #waJoinShortcutButton,
+      body:has(#depositInlineApp.method-modal-open) #siteSupportChatFab,
+      body:has(#depositInlineApp #methodModal:not(.hidden)) .mobile-dock,
+      body:has(#depositInlineApp #methodModal:not(.hidden)) #supportFloatingWidget,
+      body:has(#depositInlineApp #methodModal:not(.hidden)) #waJoinShortcutButton,
+      body:has(#depositInlineApp #methodModal:not(.hidden)) #siteSupportChatFab{
+        display:none !important;
+        opacity:0 !important;
+        visibility:hidden !important;
+        pointer-events:none !important;
+        z-index:0 !important;
+      }
       #waJoinShortcutButton:hover {
         transform: translateY(-1px) scale(1.02);
         box-shadow:
@@ -11044,7 +11218,7 @@ function wirePageBalanceBox(){
         background: var(--support-dock-gradient);
         color: #ffffff;
         border: 2px solid #ffffff;
-        box-shadow: 0 4px 10px rgba(var(--site-accent-rgb, 106, 111, 232), 0.18);
+        box-shadow: 0 4px 10px rgba(var(--site-accent-rgb, 107, 114, 128), 0.18);
       }
       #waJoinShortcutButton .wa-join-shortcut__badge i {
         font-size: 7px;
@@ -11112,7 +11286,7 @@ function wirePageBalanceBox(){
       #supportFloatingWidget .support-dock__toggle:hover {
         transform: translateY(-1px);
         box-shadow:
-          0 16px 30px rgba(var(--site-accent-rgb, 106, 111, 232), 0.32),
+          0 16px 30px rgba(var(--site-accent-rgb, 107, 114, 128), 0.32),
           0 8px 16px rgba(9, 14, 38, 0.18);
       }
       #supportFloatingWidget .support-dock__toggle:active {
@@ -11122,8 +11296,8 @@ function wirePageBalanceBox(){
         outline: none;
         box-shadow:
           0 0 0 3px rgba(255, 255, 255, 0.9),
-          0 0 0 6px rgba(var(--site-accent-rgb, 106, 111, 232), 0.24),
-          0 14px 24px rgba(var(--site-accent-rgb, 106, 111, 232), 0.28);
+          0 0 0 6px rgba(var(--site-accent-rgb, 107, 114, 128), 0.24),
+          0 14px 24px rgba(var(--site-accent-rgb, 107, 114, 128), 0.28);
       }
       #supportFloatingWidget .support-dock__mark {
         position: absolute;
@@ -11344,7 +11518,7 @@ function wirePageBalanceBox(){
         padding: 0;
         background: var(--support-dock-gradient) !important;
         box-shadow:
-          0 12px 22px rgba(var(--site-accent-rgb, 106, 111, 232), 0.22),
+          0 12px 22px rgba(var(--site-accent-rgb, 107, 114, 128), 0.22),
           0 5px 12px rgba(9, 14, 38, 0.14);
         transition:
           transform 0.18s ease,
@@ -11353,15 +11527,15 @@ function wirePageBalanceBox(){
       #supportFloatingWidget .support-dock__link:hover {
         transform: translateY(-1px) scale(1.02);
         box-shadow:
-          0 14px 24px rgba(var(--site-accent-rgb, 106, 111, 232), 0.26),
+          0 14px 24px rgba(var(--site-accent-rgb, 107, 114, 128), 0.26),
           0 7px 14px rgba(9, 14, 38, 0.16);
       }
       #supportFloatingWidget .support-dock__link:focus-visible {
         outline: none;
         box-shadow:
           0 0 0 3px rgba(255, 255, 255, 0.92),
-          0 0 0 5px rgba(var(--site-accent-rgb, 106, 111, 232), 0.22),
-          0 12px 22px rgba(var(--site-accent-rgb, 106, 111, 232), 0.22);
+          0 0 0 5px rgba(var(--site-accent-rgb, 107, 114, 128), 0.22),
+          0 12px 22px rgba(var(--site-accent-rgb, 107, 114, 128), 0.22);
       }
       #supportFloatingWidget .support-dock__link img {
         width: 24px !important;
@@ -11391,7 +11565,7 @@ function wirePageBalanceBox(){
         background: var(--support-dock-gradient) !important;
         color: #ffffff;
         border: 2px solid #ffffff;
-        box-shadow: 0 4px 10px rgba(var(--site-accent-rgb, 106, 111, 232), 0.18);
+        box-shadow: 0 4px 10px rgba(var(--site-accent-rgb, 107, 114, 128), 0.18);
         font-size: 9px;
         font-weight: 900;
         line-height: 1;
@@ -11951,7 +12125,9 @@ function wirePageBalanceBox(){
           localStorage.getItem('workerBase')
         );
       } catch (_) {}
-      candidates.push('https://api.njad.store/');
+      try {
+        candidates.push(window.__getSiteSetting ? window.__getSiteSetting("workers.routerBase", "") : "");
+      } catch (_) {}
       for (var i = 0; i < candidates.length; i += 1) {
         var base = normalizeSupportApiBase(candidates[i]);
         if (base && !isSupportStaticLocalBase(base)) return base;
@@ -13028,8 +13204,13 @@ function wirePageBalanceBox(){
           place-items:center;
           cursor:pointer;
           color:#fff;
-          background:linear-gradient(145deg,#22c55e,#16a34a);
-          box-shadow:0 16px 28px rgba(22,163,74,.3),0 8px 18px rgba(9,14,38,.18);
+          background:linear-gradient(
+            145deg,
+            var(--site-accent-runtime-light, var(--primary-light, var(--accent-theme, #cbd5e1))) 0%,
+            var(--site-accent-runtime, var(--accent-theme, #64748b)) 58%,
+            var(--site-accent-runtime-strong, var(--primary-dark, var(--accent-theme, #334155))) 100%
+          );
+          box-shadow:0 16px 28px rgba(var(--site-accent-rgb,107,114,128),.3),0 8px 18px rgba(9,14,38,.18);
           transition:bottom .24s cubic-bezier(.22,1,.36,1),transform .18s ease,box-shadow .18s ease;
         }
         #siteSupportChatFab i{font-size:1.28rem}
@@ -13333,7 +13514,7 @@ function wirePageBalanceBox(){
         }
         .site-support-chat__bubble.is-user{
           align-self:flex-end;
-          background:#22c55e;
+          background:var(--site-accent-runtime, var(--accent-theme, #64748b));
           color:#fff;
           border-bottom-left-radius:6px;
         }
@@ -14451,7 +14632,12 @@ function wirePageBalanceBox(){
         min-width: 22px;
         height: 18px;
         padding: 0 5px;
-        background: linear-gradient(145deg, #9aa4ff 0%, #7076eb 54%, #4f55cd 100%);
+        background: linear-gradient(
+          145deg,
+          var(--site-accent-runtime-light, var(--primary-light, var(--accent-theme, #cbd5e1))) 0%,
+          var(--site-accent-runtime, var(--accent-theme, #64748b)) 54%,
+          var(--site-accent-runtime-strong, var(--primary-dark, var(--accent-theme, #334155))) 100%
+        );
         color: #ffffff;
         border: 1px solid rgba(35, 58, 114, 0.14);
         font-size: 10px;
@@ -14508,14 +14694,14 @@ function wirePageBalanceBox(){
         padding: 0 5px;
         background: linear-gradient(
           145deg,
-          var(--site-accent-runtime-light, var(--primary-light, var(--accent-theme, #969cff))) 0%,
-          var(--site-accent-runtime, var(--accent-theme, #7076eb)) 54%,
-          var(--site-accent-runtime-strong, var(--primary-dark, var(--accent-theme, #4f55cd))) 100%
+          var(--site-accent-runtime-light, var(--primary-light, var(--accent-theme, #cbd5e1))) 0%,
+          var(--site-accent-runtime, var(--accent-theme, #64748b)) 54%,
+          var(--site-accent-runtime-strong, var(--primary-dark, var(--accent-theme, #334155))) 100%
         );
         color: #ffffff;
         border: 2px solid #ffffff;
         border-radius: 999px 999px 999px 6px;
-        box-shadow: 0 4px 10px rgba(var(--site-accent-rgb, 106, 111, 232), 0.18);
+        box-shadow: 0 4px 10px rgba(var(--site-accent-rgb, 107, 114, 128), 0.18);
         font-size: 9px;
         font-weight: 900;
         line-height: 1;
@@ -16041,7 +16227,7 @@ function wirePageBalanceBox(){
     function isWalletCriticalHashForSiteNotice(){
       try {
         const hash = String(location.hash || "").trim().toLowerCase();
-        return /^#\/(?:deposit|edaa|withdraw|sahb)(?:\/|$)/.test(hash);
+        return /^#\/(?:deposit|edaa)(?:\/|$)/.test(hash);
       } catch (_) {
         return false;
       }
@@ -16886,6 +17072,45 @@ function wirePageBalanceBox(){
       return "";
     }
 
+    const LEGACY_DYNAMIC_ACCENT_FALLBACK_COLORS = new Set([
+      "#5c5ebf",
+      "#7a7cd0",
+      "#414391",
+      "#3b3e8c",
+      "#969cff",
+      "#7076eb",
+      "#4f55cd",
+      "#9c9ede",
+      "#b9bbef",
+      "#cbd5ff",
+      "#cfc6ff",
+      "#dbe4ff",
+      "#c4b5fd",
+      "#c7d2fe",
+      "#a5b4fc",
+      "#6366f1",
+      "#8b5cf6"
+    ]);
+
+    function isLegacyDynamicAccentFallbackColor(value){
+      const clean = normalizeThemeHexColor(value);
+      return !!clean && LEGACY_DYNAMIC_ACCENT_FALLBACK_COLORS.has(clean);
+    }
+
+    function normalizeThemeDynamicCustomColor(value, referenceColor){
+      const clean = normalizeThemeHexColor(value);
+      if (!clean) return "";
+      const reference = normalizeThemeHexColor(referenceColor);
+      if (reference && clean === reference) return clean;
+      if (reference && isLegacyDynamicAccentFallbackColor(reference)) return clean;
+      if (isLegacyDynamicAccentFallbackColor(clean)) return "";
+      return clean;
+    }
+
+    function normalizeThemeAccentColor(value){
+      return sanitizeThemeHexColor(value);
+    }
+
     function hexToRgbColor(hex){
       const clean = normalizeThemeHexColor(hex);
       if (!clean) return null;
@@ -16933,7 +17158,7 @@ function wirePageBalanceBox(){
       return (0.2126 * r) + (0.7152 * g) + (0.0722 * b);
     }
 
-    const DEFAULT_SITE_THEME_COLOR = "#5c5ebf";
+    const DEFAULT_SITE_THEME_COLOR = "#64748b";
     const SITE_THEME_PRESET_COLORS = Object.freeze({
       snow: "#5c5ebf",
       winter: "#5c5ebf",
@@ -17113,14 +17338,86 @@ html[data-theme="dark"] .catalog-branch-card{
 html[data-theme="light"] .categories .card h2,
 html[data-theme="light"] .categories .offer-box.card h2,
 html[data-theme="light"] a.card.auto h2,
-html[data-theme="light"] .catalog-branch-card h2{
+html[data-theme="light"] .catalog-branch-card h2,
+html[data-theme="light"] .home-sections .categories > .card h2,
+html[data-theme="light"] .catalog-inline-host .categories .card h2,
+html[data-theme="light"] .catalog-inline-host .inline-favorite-card h2,
+html[data-theme="light"] #catalogOffersContainer .card h2,
+html[data-theme="light"] #depositInlineApp .categories .card h2{
   color: ${palette.strong} !important;
+  -webkit-text-fill-color: currentColor !important;
 }
 html[data-theme="dark"] .categories .card h2,
 html[data-theme="dark"] .categories .offer-box.card h2,
 html[data-theme="dark"] a.card.auto h2,
-html[data-theme="dark"] .catalog-branch-card h2{
+html[data-theme="dark"] .catalog-branch-card h2,
+html[data-theme="dark"] .home-sections .categories > .card h2,
+html[data-theme="dark"] .catalog-inline-host .categories .card h2,
+html[data-theme="dark"] .catalog-inline-host .inline-favorite-card h2,
+html[data-theme="dark"] #catalogOffersContainer .card h2,
+html[data-theme="dark"] #depositInlineApp .categories .card h2{
   color: ${palette.light} !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+#supportFloatingWidget{
+  --support-dock-gradient: linear-gradient(145deg, ${palette.light} 0%, ${palette.base} 54%, ${palette.strong} 100%) !important;
+  --support-dock-shadow:
+    0 16px 28px rgba(${palette.rgb}, 0.30),
+    0 8px 18px rgba(9, 14, 38, 0.16) !important;
+}
+#supportFloatingWidget .support-dock__toggle,
+#supportFloatingWidget .support-dock__link,
+#supportFloatingWidget .support-dock__badge,
+#waJoinShortcutButton .wa-join-shortcut__badge,
+#sidebar .support-section .support-icon .support-badge{
+  background: linear-gradient(145deg, ${palette.light} 0%, ${palette.base} 54%, ${palette.strong} 100%) !important;
+}
+#supportFloatingWidget .support-dock__toggle{
+  box-shadow:
+    0 16px 28px rgba(${palette.rgb}, 0.30),
+    0 8px 18px rgba(9, 14, 38, 0.16) !important;
+}
+#supportFloatingWidget .support-dock__link{
+  box-shadow:
+    0 12px 22px rgba(${palette.rgb}, 0.24),
+    0 5px 12px rgba(9, 14, 38, 0.14) !important;
+}
+#supportFloatingWidget .support-dock__badge,
+#waJoinShortcutButton .wa-join-shortcut__badge,
+#sidebar .support-section .support-icon .support-badge{
+  box-shadow: 0 4px 10px rgba(${palette.rgb}, 0.20) !important;
+}
+#supportFloatingWidget .support-dock__toggle:hover{
+  box-shadow:
+    0 16px 30px rgba(${palette.rgb}, 0.34),
+    0 8px 16px rgba(9, 14, 38, 0.18) !important;
+}
+#supportFloatingWidget .support-dock__toggle:focus-visible{
+  box-shadow:
+    0 0 0 3px rgba(255, 255, 255, 0.9),
+    0 0 0 6px rgba(${palette.rgb}, 0.25),
+    0 14px 24px rgba(${palette.rgb}, 0.30) !important;
+}
+#siteSupportChatFab{
+  background: linear-gradient(145deg, ${palette.light} 0%, ${palette.base} 58%, ${palette.strong} 100%) !important;
+  box-shadow:
+    0 16px 28px rgba(${palette.rgb}, 0.30),
+    0 8px 18px rgba(9, 14, 38, 0.18) !important;
+}
+.site-support-chat__form button:not(.site-support-chat__attach){
+  background: ${palette.base} !important;
+}
+#preloader .loader{
+  --c1: ${palette.base} !important;
+  --c2: ${palette.light} !important;
+  --c3: ${palette.strong} !important;
+  filter: drop-shadow(0 6px 18px rgba(${palette.rgb}, 0.35)) !important;
+}
+#preloader .loader::before{
+  background: conic-gradient(from 0deg, ${palette.base} 0 140deg, transparent 140deg 360deg) !important;
+}
+#preloader .loader::after{
+  background: conic-gradient(from 180deg, ${palette.strong} 0 110deg, transparent 110deg 360deg) !important;
 }
 .reviews-page .user-name,
 .reviews-page .review-header .username,
@@ -17213,6 +17510,26 @@ select:focus-visible{
 .transfer-modal{
   --t-primary: ${palette.base} !important;
   --t-glow: ${palette.softStrong} !important;
+}
+.transfer-page .transfer-field span,
+.transfer-page .transfer-meta :is(.meta-card, .card) .title,
+.transfer-page .copy-chip{
+  color: ${palette.light} !important;
+  border-color: ${palette.softStrong} !important;
+  background: linear-gradient(135deg, ${palette.softStrong}, ${palette.soft}) !important;
+}
+.transfer-page .transfer-field input,
+.transfer-page .transfer-field textarea,
+.transfer-page .transfer-meta :is(.meta-card, .card) .value,
+.transfer-page .transfer-helper,
+.transfer-page .transfer-status{
+  border-color: ${palette.softStrong} !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.03), 0 12px 28px ${palette.shadow} !important;
+}
+.transfer-page .transfer-field input:focus,
+.transfer-page .transfer-field textarea:focus{
+  border-color: ${palette.base} !important;
+  box-shadow: 0 0 0 3px ${palette.focus} !important;
 }
 html[data-theme="light"] .smm-inline-form,
 html[data-theme="light"] .smm-inline-field,
@@ -17530,16 +17847,16 @@ html[data-theme="dark"] .security-page{
   --sec-text:${textColorDark || textColorLight} !important;
   --sec-muted:${textColorDark || textColorLight} !important;
 }
-html[data-theme="light"] :is(.wallet-page,.settings-page,.security-page,.content-container,.reviews-page,.transfer-page,.withdraw-page,.agents-page,.telegram-page,#apiInlineRoot,#ordersContainer,#paymentsContainer,.wallet-history-modal,#depositInlineApp,.catalog-inline-host,#purchase-modal){
+html[data-theme="light"] :is(.wallet-page,.settings-page,.security-page,.content-container,.reviews-page,.transfer-page,.agents-page,.telegram-page,#apiInlineRoot,#ordersContainer,#paymentsContainer,.wallet-history-modal,#depositInlineApp,.catalog-inline-host,#purchase-modal){
   color:${textColorLight || textColorDark} !important;
 }
-html[data-theme="light"] :is(.wallet-page,.settings-page,.security-page,.content-container,.reviews-page,.transfer-page,.withdraw-page,.agents-page,.telegram-page,#apiInlineRoot,#ordersContainer,#paymentsContainer,.wallet-history-modal,#depositInlineApp,.catalog-inline-host,#purchase-modal) :is(p,span,strong,small,a,li,td,th,label,h1,h2,h3,h4,h5,h6,.empty,.device-empty,.security-method-hint,.wallet-history-modal-empty,.levels-empty,.inline-favorites-empty,.catalog-games-empty,.muted,.note,.helper-text){
+html[data-theme="light"] :is(.wallet-page,.settings-page,.security-page,.content-container,.reviews-page,.transfer-page,.agents-page,.telegram-page,#apiInlineRoot,#ordersContainer,#paymentsContainer,.wallet-history-modal,#depositInlineApp,.catalog-inline-host,#purchase-modal) :is(p,span,strong,small,a,li,td,th,label,h1,h2,h3,h4,h5,h6,.empty,.device-empty,.security-method-hint,.wallet-history-modal-empty,.levels-empty,.inline-favorites-empty,.catalog-games-empty,.muted,.note,.helper-text){
   color:inherit !important;
 }
-html[data-theme="dark"] :is(.wallet-page,.settings-page,.security-page,.content-container,.reviews-page,.transfer-page,.withdraw-page,.agents-page,.telegram-page,#apiInlineRoot,#ordersContainer,#paymentsContainer,.wallet-history-modal,#depositInlineApp,.catalog-inline-host,#purchase-modal){
+html[data-theme="dark"] :is(.wallet-page,.settings-page,.security-page,.content-container,.reviews-page,.transfer-page,.agents-page,.telegram-page,#apiInlineRoot,#ordersContainer,#paymentsContainer,.wallet-history-modal,#depositInlineApp,.catalog-inline-host,#purchase-modal){
   color:${textColorDark || textColorLight} !important;
 }
-html[data-theme="dark"] :is(.wallet-page,.settings-page,.security-page,.content-container,.reviews-page,.transfer-page,.withdraw-page,.agents-page,.telegram-page,#apiInlineRoot,#ordersContainer,#paymentsContainer,.wallet-history-modal,#depositInlineApp,.catalog-inline-host,#purchase-modal) :is(p,span,strong,small,a,li,td,th,label,h1,h2,h3,h4,h5,h6,.empty,.device-empty,.security-method-hint,.wallet-history-modal-empty,.levels-empty,.inline-favorites-empty,.catalog-games-empty,.muted,.note,.helper-text){
+html[data-theme="dark"] :is(.wallet-page,.settings-page,.security-page,.content-container,.reviews-page,.transfer-page,.agents-page,.telegram-page,#apiInlineRoot,#ordersContainer,#paymentsContainer,.wallet-history-modal,#depositInlineApp,.catalog-inline-host,#purchase-modal) :is(p,span,strong,small,a,li,td,th,label,h1,h2,h3,h4,h5,h6,.empty,.device-empty,.security-method-hint,.wallet-history-modal-empty,.levels-empty,.inline-favorites-empty,.catalog-games-empty,.muted,.note,.helper-text){
   color:inherit !important;
 }
 html[data-theme="light"] .wallet-page :is(h2,h2 span,.txn-title,.txn-details,.txn-details span,.txn-meta,.txn-meta span,.code-btn,.empty,.chip:not([data-filter="pending"]):not([data-filter="approved"]):not([data-filter="rejected"])){
@@ -17678,10 +17995,18 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
 }
 #catalogOffersContainer .card img,
 #catalogOffersContainer .card .catalog-card-media,
+body.inline-view #inlinePage .categories.inline-favorites-grid > .inline-favorite-card img,
+body.inline-view #inlinePage .categories.inline-favorites-grid > .inline-favorite-card .catalog-card-media,
+body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .card[data-card-type="product"] img,
+body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .card[data-card-type="product"] .catalog-card-media,
 .offer-box.card img,
 .offer-box.card .catalog-card-media{
   aspect-ratio:${normalizedTheme.productImageShape} !important;
   object-fit:cover !important;
+  border-radius:var(--site-product-image-radius, ${buildSiteLayoutCornerRadiusValue(normalizedTheme.productImageCorners, 18)}) !important;
+  overflow:hidden !important;
+  -webkit-clip-path:inset(0 round var(--site-product-image-radius, ${buildSiteLayoutCornerRadiusValue(normalizedTheme.productImageCorners, 18)})) !important;
+  clip-path:inset(0 round var(--site-product-image-radius, ${buildSiteLayoutCornerRadiusValue(normalizedTheme.productImageCorners, 18)})) !important;
 }
 @media (max-width:768px){
   .categories,
@@ -17695,6 +18020,32 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
   .inline-favorites-grid{
     grid-template-columns:repeat(${normalizedTheme.productGridMobile},minmax(0,1fr)) !important;
   }
+}
+.transfer-page{
+  --transfer-dynamic-border:rgba(var(--site-accent-rgb, 148, 163, 184), .42);
+  --transfer-dynamic-border-strong:rgba(var(--site-accent-rgb, 148, 163, 184), .58);
+  --transfer-dynamic-soft:rgba(var(--site-accent-rgb, 148, 163, 184), .10);
+  --transfer-dynamic-soft-2:rgba(var(--site-accent-rgb, 148, 163, 184), .18);
+}
+.transfer-page .transfer-field span,
+.transfer-page .transfer-meta :is(.meta-card, .card) .title,
+.transfer-page .copy-chip{
+  color:var(--site-accent-runtime-light, var(--site-accent-runtime, var(--accent-theme, #94a3b8))) !important;
+  border-color:var(--transfer-dynamic-border) !important;
+  background:linear-gradient(135deg,var(--transfer-dynamic-soft-2),var(--transfer-dynamic-soft)) !important;
+}
+.transfer-page .transfer-field input,
+.transfer-page .transfer-field textarea,
+.transfer-page .transfer-meta :is(.meta-card, .card) .value,
+.transfer-page .transfer-helper,
+.transfer-page .transfer-status{
+  border-color:var(--transfer-dynamic-border) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.03),0 12px 28px rgba(var(--site-accent-rgb, 148, 163, 184), .12) !important;
+}
+.transfer-page .transfer-field input:focus,
+.transfer-page .transfer-field textarea:focus{
+  border-color:var(--site-accent-runtime, var(--accent-theme, #94a3b8)) !important;
+  box-shadow:0 0 0 3px rgba(var(--site-accent-rgb, 148, 163, 184), .22) !important;
 }
 #sidebarCurrencyTrigger,
 #sidebarCurrencyTrigger *{
@@ -17859,7 +18210,7 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
       const sidebarNavItems = sidebar.navItems && typeof sidebar.navItems === "object" && !Array.isArray(sidebar.navItems)
         ? sidebar.navItems
         : {};
-      const allowed = new Set(["home","deposit","payments","orders","wallet","transfer","withdraw","reviews","agents","security","telegram","api","login"]);
+      const allowed = new Set(["home","deposit","payments","orders","wallet","transfer","reviews","agents","security","telegram","api","login"]);
       const normalizeKey = (raw, fallback) => {
         const key = String(raw || "").trim().toLowerCase();
         return allowed.has(key) ? key : fallback;
@@ -17930,24 +18281,61 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
         src.type ??
         ""
       ).trim().slice(0, 80);
-      const color = sanitizeThemeHexColor(
+      const color = normalizeThemeAccentColor(
         src.siteMainColor ??
         src.site_main_color ??
+        src.siteAccentColor ??
+        src.site_accent_color ??
+        src.themeColor ??
+        src.theme_color ??
+        src.mainColor ??
+        src.main_color ??
+        src.primaryColor ??
+        src.primary_color ??
+        src.accentColor ??
+        src.accent_color ??
+        src.brandColor ??
+        src.brand_color ??
         src.color ??
         src.accent ??
         src.primary ??
         ""
       );
-      const siteMainColorLight = normalizeThemeHexColor(
+      const siteMainColorLight = normalizeThemeAccentColor(
         src.siteMainColorLight ??
         src.site_main_color_light ??
+        src.siteAccentColorLight ??
+        src.site_accent_color_light ??
+        src.themeColorLight ??
+        src.theme_color_light ??
+        src.mainColorLight ??
+        src.main_color_light ??
+        src.primaryColorLight ??
+        src.primary_color_light ??
+        src.accentColorLight ??
+        src.accent_color_light ??
+        src.brandColorLight ??
+        src.brand_color_light ??
         color
       );
-      const siteMainColorDark = normalizeThemeHexColor(
+      const siteMainColorDark = normalizeThemeAccentColor(
         src.siteMainColorDark ??
         src.site_main_color_dark ??
+        src.siteAccentColorDark ??
+        src.site_accent_color_dark ??
+        src.themeColorDark ??
+        src.theme_color_dark ??
+        src.mainColorDark ??
+        src.main_color_dark ??
+        src.primaryColorDark ??
+        src.primary_color_dark ??
+        src.accentColorDark ??
+        src.accent_color_dark ??
+        src.brandColorDark ??
+        src.brand_color_dark ??
         color
       );
+      const dynamicAccentReference = siteMainColorLight || siteMainColorDark || color || DEFAULT_SITE_THEME_COLOR;
       const textShared = normalizeThemeHexColor(
         src.textColor ??
         src.text_color ??
@@ -18037,37 +18425,43 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
         src.balance_amount_color_dark ??
         sharedBalanceAccentColor
       );
-      const sharedSectionTitleColor = normalizeThemeHexColor(
+      const sharedSectionTitleColor = normalizeThemeDynamicCustomColor(
         src.sectionTitleColor ??
         src.section_title_color ??
         src.categoryTitleColor ??
         src.category_title_color ??
-        ""
+        "",
+        dynamicAccentReference
       );
-      const sectionTitleColorLight = normalizeThemeHexColor(
+      const sectionTitleColorLight = normalizeThemeDynamicCustomColor(
         src.sectionTitleColorLight ??
         src.section_title_color_light ??
-        sharedSectionTitleColor
+        sharedSectionTitleColor,
+        siteMainColorLight || dynamicAccentReference
       );
-      const sectionTitleColorDark = normalizeThemeHexColor(
+      const sectionTitleColorDark = normalizeThemeDynamicCustomColor(
         src.sectionTitleColorDark ??
         src.section_title_color_dark ??
-        sharedSectionTitleColor
+        sharedSectionTitleColor,
+        siteMainColorDark || dynamicAccentReference
       );
-      const sharedProductTitleColor = normalizeThemeHexColor(
+      const sharedProductTitleColor = normalizeThemeDynamicCustomColor(
         src.productTitleColor ??
         src.product_title_color ??
-        ""
+        "",
+        dynamicAccentReference
       );
-      const productTitleColorLight = normalizeThemeHexColor(
+      const productTitleColorLight = normalizeThemeDynamicCustomColor(
         src.productTitleColorLight ??
         src.product_title_color_light ??
-        sharedProductTitleColor
+        sharedProductTitleColor,
+        siteMainColorLight || dynamicAccentReference
       );
-      const productTitleColorDark = normalizeThemeHexColor(
+      const productTitleColorDark = normalizeThemeDynamicCustomColor(
         src.productTitleColorDark ??
         src.product_title_color_dark ??
-        sharedProductTitleColor
+        sharedProductTitleColor,
+        siteMainColorDark || dynamicAccentReference
       );
       const sharedProductPriceColor = normalizeThemeHexColor(
         src.productPriceColor ??
@@ -18393,7 +18787,7 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
         normalizedTheme?.siteMainColor || normalizedTheme?.color || "",
         appliedMode
       ) || normalizedTheme?.color || "";
-      applySiteAccentColor(color);
+      if (color) applySiteAccentColor(color);
       applySiteBalanceTextColors(normalizedTheme);
       applySiteThemeDetailRuntimeCss(normalizedTheme);
       enforceFixedSidebarCurrencyBadgeColor();
@@ -18493,15 +18887,23 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
       }
     })();
     const DEFAULT_SITE_STORE_NAME = String(DEFAULT_SITE_BRAND.storeName || "").trim();
+    const SITE_ARABIC_STORE_NAME = "\u0646\u062c\u0627\u062f";
     const DEFAULT_SITE_TICKER_TEXT = String(DEFAULT_SITE_BRAND.tickerText || "").trim();
     const DEFAULT_SITE_HERO_BANNERS = [];
-    const LEGACY_SITE_STORE_NAME_PATTERN = new RegExp("(?:\\u0647\\u0627\\u0643\\s*\\u0633\\u062a\\u0648\\u0631|h[a]ck\\s*store)", "i");
+    const LEGACY_SITE_STORE_NAME_PATTERN = new RegExp("$^");
 
     function normalizeSiteStoreNameValue(value, fallback = DEFAULT_SITE_STORE_NAME){
       const text = String(value == null ? "" : value).trim().slice(0, 160);
       if (text && !LEGACY_SITE_STORE_NAME_PATTERN.test(text)) return text;
       const fallbackText = String(fallback == null ? "" : fallback).trim().slice(0, 160);
       return fallbackText && !LEGACY_SITE_STORE_NAME_PATTERN.test(fallbackText) ? fallbackText : "";
+    }
+
+    function buildHeaderSeoStoreTitle(value){
+      const storeName = normalizeSiteStoreNameValue(value, DEFAULT_SITE_STORE_NAME) || DEFAULT_SITE_STORE_NAME || "njad.store";
+      return /\u0646\u062c\u0627\u062f/.test(storeName)
+        ? storeName
+        : `${storeName} | ${SITE_ARABIC_STORE_NAME}`;
     }
 
     function normalizeSiteMediaUrl(value){
@@ -18857,15 +19259,6 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
             src.deposit_category,
           "الإيداع"
         ),
-        withdrawTree: normalizeWalletTreeEntry(
-          src.withdrawTree ??
-            src.withdraw_tree ??
-            src.withdrawItem ??
-            src.withdraw_item ??
-            src.withdrawCategory ??
-            src.withdraw_category,
-          "سحب الرصيد"
-        ),
         updatedAt: String(src.updatedAt ?? src.updated_at ?? "").trim().slice(0, 120)
       };
     }
@@ -18938,18 +19331,7 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
           brandRaw.deposit_category ??
           src.depositTree ??
           src.deposit_tree ??
-          {},
-        withdrawTree:
-          brandRaw.withdrawTree ??
-          brandRaw.withdraw_tree ??
-          brandRaw.withdrawItem ??
-          brandRaw.withdraw_item ??
-          brandRaw.withdrawCategory ??
-          brandRaw.withdraw_category ??
-          src.withdrawTree ??
-          src.withdraw_tree ??
-          {}
-      };
+          {},};
     }
 
     function preloadImageAsset(url){
@@ -19028,7 +19410,7 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
       try {
         const current = String(document.title || "").trim();
         if (!current || LEGACY_SITE_STORE_NAME_PATTERN.test(current) || current === DEFAULT_SITE_STORE_NAME) {
-          document.title = storeName;
+          document.title = buildHeaderSeoStoreTitle(storeName);
         }
       } catch {}
     }
@@ -19090,13 +19472,23 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
       }
     }
 
+    function isBlockedSiteSharePreviewUrl(value){
+      try {
+        const url = new URL(String(value || ""), window.location.href);
+        return url.hostname.toLowerCase() === "api.njad.store" && /\/site-preview\.png$/i.test(url.pathname || "");
+      } catch {
+        return /api\.njad\.store\/site-preview\.png/i.test(String(value || ""));
+      }
+    }
+
     function resolveSiteSharePreviewUrl(fallbackUrl){
       try {
         const fromWindow = trimSiteMediaUrl(window.__SITE_SHARE_PREVIEW__);
-        if (fromWindow) return new URL(fromWindow, window.location.href).href;
+        if (fromWindow && !isBlockedSiteSharePreviewUrl(fromWindow)) return new URL(fromWindow, window.location.href).href;
       } catch {}
       try {
-        return "https://api.njad.store/site-preview.png?v=admin-20260510-07";
+        const fromSettings = window.__getSiteSetting ? trimSiteMediaUrl(window.__getSiteSetting("media.sitePreview", "")) : "";
+        if (fromSettings && !isBlockedSiteSharePreviewUrl(fromSettings)) return new URL(fromSettings, window.location.href).href;
       } catch {}
       return trimSiteMediaUrl(fallbackUrl);
     }
@@ -19130,6 +19522,7 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
         appleIcon.setAttribute("sizes", "180x180");
       }
       const sharePreview = resolveSiteSharePreviewUrl(next);
+      if (isBlockedSiteSharePreviewUrl(sharePreview)) return;
       try { window.__SITE_SHARE_PREVIEW__ = sharePreview; } catch {}
       setMetaContent('meta[property="og:image"]', sharePreview);
       setMetaContent('meta[property="og:image:secure_url"]', sharePreview);
@@ -19160,12 +19553,16 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
           if (!next) {
             try { logo.removeAttribute("src"); } catch {}
             try { logo.removeAttribute("srcset"); } catch {}
+            try { logo.removeAttribute("data-loader-logo-primary"); } catch {}
+            try { logo.removeAttribute("data-loader-logo-fallback-index"); } catch {}
             try { logo.hidden = true; } catch {}
             try { logo.style.display = "none"; } catch {}
             return;
           }
           try { logo.hidden = false; } catch {}
           try { logo.style.display = ""; } catch {}
+          try { logo.setAttribute("data-loader-logo-primary", next); } catch {}
+          try { logo.setAttribute("data-loader-logo-fallback-index", "0"); } catch {}
           logo.src = next;
         });
       } catch {}

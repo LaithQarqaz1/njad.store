@@ -1,4 +1,4 @@
-﻿
+
 body {
   font-family: 'Cairo', sans-serif;
   direction: rtl;
@@ -1215,8 +1215,6 @@ body:has(#loginInline:not(.hidden)) #preloader { z-index: 200000 !important; }
 
 body[data-inline-route="deposit"] #methodModal:not(.hidden),
 body[data-inline-route="edaa"] #methodModal:not(.hidden),
-body[data-inline-route="withdraw"] #methodModal:not(.hidden),
-body[data-inline-route="sahb"] #methodModal:not(.hidden) {
   position: static !important;
   inset: auto !important;
   width: 100% !important;
@@ -1233,8 +1231,6 @@ body[data-inline-route="sahb"] #methodModal:not(.hidden) {
 
 body[data-inline-route="deposit"] #methodModal:not(.hidden) .modal-content,
 body[data-inline-route="edaa"] #methodModal:not(.hidden) .modal-content,
-body[data-inline-route="withdraw"] #methodModal:not(.hidden) .modal-content,
-body[data-inline-route="sahb"] #methodModal:not(.hidden) .modal-content {
   max-height: none !important;
   min-height: auto !important;
   overflow: visible !important;
