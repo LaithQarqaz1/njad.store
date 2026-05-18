@@ -1670,6 +1670,7 @@ function watchSessionDocForDevice(user){
   try {
     const CURRENCY_KEY = 'currency:selected';
     const RATES_CACHE_KEY = 'currency:rates:cache';
+    const RATES_CACHE_VISIBILITY_VERSION = 3;
     const RATES_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
     const STORE_BASE_CODE = 'USD'; // Balance stored in database is USD.
@@ -1685,12 +1686,101 @@ function watchSessionDocForDevice(user){
       if (!raw) return '';
       return /^[A-Z0-9]{2,8}$/.test(raw) ? raw : '';
     }
+    function normalizeCurrencyEntryKey(value){
+      const raw = String(value == null ? '' : value).trim();
+      return raw ? raw.slice(0, 160) : '';
+    }
+    function getCurrencyEntryCode(entry, fallback){
+      const src = entry && typeof entry === 'object' ? entry : {};
+      return normalizeCurrencyCode(src.code || src.currencyCode || src.currency || fallback || '');
+    }
+    function buildCurrencyEntryKey(entry, fallbackCode, used){
+      const src = entry && typeof entry === 'object' ? entry : {};
+      const explicit = normalizeCurrencyEntryKey(
+        src.id || src.currencyId || src.currency_id || src.entryId || src.entry_id ||
+        src.selectionKey || src.currencySelectionKey || src.key || ''
+      );
+      const base = explicit || getCurrencyEntryCode(src, fallbackCode) || normalizeCurrencyEntryKey(fallbackCode);
+      if (!base) return '';
+      if (!used) return base;
+      let key = base;
+      let index = 2;
+      while (used.has(key)) {
+        key = base + '#' + String(index);
+        index += 1;
+      }
+      used.add(key);
+      return key;
+    }
+    function getBaseCurrencyKey(map){
+      const MAP = map || getRates();
+      if (!MAP || typeof MAP !== 'object') return STORE_BASE_CODE;
+      if (MAP['1'] && getCurrencyEntryCode(MAP['1'], '') === STORE_BASE_CODE) return '1';
+      const exact = Object.keys(MAP).find((key) => key === STORE_BASE_CODE && getCurrencyEntryCode(MAP[key], key) === STORE_BASE_CODE);
+      if (exact) return exact;
+      return Object.keys(MAP).find((key) => getCurrencyEntryCode(MAP[key], key) === STORE_BASE_CODE) || STORE_BASE_CODE;
+    }
+    function resolveCurrencyEntryKey(value, map, options){
+      const MAP = map || getRates();
+      const opts = options || {};
+      const rawKey = normalizeCurrencyEntryKey(value);
+      if (rawKey && MAP && MAP[rawKey] && (opts.visibleOnly === false || isCurrencyEntryVisible(MAP[rawKey]))) return rawKey;
+      const code = normalizeCurrencyCode(value);
+      if (!code || !MAP || typeof MAP !== 'object') return '';
+      const matches = Object.keys(MAP).filter((key) => {
+        const entry = MAP[key];
+        return getCurrencyEntryCode(entry, key) === code && (opts.visibleOnly === false || isCurrencyEntryVisible(entry));
+      });
+      if (code === STORE_BASE_CODE) {
+        const baseKey = matches.find((key) => normalizeCurrencyEntryKey(MAP[key] && (MAP[key].id || MAP[key].currencyId || '')) === '1') ||
+          matches.find((key) => key === '1') ||
+          matches.find((key) => key === STORE_BASE_CODE);
+        if (baseKey) return baseKey;
+      }
+      return matches[0] || '';
+    }
+    function resolveCurrencyEntry(value, map, options){
+      const MAP = map || getRates();
+      const key = resolveCurrencyEntryKey(value, MAP, options);
+      return key && MAP ? MAP[key] : null;
+    }
+    function parseCurrencyBool(value){
+      if (value == null) return null;
+      if (typeof value === 'boolean') return value;
+      if (typeof value === 'number') return value !== 0;
+      const raw = String(value || '').trim().toLowerCase();
+      if (!raw) return null;
+      if (['1','true','yes','on','enabled','active','show','visible'].includes(raw)) return true;
+      if (['0','false','no','off','disabled','inactive','hide','hidden'].includes(raw)) return false;
+      return null;
+    }
+    function isCurrencyEntryVisible(entry){
+      const src = entry && typeof entry === 'object' ? entry : {};
+      const visible = parseCurrencyBool(src.visible ?? src.showInList ?? src.show_in_list ?? src.show ?? src.enabled);
+      if (visible != null) return visible === true;
+      const hidden = parseCurrencyBool(src.hidden ?? src.hide ?? src.hiddenFromMenu ?? src.hidden_from_menu ?? src.hideFromMenu ?? src.hide_from_menu);
+      if (hidden != null) return hidden !== true;
+      return true;
+    }
+    function isSelectableCurrency(code, map){
+      const MAP = map || getRates();
+      const key = resolveCurrencyEntryKey(code, MAP);
+      if (!key || !MAP || !MAP[key]) return false;
+      return isCurrencyEntryVisible(MAP[key]);
+    }
+    function getSelectableCurrencyCodes(map){
+      const MAP = map || getRates();
+      return Object.keys(MAP || {}).filter((key) => isSelectableCurrency(key, MAP));
+    }
     function resolveFallbackCurrency(map){
       const MAP = map || getRates();
       const baseCode = normalizeCurrencyCode(getFxBase()) || STORE_BASE_CODE;
-      if (MAP && MAP[baseCode]) return baseCode;
-      const keys = Object.keys(MAP || {});
+      const baseKey = resolveCurrencyEntryKey(baseCode, MAP);
+      if (baseKey && isSelectableCurrency(baseKey, MAP)) return baseKey;
+      const keys = getSelectableCurrencyCodes(MAP);
       if (keys.length) return keys[0];
+      const allKeys = Object.keys(MAP || {});
+      if (allKeys.length) return allKeys[0];
       return baseCode || STORE_BASE_CODE;
     }
 
@@ -1700,6 +1790,7 @@ function watchSessionDocForDevice(user){
         if (!raw) return null;
         const data = JSON.parse(raw);
         if (!data || typeof data !== 'object') return null;
+        if (Number(data.visibilityVersion || 0) !== RATES_CACHE_VISIBILITY_VERSION) return null;
         const updatedAt = Number(data.updatedAt);
         const rates = data.rates;
         const base = typeof data.base === 'string' ? data.base.toUpperCase() : 'USD';
@@ -1713,6 +1804,7 @@ function watchSessionDocForDevice(user){
         const payload = {
           updatedAt: Date.now(),
           base: (base || 'USD'),
+          visibilityVersion: RATES_CACHE_VISIBILITY_VERSION,
           rates
         };
         ratesCacheMeta.updatedAt = payload.updatedAt;
@@ -1728,25 +1820,29 @@ function watchSessionDocForDevice(user){
 
     function getSelected(){
       let stored = '';
-      try { stored = normalizeCurrencyCode(localStorage.getItem(CURRENCY_KEY)); } catch {}
+      try { stored = normalizeCurrencyEntryKey(localStorage.getItem(CURRENCY_KEY)); } catch {}
       const MAP = getRates();
       if (MAP && typeof MAP === 'object' && Object.keys(MAP).length) {
-        if (stored && MAP[stored]) return stored;
+        const storedKey = resolveCurrencyEntryKey(stored, MAP);
+        if (storedKey && isSelectableCurrency(storedKey, MAP)) return storedKey;
         return resolveFallbackCurrency(MAP);
       }
       return stored || resolveFallbackCurrency(MAP);
     }
     function setSelected(code){
       const MAP = getRates();
-      const requested = normalizeCurrencyCode(code);
+      const requested = resolveCurrencyEntryKey(code, MAP) || normalizeCurrencyEntryKey(code);
       let next = requested || getSelected();
       if (MAP && typeof MAP === 'object' && Object.keys(MAP).length) {
-        if (!MAP[next]) next = resolveFallbackCurrency(MAP);
+        next = resolveCurrencyEntryKey(next, MAP) || next;
+        if (!MAP[next] || !isSelectableCurrency(next, MAP)) next = resolveFallbackCurrency(MAP);
       } else if (!next) {
         next = resolveFallbackCurrency(MAP);
       }
       try { localStorage.setItem(CURRENCY_KEY, next); } catch {}
-      try { window.dispatchEvent(new CustomEvent('currency:change', { detail: { code: next } })); } catch {}
+      const selectedEntry = resolveCurrencyEntry(next, MAP, { visibleOnly: false }) || {};
+      const selectedCode = getCurrencyEntryCode(selectedEntry, next) || next;
+      try { window.dispatchEvent(new CustomEvent('currency:change', { detail: { code: selectedCode, key: next, id: selectedEntry.id || selectedEntry.currencyId || '' } })); } catch {}
       try { applyCurrencyNow(); } catch {}
     }
 
@@ -1754,14 +1850,20 @@ function watchSessionDocForDevice(user){
       const n = Number(amount || 0);
       if (!Number.isFinite(n)) return 0;
       const MAP = getRates();
-      const BASE = getFxBase();
-      if (fromCode === toCode) return n;
-      const rFrom = (MAP[fromCode] && Number(MAP[fromCode].rate)) || (fromCode === BASE ? 1 : null);
-      const rTo   = (MAP[toCode]   && Number(MAP[toCode].rate))   || (toCode   === BASE ? 1 : null);
+      const BASE = normalizeCurrencyCode(getFxBase()) || STORE_BASE_CODE;
+      const fromKey = resolveCurrencyEntryKey(fromCode, MAP, { visibleOnly: false }) || (normalizeCurrencyCode(fromCode) === BASE ? getBaseCurrencyKey(MAP) : '');
+      const toKey = resolveCurrencyEntryKey(toCode, MAP, { visibleOnly: false }) || (normalizeCurrencyCode(toCode) === BASE ? getBaseCurrencyKey(MAP) : '');
+      if (fromKey && toKey && fromKey === toKey) return n;
+      const fromEntry = fromKey && MAP ? MAP[fromKey] : null;
+      const toEntry = toKey && MAP ? MAP[toKey] : null;
+      const sourceCode = getCurrencyEntryCode(fromEntry, fromCode);
+      const targetCode = getCurrencyEntryCode(toEntry, toCode);
+      const rFrom = (fromEntry && Number(fromEntry.rate)) || (sourceCode === BASE ? 1 : null);
+      const rTo   = (toEntry && Number(toEntry.rate)) || (targetCode === BASE ? 1 : null);
       let baseAmt;
-      if (fromCode === BASE) baseAmt = n; else baseAmt = rFrom ? (n / rFrom) : n;
+      if (sourceCode === BASE && (!fromEntry || normalizeCurrencyEntryKey(fromEntry.id || fromEntry.currencyId || '') === '1')) baseAmt = n; else baseAmt = rFrom ? (n / rFrom) : n;
       let out;
-      if (toCode === BASE) out = baseAmt; else out = rTo ? (baseAmt * rTo) : baseAmt;
+      if (targetCode === BASE && toKey === getBaseCurrencyKey(MAP)) out = baseAmt; else out = rTo ? (baseAmt * rTo) : baseAmt;
       return out;
     }
     function convertFromJOD(amountJOD, toCode){
@@ -1772,11 +1874,11 @@ function watchSessionDocForDevice(user){
     }
     function formatAmountFromJOD(amountJOD, toCode){
       const MAP = getRates();
-      const requested = normalizeCurrencyCode(toCode) || getSelected();
-      const code = (MAP && MAP[requested]) ? requested : resolveFallbackCurrency(MAP);
-      const cur = MAP[code] || MAP[STORE_BASE_CODE] || {};
-      const val = convertFromJOD(amountJOD, code);
-      const symbol = cur.symbol || cur.code || code || '$';
+      const requested = resolveCurrencyEntryKey(toCode, MAP) || getSelected();
+      const key = (MAP && MAP[requested] && isSelectableCurrency(requested, MAP)) ? requested : resolveFallbackCurrency(MAP);
+      const cur = MAP[key] || MAP[getBaseCurrencyKey(MAP)] || {};
+      const val = convertFromJOD(amountJOD, key);
+      const symbol = cur.symbol || cur.code || key || '$';
       return Number(val).toFixed(3) + ' ' + symbol;
     }
 
@@ -1784,7 +1886,13 @@ function watchSessionDocForDevice(user){
     try {
       window.__CURRENCIES__ = CURRENCIES;
       window.__CURRENCY_BASE__ = null;
-      window.getSelectedCurrencyCode = getSelected;
+      window.getSelectedCurrencyKey = getSelected;
+      window.getSelectedCurrencyEntry = () => resolveCurrencyEntry(getSelected(), getRates(), { visibleOnly: false }) || null;
+      window.getSelectedCurrencyCode = () => {
+        const key = getSelected();
+        const entry = resolveCurrencyEntry(key, getRates(), { visibleOnly: false }) || {};
+        return getCurrencyEntryCode(entry, key) || STORE_BASE_CODE;
+      };
       window.setSelectedCurrencyCode = setSelected;
       window.convertFromJOD = convertFromJOD;
       window.formatCurrencyFromJOD = (v)=>formatAmountFromJOD(v);
@@ -1951,7 +2059,8 @@ function watchSessionDocForDevice(user){
         function readMap(){
           try { return window.__CURRENCIES__ || CURRENCIES; } catch { return CURRENCIES; }
         }
-        function optionText(code, cur){
+        function optionText(key, cur){
+          const code = getCurrencyEntryCode(cur, key) || key;
           const name = (cur && (cur.nameAr || cur.name)) ? (cur.nameAr || cur.name) : code;
           const symbol = (cur && (cur.symbol || cur.code)) ? (cur.symbol || cur.code) : code;
           return `${name} (${symbol})`;
@@ -2039,23 +2148,23 @@ function watchSessionDocForDevice(user){
             while (select.firstChild) select.removeChild(select.firstChild);
             while (menu.firstChild) menu.removeChild(menu.firstChild);
             const map = readMap();
-            const codes = Object.keys(map || {});
-            codes.forEach((code) => {
-              const cur = map[code];
+            const codes = getSelectableCurrencyCodes(map);
+            codes.forEach((key) => {
+              const cur = map[key];
               const opt = document.createElement('option');
-              opt.value = code;
-              opt.textContent = optionText(code, cur);
+              opt.value = key;
+              opt.textContent = optionText(key, cur);
               select.appendChild(opt);
 
               const btn = document.createElement('button');
               btn.type = 'button';
               btn.className = 'currency-pm-select-option';
-              btn.dataset.value = code;
+              btn.dataset.value = key;
               btn.setAttribute('role', 'option');
               btn.textContent = opt.textContent;
               btn.addEventListener('click', (ev) => {
                 try { ev.preventDefault(); ev.stopPropagation(); } catch {}
-                setSelected(code);
+                setSelected(key);
                 syncLabel();
                 syncSelectedOption();
                 closeMenu();
@@ -2063,7 +2172,8 @@ function watchSessionDocForDevice(user){
               menu.appendChild(btn);
             });
             const wanted = getSelected();
-            if (map[wanted]) select.value = wanted;
+            const wantedKey = resolveCurrencyEntryKey(wanted, map) || wanted;
+            if (map[wantedKey] && isSelectableCurrency(wantedKey, map)) select.value = wantedKey;
             else if (codes.length) select.value = codes[0];
             syncLabel();
             syncSelectedOption();
@@ -2171,22 +2281,56 @@ function watchSessionDocForDevice(user){
     // Firestore reads for config/siteState/config.currency.
     function normalizeRates(obj){
       const out = {};
+      const used = new Set();
       try {
         Object.entries(obj || {}).forEach(([code, v]) => {
-          const C = String(code || '').toUpperCase();
+          const rawKey = String(code || '').trim();
+          const keyAsCode = normalizeCurrencyCode(rawKey);
+          const C = keyAsCode || rawKey.toUpperCase();
           if (!C) return;
           if (v && typeof v === 'object') {
             const rate = Number(v.rate || v.RATE || v.value);
             const symbol = v.symbol || v.sym || '';
             const nameAr = v.nameAr || v.name || C;
-            if (Number.isFinite(rate) && rate > 0) out[C] = { code: C, rate, symbol, nameAr };
+            const entryCode = getCurrencyEntryCode(v, C) || C;
+            const explicitId = v.id || v.currencyId || v.currency_id || (keyAsCode ? '' : rawKey);
+            const key = buildCurrencyEntryKey({ ...v, id: explicitId }, entryCode, used);
+            if (Number.isFinite(rate) && rate > 0 && key) out[key] = { ...v, id: explicitId, code: entryCode, rate, symbol, nameAr, visible: isCurrencyEntryVisible(v) };
           } else {
             const rate = Number(v);
-            if (Number.isFinite(rate) && rate > 0) out[C] = { code: C, rate, symbol: '', nameAr: C };
+            const key = buildCurrencyEntryKey({ code: C }, C, used);
+            if (Number.isFinite(rate) && rate > 0 && key) out[key] = { code: C, rate, symbol: '', nameAr: C, visible: true };
           }
         });
       } catch {}
       return out;
+    }
+    function normalizeCurrencyEntriesPayload(value){
+      if (!value) return {};
+      if (Array.isArray(value)) {
+        const out = {};
+        const used = new Set();
+        value.forEach((entry) => {
+          if (!entry || typeof entry !== 'object') return;
+          const code = normalizeCurrencyCode(entry.code || entry.currencyCode || entry.currency || '');
+          const rate = Number(entry.rate || entry.RATE || entry.value || entry.ratePerUSD);
+          const key = buildCurrencyEntryKey(entry, code, used);
+          if (code && key && Number.isFinite(rate) && rate > 0) {
+            out[key] = {
+              ...entry,
+              id: entry.id || entry.currencyId || entry.currency_id || '',
+              code,
+              rate,
+              symbol: entry.symbol || entry.sym || '',
+              nameAr: entry.nameAr || entry.name || code,
+              visible: isCurrencyEntryVisible(entry)
+            };
+          }
+        });
+        return out;
+      }
+      if (typeof value === 'object') return normalizeRates(value);
+      return {};
     }
     function parseRatesJsonLoose(raw){
       if (raw && typeof raw === 'object') return raw;
@@ -2226,19 +2370,29 @@ function watchSessionDocForDevice(user){
       try {
         const mfields = (mv && mv.mapValue && mv.mapValue.fields) || {};
         Object.keys(mfields).forEach(code => {
+          const rawKey = String(code || '').trim();
+          const keyAsCode = normalizeCurrencyCode(rawKey);
           const entry = mfields[code];
           if (entry && entry.mapValue && entry.mapValue.fields){
             const ef = entry.mapValue.fields;
             const rate = fromNumberField(ef.rate ?? ef.RATE ?? ef.value);
             const symbol = fromStringField(ef.symbol ?? ef.sym);
             const nameAr = fromStringField(ef.nameAr ?? ef.name);
+            const visible = parseCurrencyBool(fromStringField(ef.visible ?? ef.show ?? ef.enabled));
+            const hidden = parseCurrencyBool(fromStringField(ef.hidden ?? ef.hide ?? ef.hiddenFromMenu ?? ef.hidden_from_menu));
             if (Number.isFinite(rate) && rate > 0){
-              out[String(code).toUpperCase()] = { code: String(code).toUpperCase(), rate, symbol, nameAr: nameAr || String(code).toUpperCase() };
+              const fieldCode = fromStringField(ef.code ?? ef.currencyCode ?? ef.currency ?? ef.currency_code);
+              const normalizedCode = normalizeCurrencyCode(fieldCode || rawKey);
+              if (!normalizedCode) return;
+              const id = fromStringField(ef.id ?? ef.currencyId ?? ef.currency_id) || (keyAsCode ? '' : rawKey);
+              const key = buildCurrencyEntryKey({ id, code: normalizedCode }, normalizedCode);
+              out[key || normalizedCode] = { id, code: normalizedCode, rate, symbol, nameAr: nameAr || normalizedCode, visible: visible != null ? visible : hidden !== true };
             }
           } else {
             const rate = fromNumberField(entry);
             if (Number.isFinite(rate) && rate > 0){
-              out[String(code).toUpperCase()] = { code: String(code).toUpperCase(), rate, symbol: '', nameAr: String(code).toUpperCase() };
+              const normalizedCode = normalizeCurrencyCode(rawKey);
+              if (normalizedCode) out[normalizedCode] = { code: normalizedCode, rate, symbol: '', nameAr: normalizedCode, visible: true };
             }
           }
         });
@@ -2248,6 +2402,17 @@ function watchSessionDocForDevice(user){
     function readRatesStateFromObject(data){
       const root = (data && typeof data.currency === 'object' && !Array.isArray(data.currency)) ? data.currency : (data || {});
       const parsed = normalizeRates(parseRatesJsonLoose(root.ratesJson || root.rates || {}));
+      const entries = normalizeCurrencyEntriesPayload(root.currencies || root.items || []);
+      const entryKeys = Object.keys(entries);
+      if (entryKeys.length) {
+        const representedCodes = new Set(entryKeys.map((key) => getCurrencyEntryCode(entries[key], key)).filter(Boolean));
+        Object.keys(parsed).forEach((key) => {
+          const code = getCurrencyEntryCode(parsed[key], key);
+          if (code && !representedCodes.has(code)) entries[key] = parsed[key];
+        });
+        Object.keys(parsed).forEach((key) => delete parsed[key]);
+        Object.keys(entries).forEach((key) => { parsed[key] = entries[key]; });
+      }
       let base = 'USD';
       try {
         const b = String(root.baseCode || root.base || '').trim().toUpperCase();
@@ -6453,12 +6618,32 @@ function headerGetSelectedCurrencyCode(){
   } catch {}
   return '';
 }
+function headerResolveCurrencyEntry(value, rates){
+  const map = rates && typeof rates === 'object' ? rates : null;
+  const raw = String(value || '').trim();
+  if (!raw || !map) return null;
+  if (map[raw]) return map[raw];
+  const upper = raw.toUpperCase();
+  if (map[upper]) return map[upper];
+  for (const key of Object.keys(map)) {
+    const entry = map[key];
+    if (!entry || typeof entry !== 'object') continue;
+    const id = String(entry.id || entry.currencyId || '').trim();
+    const code = String(entry.code || '').trim().toUpperCase();
+    if ((id && id === raw) || (code && code === upper)) return entry;
+  }
+  return null;
+}
 function headerGetSelectedCurrencyText(rawCode){
-  const code = String(rawCode || headerGetSelectedCurrencyCode() || '').trim().toUpperCase();
-  if (!code) return '';
   let rates = null;
   try { rates = window.__CURRENCIES__ || null; } catch {}
-  const rateEntry = rates && typeof rates === 'object' ? rates[code] : null;
+  let selectedKey = '';
+  try {
+    if (!rawCode && typeof window.getSelectedCurrencyKey === 'function') selectedKey = String(window.getSelectedCurrencyKey() || '').trim();
+  } catch {}
+  const rateEntry = headerResolveCurrencyEntry(rawCode || selectedKey || headerGetSelectedCurrencyCode(), rates);
+  const code = String((rateEntry && rateEntry.code) || rawCode || headerGetSelectedCurrencyCode() || '').trim().toUpperCase();
+  if (!code) return '';
   const symbol = String(rateEntry && (rateEntry.symbol || rateEntry.displaySymbol || rateEntry.sign) || '').trim();
   if (symbol) return symbol;
   const fallbackMap = {
@@ -7111,7 +7296,7 @@ function applyAuthUi(user){
 }
 try { window.__applyAuthUi = applyAuthUi; } catch {}
 
-const SITE_PWA_SW_URL = "sw.js?v=20260515-01";
+const SITE_PWA_SW_URL = "sw.js?v=20260519-03";
 const SITE_PWA_CACHE_DISABLED = true;
 let deferredSiteInstallPrompt = null;
 let activeSiteManifestUrl = "";
@@ -9007,14 +9192,18 @@ function syncSidebarCurrencyLabel(){
       enforceFixedSidebarCurrencyBadgeColor();
       return;
     }
-    const code = (typeof window.getSelectedCurrencyCode === 'function')
-      ? String(window.getSelectedCurrencyCode() || '').toUpperCase()
+    const rates = window.__CURRENCIES__ || {};
+    const selectedKey = (typeof window.getSelectedCurrencyKey === 'function')
+      ? String(window.getSelectedCurrencyKey() || '').trim()
       : '';
-    label.textContent = code || 'USD';
+    const entry = headerResolveCurrencyEntry(selectedKey, rates) || headerResolveCurrencyEntry(headerGetSelectedCurrencyCode(), rates) || {};
+    const code = String(entry.code || headerGetSelectedCurrencyCode() || '').trim().toUpperCase();
+    const symbol = String(entry.symbol || entry.displaySymbol || entry.sign || '').trim();
+    label.textContent = symbol || code || 'USD';
     const menu = sidebarTop.querySelector('#sidebarCurrencyMenu') || document.getElementById('sidebarCurrencyMenu');
     if (menu) {
       menu.querySelectorAll('.sidebar-currency-option').forEach((btn) => {
-        const active = String(btn.dataset.value || '').toUpperCase() === label.textContent;
+        const active = String(btn.dataset.value || '').trim() === selectedKey;
         btn.classList.toggle('active', active);
         btn.setAttribute('aria-selected', active ? 'true' : 'false');
       });
@@ -9029,25 +9218,35 @@ function rebuildSidebarCurrencyMenu(){
     if (!menu) return;
     while (menu.firstChild) menu.removeChild(menu.firstChild);
     const rates = window.__CURRENCIES__ || {};
-    const codes = Object.keys(rates || {}).filter((code) => {
-      const curr = rates[code] || {};
-      return !(curr && curr.visible === false);
+    const codes = Object.keys(rates || {}).filter((key) => {
+      const curr = rates[key] || {};
+      if (curr && typeof curr === 'object') {
+        const visibleText = String(curr.visible ?? curr.show ?? curr.enabled ?? '').trim().toLowerCase();
+        const hiddenText = String(curr.hidden ?? curr.hide ?? curr.hiddenFromMenu ?? curr.hidden_from_menu ?? '').trim().toLowerCase();
+        if (curr.visible === false || curr.show === false || curr.enabled === false) return false;
+        if (curr.hidden === true || curr.hide === true || curr.hiddenFromMenu === true || curr.hidden_from_menu === true) return false;
+        if (['0','false','no','off','disabled','inactive','hide','hidden'].includes(visibleText)) return false;
+        if (['1','true','yes','on','enabled','active','hide','hidden'].includes(hiddenText)) return false;
+      }
+      return true;
     });
     if (!codes.length) return;
-    codes.forEach((code) => {
-      const curr = rates[code] || {};
+    codes.forEach((key) => {
+      const curr = rates[key] || {};
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'sidebar-currency-option';
       btn.setAttribute('role', 'option');
-      btn.dataset.value = String(code || '').toUpperCase();
-      const symbol = String(curr.symbol || curr.code || code || '').trim();
-      btn.textContent = symbol ? `${code} (${symbol})` : String(code || '').toUpperCase();
+      btn.dataset.value = String(key || '').trim();
+      const code = String(curr.code || key || '').trim().toUpperCase();
+      const name = String(curr.nameAr || curr.name || '').trim();
+      const symbol = String(curr.symbol || curr.displaySymbol || curr.sign || curr.code || code || '').trim();
+      btn.textContent = name ? `${name} (${code})` : (symbol ? `${code} (${symbol})` : code);
       btn.addEventListener('click', (ev) => {
         try { ev.preventDefault(); ev.stopPropagation(); } catch {}
         try {
           if (typeof window.setSelectedCurrencyCode === 'function') {
-            window.setSelectedCurrencyCode(code);
+            window.setSelectedCurrencyCode(key);
           }
         } catch {}
         syncSidebarCurrencyLabel();

@@ -4376,11 +4376,11 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
   }
 
   function getInlineCountriesCacheKeyFor(flow){
-    return 'edaa:' + normalizeInlineFlow(flow) + ':countries:v3:' + syncInlineCountriesViewerScope();
+    return 'edaa:' + normalizeInlineFlow(flow) + ':countries:v4:' + syncInlineCountriesViewerScope();
   }
 
   function getInlineCountriesCacheMetaKeyFor(flow){
-    return 'edaa:' + normalizeInlineFlow(flow) + ':countries:meta:v3:' + syncInlineCountriesViewerScope();
+    return 'edaa:' + normalizeInlineFlow(flow) + ':countries:meta:v4:' + syncInlineCountriesViewerScope();
   }
 
   function normalizeInlineCurrencyCode(value){
@@ -4391,6 +4391,28 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
     }).filter(Boolean);
     if (!parts.length) return '';
     return parts.find(function(part){ return part !== 'USD'; }) || parts[0] || '';
+  }
+
+  function normalizeInlineCurrencyEntryId(value){
+    const raw = String(value == null ? '' : value).trim();
+    return raw ? raw.slice(0, 160) : '';
+  }
+
+  function getInlineCurrencyEntryIdFromData(source){
+    const data = (source && typeof source === 'object') ? source : {};
+    return normalizeInlineCurrencyEntryId(
+      data.currencyId ||
+      data.currency_id ||
+      data.payCurrencyId ||
+      data.pay_currency_id ||
+      data.currencyKey ||
+      data.currency_key ||
+      data.currencySelectionKey ||
+      data.currency_selection_key ||
+      data.selectionKey ||
+      data.selection_key ||
+      ''
+    );
   }
 
   function normalizeInlineRequiredFlag(value){
@@ -5038,6 +5060,7 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
   function deriveInlineRatePerUsdFromAllowedCurrencies(source){
     try {
       const data = (source && typeof source === 'object') ? source : {};
+      const currencyId = getInlineCurrencyEntryIdFromData(data);
       const currencyCode = normalizeInlineCurrencyCode(
         data.currencyCode ||
         data.currency ||
@@ -5049,10 +5072,19 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       const list = Array.isArray(data.allowedCurrencies)
         ? data.allowedCurrencies
         : (Array.isArray(data.currencies) ? data.currencies : []);
-      if (!currencyCode || !list.length) return null;
-      const match = list.find(function(entry){
-        return normalizeInlineCurrencyCode(entry && (entry.code || entry.currencyCode || entry.currency || entry.id || '')) === currencyCode;
-      }) || list[0];
+      if ((!currencyCode && !currencyId) || !list.length) return null;
+      let match = null;
+      if (currencyId) {
+        match = list.find(function(entry){
+          return getInlineCurrencyEntryIdFromData(entry) === currencyId;
+        }) || null;
+      }
+      if (!match && currencyCode) {
+        match = list.find(function(entry){
+          return normalizeInlineCurrencyCode(entry && (entry.code || entry.currencyCode || entry.currency || '')) === currencyCode;
+        }) || null;
+      }
+      match = match || list[0];
       const rate = Number(match && (
         match.ratePerUSD != null ? match.ratePerUSD :
         (match.rate != null ? match.rate :
@@ -5111,6 +5143,7 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
 
   function methodNeedsFreshInlineFx(entry){
     const data = (entry && entry.data && typeof entry.data === 'object') ? entry.data : {};
+    const currencyId = getInlineCurrencyEntryIdFromData(data);
     const currencyCode = normalizeInlineCurrencyCode(data.currencyCode || data.currency || '');
     if (!currencyCode) return false;
     const ratePerUSD = Number(data.ratePerUSD);
@@ -5120,7 +5153,7 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       || (Number.isFinite(ratePerJOD) && ratePerJOD > 0)
       || (Number.isFinite(rateToJOD) && rateToJOD > 0);
     if (hasDirectRate) return false;
-    if (currencyCode === 'USD' || currencyCode === 'JOD') return false;
+    if ((currencyCode === 'USD' && (!currencyId || currencyId === '1')) || currencyCode === 'JOD') return false;
     return true;
   }
 
@@ -9113,9 +9146,12 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       : ((method && typeof method === 'object') ? method : {});
     const directRate = resolveInlinePositiveNumber(data.ratePerUSD);
     if (directRate) return roundInlineAmount(directRate, 6);
+    const allowedRate = deriveInlineRatePerUsdFromAllowedCurrencies(data);
+    if (allowedRate) return roundInlineAmount(allowedRate, 6);
 
     const currencyCode = resolveInlineModalMethodCurrency(method);
-    if (currencyCode === 'USD') return 1;
+    const currencyId = getInlineCurrencyEntryIdFromData(data);
+    if (currencyCode === 'USD' && (!currencyId || currencyId === '1')) return 1;
 
     const usdPerJOD = resolveInlinePositiveNumber(data.usdPerJOD);
     const ratePerJOD = resolveInlinePositiveNumber(data.ratePerJOD);
@@ -9815,11 +9851,11 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
           "}",
           "",
           "function getEmbeddedCountriesCacheKey(){",
-          "  return 'edaa:' + getEmbeddedInlineFlowKind() + ':countries:v3:' + getEmbeddedCountriesCacheViewerKey();",
+          "  return 'edaa:' + getEmbeddedInlineFlowKind() + ':countries:v4:' + getEmbeddedCountriesCacheViewerKey();",
           "}",
           "",
           "function getEmbeddedCountriesCacheMetaKey(){",
-          "  return 'edaa:' + getEmbeddedInlineFlowKind() + ':countries:meta:v3:' + getEmbeddedCountriesCacheViewerKey();",
+          "  return 'edaa:' + getEmbeddedInlineFlowKind() + ':countries:meta:v4:' + getEmbeddedCountriesCacheViewerKey();",
           "}",
           "",
           "const DEPOSIT_COUNTRIES_CACHE_KEY = getEmbeddedCountriesCacheKey();",
@@ -14407,12 +14443,17 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     try { rates = window.__CURRENCIES__ || null; } catch (_) {}
     try { base = String(window.__CURRENCY_BASE__ || "").trim().toUpperCase(); } catch (_) {}
     try {
-      if (typeof window.getSelectedCurrencyCode === "function") {
-        selected = String(window.getSelectedCurrencyCode() || "").trim().toUpperCase();
+      if (typeof window.getSelectedCurrencyKey === "function") {
+        selected = String(window.getSelectedCurrencyKey() || "").trim();
+      }
+    } catch (_) {}
+    try {
+      if (!selected && typeof window.getSelectedCurrencyCode === "function") {
+        selected = String(window.getSelectedCurrencyCode() || "").trim();
       }
     } catch (_) {}
     if (!selected) {
-      try { selected = String(localStorage.getItem("currency:selected") || "").trim().toUpperCase(); } catch (_) {}
+      try { selected = String(localStorage.getItem("currency:selected") || "").trim(); } catch (_) {}
     }
     return { rates, selected, base };
   }
@@ -14421,15 +14462,25 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     const raw = String(value || "").trim();
     if (!raw) return "";
     const upper = raw.toUpperCase();
-    if (!rates || rates[upper]) return upper;
-    for (const entry of Object.values(rates || {})) {
+    if (!rates) return upper;
+    if (rates[raw]) return raw;
+    if (rates[upper]) return upper;
+    let firstCodeKey = "";
+    for (const key of Object.keys(rates || {})) {
+      const entry = rates[key];
       if (!entry || typeof entry !== "object") continue;
+      const id = String(entry.id || entry.currencyId || "").trim();
+      if (id && id === raw) return key;
       const code = String(entry.code || "").trim().toUpperCase();
-      if (code && code === upper) return code;
+      if (code && code === upper) {
+        const isBaseUsd = upper === "USD" && (id === "1" || String(key) === "1");
+        if (isBaseUsd) return key;
+        if (!firstCodeKey) firstCodeKey = key;
+      }
       const symbol = String(entry.symbol || "").trim();
-      if (symbol && symbol === raw) return code || upper;
+      if (symbol && symbol === raw) return key;
     }
-    return upper;
+    return firstCodeKey || upper;
   }
 
   function convertCatalogCurrencyAmount(amount, fromCode, toCode, rates, baseCode) {
