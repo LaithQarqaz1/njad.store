@@ -12785,6 +12785,10 @@ body.motion-ui :is(
     }
     :is(
       body.catalog-inline-active .catalog-inline-host #catalogOffersContainer > .offer-box.card,
+      .home-sections .categories > .card[data-card-type="product"],
+      .catalog-inline-host .categories .card[data-card-type="product"],
+      body.inline-view #inlinePage > .categories > .card[data-card-type="product"],
+      body.inline-view #inlinePage .categories > .card[data-card-type="product"],
       body.catalog-inline-active .catalog-inline-host .categories .card[data-card-type="product"],
       body.catalog-inline-active .catalog-inline-host .inline-favorite-card,
       #depositInlineContainer #grid .card[data-card-type="product"],
@@ -12793,9 +12797,16 @@ body.motion-ui :is(
     ) .catalog-card-media{
       aspect-ratio:var(--site-product-image-shape, 1/1) !important;
       border-radius:var(--site-product-image-radius, 18px 18px 0 0) !important;
+      overflow:hidden !important;
+      -webkit-clip-path:inset(0 round var(--site-product-image-radius, 18px 18px 0 0)) !important;
+      clip-path:inset(0 round var(--site-product-image-radius, 18px 18px 0 0)) !important;
     }
     :is(
       body.catalog-inline-active .catalog-inline-host #catalogOffersContainer > .offer-box.card,
+      .home-sections .categories > .card[data-card-type="product"],
+      .catalog-inline-host .categories .card[data-card-type="product"],
+      body.inline-view #inlinePage > .categories > .card[data-card-type="product"],
+      body.inline-view #inlinePage .categories > .card[data-card-type="product"],
       body.catalog-inline-active .catalog-inline-host .categories .card[data-card-type="product"],
       body.catalog-inline-active .catalog-inline-host .inline-favorite-card,
       #depositInlineContainer #grid .card[data-card-type="product"],
@@ -12805,6 +12816,9 @@ body.motion-ui :is(
       aspect-ratio:var(--site-product-image-shape, 1/1) !important;
       object-fit:cover !important;
       border-radius:var(--site-product-image-radius, 18px 18px 0 0) !important;
+      overflow:hidden !important;
+      -webkit-clip-path:inset(0 round var(--site-product-image-radius, 18px 18px 0 0)) !important;
+      clip-path:inset(0 round var(--site-product-image-radius, 18px 18px 0 0)) !important;
     }
     @media (max-width:1100px){
       :is(

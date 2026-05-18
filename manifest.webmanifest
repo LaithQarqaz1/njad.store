@@ -1,7 +1,7 @@
 {
   "id": "/?source=pwa",
-  "name": "njad.store | \u0646\u062c\u0627\u062f",
-  "short_name": "njad",
+  "name": "Njad store | \u0646\u062c\u0627\u062f \u0633\u062a\u0648\u0631",
+  "short_name": "Njad",
   "start_url": "/index.html?source=pwa#/",
   "scope": "/",
   "display": "standalone",
@@ -12,8 +12,7 @@
   "dir": "rtl",
   "prefer_related_applications": false,
   "icons": [
-    { "src": "https://api.njad.store/site-icon.png?v=admin-20260514-01", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-    { "src": "https://api.njad.store/site-icon.png?v=admin-20260514-01", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    { "src": "https://api.njad.store/site-icon.png?v=admin-20260518-02", "sizes": "any", "type": "image/png", "purpose": "any" }
   ],
   "shortcuts": [
     { "name": "تسجيل الدخول", "short_name": "الدخول", "url": "/login" },

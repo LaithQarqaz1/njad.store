@@ -7111,7 +7111,7 @@ function applyAuthUi(user){
 }
 try { window.__applyAuthUi = applyAuthUi; } catch {}
 
-const SITE_PWA_SW_URL = "sw.js?v=20260514-12";
+const SITE_PWA_SW_URL = "sw.js?v=20260515-01";
 const SITE_PWA_CACHE_DISABLED = true;
 let deferredSiteInstallPrompt = null;
 let activeSiteManifestUrl = "";
@@ -7427,8 +7427,7 @@ function revokeSiteManifestUrl(){
   try { window.__SITE_PWA_MANIFEST_URL__ = ""; } catch {}
   activeSiteManifestUrl = "";
 }
-function setStaticSiteManifestLink(){
-  const manifestUrl = resolveInstallAppAbsoluteUrl("/manifest.webmanifest", "/manifest.webmanifest");
+function getSiteManifestLink(){
   let link = null;
   try { link = document.querySelector('link[rel="manifest"]'); } catch (_) { link = null; }
   if (!link) {
@@ -7441,7 +7440,27 @@ function setStaticSiteManifestLink(){
       link = null;
     }
   }
-  if (link && manifestUrl && link.getAttribute("href") !== manifestUrl) link.setAttribute("href", manifestUrl);
+  return link;
+}
+function setSiteManifestLinkHref(manifestUrl, isObjectUrl){
+  const href = normalizeInstallAppText(manifestUrl);
+  if (!href) return "";
+  let previousObjectUrl = activeSiteManifestUrl;
+  if (!previousObjectUrl) {
+    try { previousObjectUrl = normalizeInstallAppText(window.__SITE_PWA_MANIFEST_URL__); } catch {}
+  }
+  const link = getSiteManifestLink();
+  if (link && link.getAttribute("href") !== href) link.setAttribute("href", href);
+  activeSiteManifestUrl = isObjectUrl ? href : "";
+  try { window.__SITE_PWA_MANIFEST_URL__ = isObjectUrl ? href : ""; } catch {}
+  if (previousObjectUrl && previousObjectUrl !== href) {
+    try { URL.revokeObjectURL(previousObjectUrl); } catch {}
+  }
+  return href;
+}
+function setStaticSiteManifestLink(){
+  const manifestUrl = resolveInstallAppAbsoluteUrl("/manifest.webmanifest", "/manifest.webmanifest");
+  setSiteManifestLinkHref(manifestUrl, false);
   revokeSiteManifestUrl();
   return manifestUrl;
 }
@@ -7460,9 +7479,9 @@ function readInstallAppBrandName(){
     if (metaTitle) return metaTitle;
   } catch {}
   try {
-    return normalizeInstallAppText(DEFAULT_SITE_STORE_NAME) || normalizeInstallAppText(window.location && window.location.hostname) || "njad.store";
+    return normalizeInstallAppText(DEFAULT_SITE_STORE_NAME) || normalizeInstallAppText(window.location && window.location.hostname) || "Njad store";
   } catch (_) {
-    return normalizeInstallAppText(window.location && window.location.hostname) || "njad.store";
+    return normalizeInstallAppText(window.location && window.location.hostname) || "Njad store";
   }
 }
 function readInstallAppIconUrl(){
@@ -7520,9 +7539,94 @@ function readInstallAppIconUrl(){
   } catch {}
   return "";
 }
+function escapeInstallAppSvgAttr(value){
+  return String(value == null ? "" : value)
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+function guessInstallAppIconMimeType(value){
+  const text = normalizeInstallAppText(value).toLowerCase();
+  const dataMatch = text.match(/^data:(image\/[^;,]+)/);
+  if (dataMatch && dataMatch[1]) return dataMatch[1];
+  if (/\.svg(?:[?#]|$)/.test(text)) return "image/svg+xml";
+  if (/\.webp(?:[?#]|$)/.test(text)) return "image/webp";
+  if (/\.jpe?g(?:[?#]|$)/.test(text)) return "image/jpeg";
+  if (/\.avif(?:[?#]|$)/.test(text)) return "image/avif";
+  return "image/png";
+}
+function buildContainedInstallAppIconDataUrl(iconUrl){
+  const href = resolveInstallAppAbsoluteUrl(iconUrl, "");
+  if (!href) return "";
+  const safeHref = escapeInstallAppSvgAttr(href);
+  const svg = [
+    '<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">',
+    '<rect width="512" height="512" fill="transparent"/>',
+    '<image href="', safeHref, '" x="48" y="48" width="416" height="416" preserveAspectRatio="xMidYMid meet"/>',
+    '</svg>'
+  ].join("");
+  return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+}
+function buildSiteInstallManifestPayload(){
+  const name = readInstallAppBrandName() || "Njad store";
+  const shortName = normalizeInstallAppText(name).slice(0, 24) || "Njad";
+  const rawIcon = readInstallAppIconUrl();
+  const iconUrl = resolveInstallAppAbsoluteUrl(rawIcon, "");
+  const containedIcon = buildContainedInstallAppIconDataUrl(iconUrl);
+  const icons = [];
+  if (containedIcon) {
+    icons.push({
+      src: containedIcon,
+      sizes: "any",
+      type: "image/svg+xml",
+      purpose: "any"
+    });
+  }
+  if (iconUrl) {
+    icons.push({
+      src: iconUrl,
+      sizes: "any",
+      type: guessInstallAppIconMimeType(iconUrl),
+      purpose: "any"
+    });
+  }
+  if (!icons.length) return null;
+  return {
+    id: "/?source=pwa",
+    name: name,
+    short_name: shortName,
+    start_url: "/index.html?source=pwa#/",
+    scope: "/",
+    display: "standalone",
+    display_override: ["standalone", "minimal-ui"],
+    background_color: "#0C0C0C",
+    theme_color: "#0C0C0C",
+    lang: "ar",
+    dir: "rtl",
+    prefer_related_applications: false,
+    icons: icons,
+    shortcuts: [
+      { name: "\u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644", short_name: "\u0627\u0644\u062f\u062e\u0648\u0644", url: "/login" },
+      { name: "\u0627\u0644\u0625\u0639\u062f\u0627\u062f\u0627\u062a", short_name: "\u0625\u0639\u062f\u0627\u062f\u0627\u062a", url: "/settings" },
+      { name: "\u0637\u0644\u0628\u0627\u062a\u064a", short_name: "\u0637\u0644\u0628\u0627\u062a\u064a", url: "/orders" },
+      { name: "\u0627\u0644\u0645\u062d\u0641\u0638\u0629", short_name: "\u0645\u062d\u0641\u0638\u0629", url: "/wallet" }
+    ]
+  };
+}
+function setDynamicSiteManifestLink(){
+  try {
+    const manifest = buildSiteInstallManifestPayload();
+    if (!manifest) return setStaticSiteManifestLink();
+    const blob = new Blob([JSON.stringify(manifest, null, 2)], { type: "application/manifest+json" });
+    const manifestUrl = URL.createObjectURL(blob);
+    return setSiteManifestLinkHref(manifestUrl, true);
+  } catch (_) {
+    return setStaticSiteManifestLink();
+  }
+}
 function ensureSiteInstallManifest(){
-  revokeSiteManifestUrl();
-  return setStaticSiteManifestLink();
+  return setDynamicSiteManifestLink();
 }
 function registerSitePwaServiceWorker(){
   return disableSitePwaCacheRuntime();
@@ -17995,6 +18099,14 @@ html[data-theme="dark"] .card.catalog-card[data-card-type="product"] .offer-pric
 }
 #catalogOffersContainer .card img,
 #catalogOffersContainer .card .catalog-card-media,
+.categories > .card[data-card-type="product"] img,
+.categories > .card[data-card-type="product"] .catalog-card-media,
+.catalog-inline-host .categories .card[data-card-type="product"] img,
+.catalog-inline-host .categories .card[data-card-type="product"] .catalog-card-media,
+body.inline-view #inlinePage .categories > .card[data-card-type="product"] img,
+body.inline-view #inlinePage .categories > .card[data-card-type="product"] .catalog-card-media,
+#depositInlineApp .categories .card[data-card-type="product"] img,
+#depositInlineApp .categories .card[data-card-type="product"] .catalog-card-media,
 body.inline-view #inlinePage .categories.inline-favorites-grid > .inline-favorite-card img,
 body.inline-view #inlinePage .categories.inline-favorites-grid > .inline-favorite-card .catalog-card-media,
 body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .card[data-card-type="product"] img,
@@ -18887,7 +18999,7 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
       }
     })();
     const DEFAULT_SITE_STORE_NAME = String(DEFAULT_SITE_BRAND.storeName || "").trim();
-    const SITE_ARABIC_STORE_NAME = "\u0646\u062c\u0627\u062f";
+    const SITE_ARABIC_STORE_NAME = "\u0646\u062c\u0627\u062f \u0633\u062a\u0648\u0631";
     const DEFAULT_SITE_TICKER_TEXT = String(DEFAULT_SITE_BRAND.tickerText || "").trim();
     const DEFAULT_SITE_HERO_BANNERS = [];
     const LEGACY_SITE_STORE_NAME_PATTERN = new RegExp("$^");
@@ -18900,8 +19012,8 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
     }
 
     function buildHeaderSeoStoreTitle(value){
-      const storeName = normalizeSiteStoreNameValue(value, DEFAULT_SITE_STORE_NAME) || DEFAULT_SITE_STORE_NAME || "njad.store";
-      return /\u0646\u062c\u0627\u062f/.test(storeName)
+      const storeName = normalizeSiteStoreNameValue(value, DEFAULT_SITE_STORE_NAME) || DEFAULT_SITE_STORE_NAME || "Njad store";
+      return /\u0646\u062c\u0627\u062f \u0633\u062a\u0648\u0631/.test(storeName)
         ? storeName
         : `${storeName} | ${SITE_ARABIC_STORE_NAME}`;
     }
@@ -19527,10 +19639,10 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
       setMetaContent('meta[property="og:image"]', sharePreview);
       setMetaContent('meta[property="og:image:secure_url"]', sharePreview);
       setMetaContent('meta[property="og:image:type"]', guessSiteMediaMimeType(sharePreview));
-      setMetaContent('meta[property="og:image:alt"]', window.__getCurrentStoreName ? window.__getCurrentStoreName() : "njad.store");
+      setMetaContent('meta[property="og:image:alt"]', window.__getCurrentStoreName ? window.__getCurrentStoreName() : "Njad store");
       setMetaContent('meta[name="twitter:image"]', sharePreview);
       setMetaContent('meta[name="twitter:image:src"]', sharePreview);
-      setMetaContent('meta[name="twitter:image:alt"]', window.__getCurrentStoreName ? window.__getCurrentStoreName() : "njad.store");
+      setMetaContent('meta[name="twitter:image:alt"]', window.__getCurrentStoreName ? window.__getCurrentStoreName() : "Njad store");
       setMetaContent('meta[name="msapplication-TileImage"]', next);
       setMetaContent('meta[itemprop="image"]', sharePreview);
       preloadImageAsset(next);

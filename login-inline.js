@@ -3483,7 +3483,7 @@
         }
       }
 
-      if (loginResult && loginResult.admin === true) {
+      if (false && loginResult && loginResult.admin === true) {
         loginError.textContent = "تسجيل دخول الإدارة غير متاح من الواجهة العامة.";
         return;
       }

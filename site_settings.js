@@ -25,12 +25,12 @@
       firebaseHelperOrigin: "https://njadstore1.firebaseapp.com"
     },
     brand: {
-      storeName: "njad.store",
+      storeName: "Njad store",
       tickerText: "",
       waBadgeBrand: ""
     },
     media: {
-      siteIcon: "https://api.njad.store/site-icon.png?v=admin-20260514-01",
+      siteIcon: "https://api.njad.store/site-icon.png?v=admin-20260518-02",
       sitePreview: ""
     },
     pwa: {

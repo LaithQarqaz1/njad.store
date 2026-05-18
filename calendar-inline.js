@@ -180,7 +180,7 @@ let ordersAuth = (ordersFirebaseApp && typeof firebase !== 'undefined' && typeof
   ? firebase.auth()
   : null;
 async function ensureOrdersFirebaseReady(){
-  if (ordersAuth && ordersDb) return true;
+  if (ordersAuth) return true;
   try {
     if (typeof window.initFirebaseApp === 'function') {
       await window.initFirebaseApp();
@@ -189,7 +189,7 @@ async function ensureOrdersFirebaseReady(){
     }
   } catch (_) {}
   try {
-    if (typeof firebase === 'undefined' || !firebase.auth || !firebase.firestore) return false;
+    if (typeof firebase === 'undefined' || !firebase.auth) return false;
     if ((!firebase.apps || !firebase.apps.length) && ordersFirebaseConfig && typeof firebase.initializeApp === 'function') {
       ordersFirebaseApp = firebase.initializeApp(ordersFirebaseConfig);
     } else if (firebase.apps && firebase.apps.length && typeof firebase.app === 'function') {
@@ -198,7 +198,7 @@ async function ensureOrdersFirebaseReady(){
     ordersAuth = typeof firebase.auth === 'function' ? firebase.auth() : null;
     ordersDb = typeof firebase.firestore === 'function' ? firebase.firestore() : null;
   } catch (_) {}
-  return !!(ordersAuth && ordersDb);
+  return !!ordersAuth;
 }
 function getOrdersCurrentUser(){
   try {
@@ -319,6 +319,64 @@ function getStoredSessionKey(uid) {
   } catch (_) {
     return "";
   }
+}
+
+function buildOrdersApiUrl(params = {}) {
+  try {
+    const url = new URL(getManualBase());
+    url.searchParams.set("mode", "client-orders");
+    Object.entries(params || {}).forEach(([key, value]) => {
+      const text = String(value ?? "").trim();
+      if (text) url.searchParams.set(key, text);
+    });
+    return url.toString();
+  } catch (_) {
+    const query = new URLSearchParams({ mode: "client-orders" });
+    Object.entries(params || {}).forEach(([key, value]) => {
+      const text = String(value ?? "").trim();
+      if (text) query.set(key, text);
+    });
+    return `${ORDERS_WORKER_DEFAULT}?${query.toString()}`;
+  }
+}
+
+async function buildOrdersServerHeaders(uid) {
+  const headers = { "Accept": "application/json" };
+  const sessionKey = getStoredSessionKey(uid);
+  if (sessionKey) headers["X-SessionKey"] = sessionKey;
+  const user = getOrdersCurrentUser();
+  if (user && typeof user.getIdToken === "function") {
+    const idToken = await user.getIdToken();
+    if (idToken) headers["Authorization"] = `Bearer ${idToken}`;
+  }
+  return headers;
+}
+
+async function fetchOrdersFromServer(uid, opts = {}) {
+  const safeUid = String(uid || "").trim();
+  if (!safeUid) return [];
+  const params = {};
+  if (opts && opts.code) params.orderCode = opts.code;
+  if (opts && opts.limit) params.limit = opts.limit;
+  const res = await fetch(buildOrdersApiUrl(params), {
+    method: "GET",
+    headers: await buildOrdersServerHeaders(safeUid),
+    cache: "no-store"
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data?.success === false || data?.ok === false) {
+    const err = new Error(data?.error || data?.message || "orders_load_failed");
+    err.status = res.status;
+    throw err;
+  }
+  const orders = Array.isArray(data?.orders)
+    ? data.orders
+    : (data?.byCode && typeof data.byCode === "object" ? Object.values(data.byCode) : []);
+  const fetchedAt = Date.now();
+  return sortOrdersByTimestamp(orders.map((order) => ({
+    ...(order || {}),
+    __fetchedAt: fetchedAt
+  })));
 }
 
 // ========= إعدادات عامة =========
@@ -1565,8 +1623,11 @@ function ensureOrdersRealtimeReady(uid, opts){
     return _ordersBootstrapPromise;
   }
   if (!force && _ordersUnsub && _ordersRealtimeUid === safeUid) {
-    showOrdersCachedState(safeUid, { skeleton: false });
-    return Promise.resolve(getCachedOrdersForUser(safeUid));
+    const cachedState = LS.read(safeUid);
+    if (cachedState && Date.now() - Number(cachedState.lastSync || 0) < 15000) {
+      showOrdersCachedState(safeUid, { skeleton: false });
+      return Promise.resolve(getCachedOrdersForUser(safeUid));
+    }
   }
   showOrdersCachedState(safeUid, { skeleton: true });
   const task = Promise.resolve().then(function(){
@@ -1798,7 +1859,7 @@ function showOrdersSkeleton(count = 3) {
   }
 }
 
-/* ===================== تحميل الطلبات: Database-First ===================== */
+/* ===================== تحميل الطلبات: Server-First ===================== */
 async function loadOrdersCacheFirst(uid) {
   const ordersList = document.getElementById("ordersList");
   if (!ordersList) return;
@@ -1824,58 +1885,28 @@ async function loadOrdersCacheFirst(uid) {
   }
 }
 
-// قراءة مرّة واحدة لكل الطلبات الخاصة بالمستخدم (لملء الكاش فقط عند فراغه)
+// قراءة مرّة واحدة لكل الطلبات الخاصة بالمستخدم من الخادم فقط.
 async function fetchOrdersFromFirebaseOnce(uid) {
-  if (!ordersDb) return [];
-  try {
-    const doc = await ordersDb.collection('orders').doc(uid).get();
-    if (!doc.exists) return [];
-    const data = doc.data() || {};
-    const fetchedAt = Date.now();
-    return mapByCodeOrdersToArray(data.byCode || {}, () => ({ __fetchedAt: fetchedAt }));
-  } catch(err){
-    if (isFirestorePermissionDenied(err)) return [];
-    throw err;
-  }
+  return fetchOrdersFromServer(uid, { limit: 1000 });
 }
 
-// تحديث طلب واحد فقط من Firestore (بعد provider-check) بدون إعادة جلب كل الطلبات
+// تحديث طلب واحد فقط من الخادم (بعد provider-check) بدون قراءة Firestore من المتصفح.
 async function refreshSingleOrderFromFirebase(uid, code) {
-  if (!ordersDb || !uid || !code) return false;
-  const doc = await ordersDb.collection("orders").doc(uid).get();
-  if (!doc.exists) return false;
-  const data = doc.data() || {};
-  const byCode = data.byCode || {};
-  const entry = findByCodeOrderEntry(byCode, code);
+  if (!uid || !code) return false;
+  const fresh = await fetchOrdersFromServer(uid, { code });
+  const entry = fresh.find((order) => String(order?.code || "").trim() === String(code || "").trim());
   if (!entry) return false;
-  LS.upsert(uid, buildOrderFromByCodeEntry(entry, code, { __fetchedAt: Date.now() }));
+  LS.upsert(uid, entry);
   return true;
 }
 
 // جلب جميع الطلبات ودمجها مع الكاش (يضمن ظهور الجديدة بعد كل دخول)
 async function syncOrdersMerge(uid) {
-  if (!ordersDb) {
-    renderOrders(cacheToSortedArray(uid));
-    return;
-  }
   try {
-    const doc = await ordersDb.collection('orders').doc(uid).get();
-    if (!doc.exists) {
-      LS.replace(uid, []);
-      renderOrders([]);
-      return;
-    }
-    const data = doc.data() || {};
-    const fetchedAt = Date.now();
-    const fresh = mapByCodeOrdersToArray(data.byCode || {}, () => ({ __fetchedAt: fetchedAt }));
+    const fresh = await fetchOrdersFromServer(uid, { limit: 1000 });
     LS.merge(uid, fresh);
     renderOrders(cacheToSortedArray(uid));
   } catch(err){
-    if (isFirestorePermissionDenied(err)) {
-      LS.replace(uid, []);
-      renderOrders([]);
-      return;
-    }
     console.error('syncOrdersMerge error:', err);
     handleOrdersFirestoreError(err);
   }
@@ -1887,7 +1918,6 @@ async function syncOrdersMerge(uid) {
  * الأقدم من 7 أيام لا يُجلب ويُوثق من الكاش فقط.
  */
 async function refreshRecentStatuses(uid) {
-  if (!ordersDb) return;
   const cache = LS.read(uid);
   const codes = Object.keys(cache.byCode || {});
   if (!codes.length) return;
@@ -1901,15 +1931,12 @@ async function refreshRecentStatuses(uid) {
   if (!recentCodes.length) return;
 
   try {
-    const doc = await ordersDb.collection('orders').doc(uid).get();
-    if (!doc.exists) return;
-    const data = doc.data() || {};
-    const byCode = data.byCode || {};
+    const fresh = await fetchOrdersFromServer(uid, { limit: 1000 });
+    const freshByCode = new Map(fresh.map((order) => [String(order?.code || "").trim(), order]));
     const refreshedAt = Date.now();
-    const updates = recentCodes.map(code => {
-      const entry = findByCodeOrderEntry(byCode, code);
-      if (!entry) return null;
-      return buildOrderFromByCodeEntry(entry, code, { __lastStatusRefreshAt: refreshedAt });
+    const updates = recentCodes.map((code) => {
+      const entry = freshByCode.get(String(code || "").trim());
+      return entry ? { ...entry, __lastStatusRefreshAt: refreshedAt } : null;
     }).filter(Boolean);
 
     if (updates.length) {
@@ -1917,9 +1944,7 @@ async function refreshRecentStatuses(uid) {
       renderOrders(cacheToSortedArray(uid));
     }
   } catch (e) {
-    if (!isFirestorePermissionDenied(e)) {
-      console.error("refreshRecentStatuses error:", e);
-    }
+    console.error("refreshRecentStatuses error:", e);
   }
 }
 
@@ -2565,7 +2590,8 @@ function attachCopyReplyButtons() {
 
 function handleOrdersFirestoreError(err){
   const code = (err && err.code) ? String(err.code) : "";
-  if (code !== "permission-denied" && code !== "unavailable") return;
+  const status = Number(err && err.status);
+  if (code !== "permission-denied" && code !== "unavailable" && status !== 401 && status !== 403) return;
   try { if (_ordersUnsub) { _ordersUnsub(); _ordersUnsub = null; } } catch {}
   const ordersList = document.getElementById("ordersList");
   if (!ordersList) return;
@@ -2573,8 +2599,10 @@ function handleOrdersFirestoreError(err){
   let msgEl = document.getElementById(wrapId);
   if (!msgEl) { msgEl = document.createElement('div'); msgEl.id = wrapId; }
   const message = (code === "permission-denied")
-    ? "لا يمكن عرض الطلبات بسبب الصلاحيات. تأكد من تسجيل الدخول وصلاحيات Firestore."
-    : "تعذر الاتصال بقاعدة البيانات مؤقتًا. حاول لاحقًا.";
+    ? "لا يمكن عرض الطلبات بسبب الصلاحيات. تأكد من تسجيل الدخول."
+    : (status === 401 || status === 403)
+      ? "يجب تسجيل الدخول لعرض الطلبات."
+      : "تعذر تحميل الطلبات من الخادم مؤقتًا. حاول لاحقًا.";
   msgEl.innerHTML = `<div class="caption">${message}</div>`;
   ordersList.innerHTML = '';
   ordersList.appendChild(msgEl);
@@ -2595,34 +2623,28 @@ function listenOrdersRealtime(uid, opts) {
       _ordersUnsub = null;
     }
   } catch {}
-  if (!ordersDb) return false;
   try {
     _ordersRealtimeUid = safeUid;
-    const docRef = ordersDb.collection('orders').doc(safeUid);
     _ordersUnsub = function(){};
-    docRef.get().then((snap)=>{
+    fetchOrdersFromServer(safeUid, { limit: 1000 }).then((fresh)=>{
       try{
         const uidNow = String((getOrdersCurrentUser() && getOrdersCurrentUser().uid) || "").trim();
         if (uidNow && uidNow !== safeUid) return;
-        if (!snap.exists) {
+        if (!fresh.length) {
           LS.replace(safeUid, []);
           renderOrders([]);
           return;
         }
-        const data = snap.data() || {}; const byCode = data.byCode || {};
-        const fresh = Object.keys(byCode).map(k=>{ const entry=byCode[k]||{}; const pub=entry.public||{}; const priv=sanitizeOrderPrivateForClient(entry.private||{}); return { code: entry.code||k, ...pub, __pub: pub, __priv: priv, __fetchedAt: Date.now() }; });
         LS.merge(safeUid, fresh);
         renderOrders(cacheToSortedArray(safeUid));
       }catch(e){ console.warn('orders merge failed', e); }
     }).catch((err)=>{
       console.warn('orders fetch failed', err);
-      if (isFirestorePermissionDenied(err)) {
-        const cached = cacheToSortedArray(safeUid);
-        if (!cached.length) {
-          LS.replace(safeUid, []);
-          renderOrders([]);
-          return;
-        }
+      const cached = cacheToSortedArray(safeUid);
+      if (!cached.length) {
+        LS.replace(safeUid, []);
+        renderOrders([]);
+        return;
       }
       handleOrdersFirestoreError(err);
     });

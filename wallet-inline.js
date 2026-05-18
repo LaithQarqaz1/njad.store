@@ -2233,11 +2233,7 @@
       }
 
       async function fetchFromOrdersPrefix(uid){
-        try{
-          const snap = await db.collection('orders').where('userUid','==',uid).orderBy('createdAt','desc').limit(20).get();
-          const arr = snap.docs.map(function(d){ return docToItem(d, 'deposit'); }).filter(isDepositRequestCode);
-          return arr;
-        }catch(_){ return []; }
+        return [];
       }
 
       async function fetchFromWithdrawRequests(uid){

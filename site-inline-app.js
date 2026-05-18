@@ -946,10 +946,10 @@
           return '';
         }
       })();
-      var SITE_ARABIC_STORE_NAME = "\u0646\u062c\u0627\u062f";
+      var SITE_ARABIC_STORE_NAME = "\u0646\u062c\u0627\u062f \u0633\u062a\u0648\u0631";
       var LEGACY_RUNTIME_STORE_NAME_PATTERN = new RegExp("$^");
       function hasRuntimeArabicStoreName(value){
-        return /\u0646\u062c\u0627\u062f/.test(String(value == null ? '' : value));
+        return /\u0646\u062c\u0627\u062f \u0633\u062a\u0648\u0631/.test(String(value == null ? '' : value));
       }
       function normalizeRuntimeStoreName(value, fallback){
         var text = String(value == null ? '' : value).trim().slice(0, 160);
@@ -958,7 +958,7 @@
         return fallbackText && !LEGACY_RUNTIME_STORE_NAME_PATTERN.test(fallbackText) ? fallbackText : '';
       }
       function buildRuntimeSeoStoreTitle(value){
-        var name = normalizeRuntimeStoreName(value, DEFAULT_STORE_NAME) || DEFAULT_STORE_NAME || 'njad.store';
+        var name = normalizeRuntimeStoreName(value, DEFAULT_STORE_NAME) || DEFAULT_STORE_NAME || 'Njad store';
         return hasRuntimeArabicStoreName(name) ? name : (name + ' | ' + SITE_ARABIC_STORE_NAME);
       }
       function appendRuntimeArabicSeoName(value){
@@ -1232,7 +1232,7 @@
               "@type": "WebSite",
               "name": currentStoreName,
               "url": canonicalUrl,
-              "alternateName": [SITE_ARABIC_STORE_NAME, "Njad Store", currentHost].filter(Boolean),
+              "alternateName": [SITE_ARABIC_STORE_NAME, "Njad store", currentHost].filter(Boolean),
               "inLanguage": "ar",
               "image": imageUrl,
               "potentialAction": {
@@ -1243,7 +1243,7 @@
               "publisher": {
                 "@type": "Organization",
                 "name": organizationName,
-                "alternateName": [SITE_ARABIC_STORE_NAME, "Njad Store", currentHost].filter(Boolean),
+                "alternateName": [SITE_ARABIC_STORE_NAME, "Njad store", currentHost].filter(Boolean),
                 "logo": {
                   "@type": "ImageObject",
                   "url": logoUrl || imageUrl,
@@ -1277,7 +1277,7 @@
               "@context": "https://schema.org",
               "@type": "Organization",
               "name": currentStoreName || currentHost,
-              "alternateName": [SITE_ARABIC_STORE_NAME, "Njad Store", currentHost].filter(Boolean),
+              "alternateName": [SITE_ARABIC_STORE_NAME, "Njad store", currentHost].filter(Boolean),
               "url": canonicalUrl,
               "logo": logoUrl || imageUrl,
               "sameAs": canonicalUrl ? [canonicalUrl] : []
@@ -8555,6 +8555,10 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       false;
   }
 
+  function isInlineDepositUploadUrl(url){
+    return String(url || '').toLowerCase().indexOf('/deposit/upload') !== -1;
+  }
+
   function isInlineAutoDepositSubmitUrl(url){
     const text = String(url || '').toLowerCase();
     return text.indexOf('/deposit/usdt-auto') !== -1 ||
@@ -8665,6 +8669,63 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
     }
   }
 
+  function readInlineDepositUploadSessionInfo(){
+    const out = { uid: '', sessionKey: '' };
+    try {
+      const raw = localStorage.getItem('sessionKeyInfo');
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (parsed && typeof parsed === 'object') {
+        out.uid = String(parsed.uid || parsed.useruid || parsed.userUid || '').trim();
+        out.sessionKey = String(parsed.sessionKey || parsed.session_key || '').trim();
+      }
+    } catch (_) {}
+    if (!out.uid) {
+      try {
+        const authUser = (typeof depositAuth !== 'undefined' && depositAuth && depositAuth.currentUser)
+          ? depositAuth.currentUser
+          : null;
+        if (authUser && authUser.uid) out.uid = String(authUser.uid || '').trim();
+      } catch (_) {}
+    }
+    if (!out.uid) {
+      try {
+        const authInstance = (typeof firebase !== 'undefined' && firebase && typeof firebase.auth === 'function')
+          ? firebase.auth()
+          : null;
+        const currentUser = authInstance && authInstance.currentUser;
+        if (currentUser && currentUser.uid) out.uid = String(currentUser.uid || '').trim();
+      } catch (_) {}
+    }
+    return out;
+  }
+
+  function appendInlineDepositUploadSession(body){
+    try {
+      if (!body || typeof FormData === 'undefined' || !(body instanceof FormData)) return body;
+      const session = readInlineDepositUploadSessionInfo();
+      const hasUid = !!String(body.get('useruid') || body.get('userUid') || body.get('uid') || '').trim();
+      const hasSession = !!String(body.get('sessionKey') || body.get('session_key') || '').trim();
+      if (!hasUid && session.uid) body.append('useruid', session.uid);
+      if (!hasSession && session.sessionKey) body.append('sessionKey', session.sessionKey);
+    } catch (_) {}
+    return body;
+  }
+
+  function patchInlineDepositUploadFetchInit(resource, init){
+    try {
+      const url = String(
+        typeof resource === 'string'
+          ? resource
+          : (resource && resource.url ? resource.url : '')
+      );
+      if (!isInlineDepositUploadUrl(url)) return init;
+      if (init && init.body) {
+        appendInlineDepositUploadSession(init.body);
+      }
+    } catch (_) {}
+    return init;
+  }
+
   function bindInlineSubmitPreloaderTracking(){
     let bound = false;
 
@@ -8674,6 +8735,7 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       if (!alreadyWrapped && typeof currentFetch === 'function') {
         const nativeFetch = currentFetch.bind(globalThis);
         const wrappedFetch = async function(resource, init){
+          init = patchInlineDepositUploadFetchInit(resource, init);
           const tracked = shouldTrackInlineSubmitRequest(resource);
           logInlineDiagnosticRequest('fetch', resource);
           if (tracked) beginTrackedInlineSubmitRequest();
@@ -8731,6 +8793,11 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
           let tracked = false;
           try { tracked = this.__depositInlineTrackedRequest === true; } catch (_) {}
           try { logInlineDiagnosticRequest('xhr', this.__depositInlineDiagnosticUrl || this.__depositInlineTrackedUrl || ''); } catch (_) {}
+          try {
+            if (isInlineDepositUploadUrl(this.__depositInlineTrackedUrl || this.__depositInlineDiagnosticUrl || '')) {
+              body = appendInlineDepositUploadSession(body);
+            }
+          } catch (_) {}
           if (tracked) {
             beginTrackedInlineSubmitRequest();
             let finalized = false;
@@ -9855,6 +9922,32 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       .replace(
         /if\(!currentCountry\s*\|\|\s*!currentCountry\.id\)\s*throw\s+new\s+Error\('اختر الدولة قبل رفع الإثبات\.'\);/g,
         "const uploadCountryId = String((currentCountry && currentCountry.id) || (currentMethod && currentMethod.data && (currentMethod.data.countryId || currentMethod.data.countryCode || '')) || '').trim();\n      const uploadCountryName = String((currentCountry && currentCountry.data && currentCountry.data.name) || (currentMethod && currentMethod.data && (currentMethod.data.countryName || currentMethod.data.countryLabel || '')) || '').trim();"
+      )
+      .replace(
+        /fd\.append\('image',\s*currentProofFile\);/g,
+        [
+          "fd.append('image', currentProofFile);",
+          "      try {",
+          "        const sessionInfo = JSON.parse(localStorage.getItem('sessionKeyInfo') || 'null');",
+          "        const uploadUserUid = String((depositAuth && depositAuth.currentUser && depositAuth.currentUser.uid) || (sessionInfo && (sessionInfo.uid || sessionInfo.useruid)) || '').trim();",
+          "        const uploadSessionKey = String((sessionInfo && (sessionInfo.sessionKey || sessionInfo.session_key)) || '').trim();",
+          "        if (uploadUserUid) fd.append('useruid', uploadUserUid);",
+          "        if (uploadSessionKey) fd.append('sessionKey', uploadSessionKey);",
+          "      } catch (_) {}"
+        ].join('\n')
+      )
+      .replace(
+        /fd\.append\("image",\s*currentProofFile\);/g,
+        [
+          "fd.append(\"image\", currentProofFile);",
+          "      try {",
+          "        const sessionInfo = JSON.parse(localStorage.getItem('sessionKeyInfo') || 'null');",
+          "        const uploadUserUid = String((depositAuth && depositAuth.currentUser && depositAuth.currentUser.uid) || (sessionInfo && (sessionInfo.uid || sessionInfo.useruid)) || '').trim();",
+          "        const uploadSessionKey = String((sessionInfo && (sessionInfo.sessionKey || sessionInfo.session_key)) || '').trim();",
+          "        if (uploadUserUid) fd.append('useruid', uploadUserUid);",
+          "        if (uploadSessionKey) fd.append('sessionKey', uploadSessionKey);",
+          "      } catch (_) {}"
+        ].join('\n')
       )
       .replace(/fd\.append\('countryId',\s*currentCountry\.id\);/g, "fd.append('countryId', uploadCountryId);")
       .replace(/fd\.append\('countryName',\s*currentCountry\?\.data\?\.name\s*\|\|\s*''\);/g, "fd.append('countryName', uploadCountryName);")
@@ -18707,7 +18800,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
         try { window.__CATALOG_INLINE_LOADING__ = true; } catch (_) {}
       }
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 12000);
+    const timer = setTimeout(() => controller.abort(), 30000);
     try {
       const bases = buildBaseCandidates();
       const requestingCatalog = (catalogMode === "provider-games" || forceProviderMode);
@@ -29391,36 +29484,15 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
         function resolveAnyOwnedOrderRef(uid){
           var safeUid = String(uid || '').trim();
           if (!safeUid) return Promise.resolve(null);
-          var db = null;
-          try {
-            if (typeof firebase !== 'undefined' && firebase && typeof firebase.firestore === 'function') {
-              db = firebase.firestore();
+          if (typeof fetchOrdersFromServer !== 'function') return Promise.resolve(null);
+          return fetchOrdersFromServer(safeUid, { limit: 1 }).then(function(orders){
+            var list = Array.isArray(orders) ? orders : [];
+            for (var i = 0; i < list.length; i += 1) {
+              var entry = list[i] || {};
+              var ref = extractOrderRefFromEntry(entry, entry.code || '');
+              if (ref && ref.orderCode) return ref;
             }
-          } catch (_) { db = null; }
-          if (!db) return Promise.resolve(null);
-
-          function fromDocSnap(snap){
-            try {
-              if (!snap || !snap.exists) return null;
-              return extractOrderRefFromDocData(snap.data() || {});
-            } catch (_) {
-              return null;
-            }
-          }
-
-          return db.collection('orders').doc(safeUid).get().then(function(snap){
-            var directRef = fromDocSnap(snap);
-            if (directRef && directRef.orderCode) return directRef;
-            return db.collection('orders').where('userId', '==', safeUid).limit(5).get().then(function(qs){
-              if (!qs || qs.empty) return null;
-              var found = null;
-              qs.forEach(function(doc){
-                if (found) return;
-                var ref = extractOrderRefFromDocData(doc.data() || {});
-                if (ref && ref.orderCode) found = ref;
-              });
-              return found;
-            }).catch(function(){ return null; });
+            return null;
           }).catch(function(){ return null; });
         }
 
@@ -30552,7 +30624,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
         var ENABLE_PROVIDER_TREE_PREFETCH = false;
         var DEFAULT_BASE = (window.__getSiteWorkerBaseDefault ? window.__getSiteWorkerBaseDefault({ trailingSlash: true }) : (function(){ var base = (window.__getSiteSetting && window.__getSiteSetting("workers.routerBase", "")) || ""; return base ? String(base).replace(/\/+$/, "") + "/" : ""; })());
         var FETCH_TTL = 2 * 60 * 1000;
-        var CATALOG_NETWORK_TIMEOUT_MS = 12000;
+        var CATALOG_NETWORK_TIMEOUT_MS = 30000;
         var CATALOG_CATEGORY_FETCH_TIMEOUT_MS = 9000;
         var CATALOG_CACHE_PREFIX = "catalog:cache:v9:";
         var PROVIDER_SYNC_TTL = 10 * 60 * 1000;
@@ -31401,6 +31473,7 @@ function normalizeCategory(value){
         }
         function treeNodeIsCategory(node){
           var t = treeNodeType(node);
+          if (t === "product") return false;
           if (t === "category") return true;
           if (!treeNodeHasBranches(node)) return false;
           // Treat nodes with non-product children as categories (providers sometimes label folders as games).
@@ -33549,8 +33622,8 @@ function normalizeCategory(value){
           var key = treeNodeKey(node);
           if (!key) return document.createDocumentFragment();
           var rawName = node.name || node.title || node.label || key;
-          var isCategoryNode = treeNodeIsCategory(node);
           var isProductNode = treeNodeType(node) === "product";
+          var isCategoryNode = !isProductNode && treeNodeIsCategory(node);
           var name = isProductNode
             ? (String(rawName || "").trim() || key)
             : (cleanTreeDisplayName(rawName) || rawName || key);
