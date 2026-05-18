@@ -3922,7 +3922,7 @@
       uid: user.uid || '',
       email: user.email || '',
       provider: 'google',
-      rotateSession: true,
+      rotateSession: false,
       username: googleFlowState.profile.username || '',
       phone: googleFlowState.profile.phone || '',
       displayName: user.displayName || '',

@@ -15353,7 +15353,7 @@ function wirePageBalanceBox(){
     let siteLockRedirected = false;
         let siteStateRefreshInFlight = false;
         let lastSiteStateRefreshAt = 0;
-        const SITE_STATE_PASSIVE_REFRESH_THROTTLE_MS = 60 * 1000;
+        const SITE_STATE_PASSIVE_REFRESH_THROTTLE_MS = 5 * 60 * 1000;
         const SITE_STATE_PASSIVE_REFRESH_REASONS = new Set(["pageshow", "visible"]);
 
     const devCreditLog = (level, message, details) => {

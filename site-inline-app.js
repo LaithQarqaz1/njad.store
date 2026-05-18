@@ -8565,6 +8565,38 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       text.indexOf('/deposit/submit') !== -1;
   }
 
+  function isInlineDepositSubmitRequestUrl(url){
+    const text = String(url || '').toLowerCase();
+    return text.indexOf('/deposit/submit') !== -1 ||
+      text.indexOf('/deposit/usdt-auto') !== -1;
+  }
+
+  function closeInlineDepositMethodModalAfterSubmit(){
+    try {
+      if (typeof window.__depositInlineCloseMethodModal === 'function') {
+        window.__depositInlineCloseMethodModal();
+        return true;
+      }
+    } catch (_) {}
+    try {
+      const modal = document.querySelector('#depositInlineApp #methodModal') || document.getElementById('methodModal');
+      if (!modal) return false;
+      modal.classList.add('hidden');
+      modal.classList.remove('open');
+      modal.classList.remove('inline-method-page');
+      modal.removeAttribute('data-inline-method-page');
+      modal.setAttribute('aria-hidden', 'true');
+      if (document.body) {
+        document.body.classList.remove('modal-open', 'overflow-hidden');
+        document.body.style.removeProperty('overflow');
+        document.body.style.removeProperty('padding-right');
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   function isInlineDiagnosticDebugEnabled(){
     try {
       if (typeof window !== 'undefined' && window.__DEPOSIT_INLINE_DEBUG__ === true) return true;
@@ -8751,11 +8783,16 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
                 response &&
                 response.ok &&
                 typeof response.clone === 'function' &&
-                isInlineAutoDepositSubmitUrl(url)
+                isInlineDepositSubmitRequestUrl(url)
               ) {
                 response.clone().json().then(function(payload){
-                  applyInlineAutoDepositSuccessPayload(payload);
-                }).catch(function(){});
+                  if (isInlineAutoDepositSubmitUrl(url)) applyInlineAutoDepositSuccessPayload(payload);
+                  if (!payload || (payload.success !== false && payload.ok !== false)) {
+                    closeInlineDepositMethodModalAfterSubmit();
+                  }
+                }).catch(function(){
+                  closeInlineDepositMethodModalAfterSubmit();
+                });
               }
             } catch (_) {}
             return response;
@@ -8808,9 +8845,13 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
               try {
                 const url = String(xhr.__depositInlineTrackedUrl || xhr.__depositInlineDiagnosticUrl || '');
                 const okStatus = Number(xhr.status || 0);
-                if (isInlineAutoDepositSubmitUrl(url) && okStatus >= 200 && okStatus < 300) {
-                  const payload = JSON.parse(String(xhr.responseText || ''));
-                  applyInlineAutoDepositSuccessPayload(payload);
+                if (isInlineDepositSubmitRequestUrl(url) && okStatus >= 200 && okStatus < 300) {
+                  let payload = null;
+                  try { payload = JSON.parse(String(xhr.responseText || '')); } catch (_) {}
+                  if (isInlineAutoDepositSubmitUrl(url)) applyInlineAutoDepositSuccessPayload(payload);
+                  if (!payload || (payload.success !== false && payload.ok !== false)) {
+                    closeInlineDepositMethodModalAfterSubmit();
+                  }
                 }
               } catch (_) {}
               finishTrackedInlineSubmitRequest();
@@ -18736,6 +18777,20 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           return false;
         }
       };
+      const isCatalogRouteActive = () => {
+        try {
+          const raw = String(location.hash || "").replace(/^#\/?/, "").split(/[?#]/)[0].trim();
+          if (!raw) return true;
+          const key = decodeURIComponent(raw.split("/").filter(Boolean)[0] || "").toLowerCase();
+          if (!key) return true;
+          if (key === "games" || key === "catalog") return true;
+          if (/^\d+$/.test(key)) return true;
+          try { if (typeof isCategoryKey === "function" && isCategoryKey(key)) return true; } catch (_) {}
+          return false;
+        } catch (_) {
+          return false;
+        }
+      };
       const buildBaseCandidates = () => {
         const out = [];
         const push = (raw) => {
@@ -18806,6 +18861,9 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
       const requestingCatalog = (catalogMode === "provider-games" || forceProviderMode);
       if (requestingCatalog && isDepositRouteActive()) {
         throw new Error("catalog_fetch_blocked_in_deposit_route");
+      }
+      if (requestingCatalog && !isCatalogRouteActive()) {
+        throw new Error("catalog_fetch_blocked_outside_catalog_route");
       }
       let lastError = null;
       for (let i = 0; i < bases.length; i += 1) {
@@ -22146,6 +22204,8 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           var key = normalizeLevelKey(rawKey || src.key || src.levelKey || src.level || src.code || ('level_' + String(levelId)));
           var requiredSpent = parseLevelNumber(src.requiredSpent != null ? src.requiredSpent : (src.required_spent != null ? src.required_spent : (src.minSpent != null ? src.minSpent : src.threshold)));
           var order = parseLevelNumber(src.order != null ? src.order : (src.rank != null ? src.rank : fallbackOrder));
+          var hiddenRaw = src.hidden != null ? src.hidden : (src.isHidden != null ? src.isHidden : (src.hide != null ? src.hide : src.hiddenFromUsers));
+          var hiddenText = String(hiddenRaw == null ? '' : hiddenRaw).trim().toLowerCase();
           return {
             id: levelId,
             key: key,
@@ -22153,7 +22213,8 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
             order: Number.isFinite(order) && order > 0 ? Math.trunc(order) : fallbackOrder,
             requiredSpent: Number.isFinite(requiredSpent) && requiredSpent > 0 ? requiredSpent : 0,
             imageUrl: String(src.imageUrl || src.image || src.badgeImage || src.badge || src.icon || '').trim(),
-            manualUnlockOnly: !!(src.manualUnlockOnly === true || src.manual === true || src.autoUnlock === false)
+            manualUnlockOnly: !!(src.manualUnlockOnly === true || src.manual === true || src.autoUnlock === false),
+            hidden: !!(hiddenRaw === true || hiddenText === 'true' || hiddenText === '1' || hiddenText === 'yes' || hiddenText === 'on')
           };
         }
 
@@ -22387,7 +22448,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           var siteState = state.siteState && typeof state.siteState === 'object' ? state.siteState : readResolvedSiteState();
           state.siteState = siteState || {};
           var allEntries = getCatalogLevelEntries(state.siteState || {});
-          var visibleEntries = allEntries.slice();
+          var visibleEntries = allEntries.filter(function(entry){ return !(entry && entry.hidden === true); });
           var currentEntry = allEntries.find(function(entry){
             return (
               (currentLevelId != null && normalizeLevelId(entry && entry.id) === currentLevelId) ||
@@ -22499,7 +22560,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           var siteState = state.siteState && typeof state.siteState === 'object' ? state.siteState : readResolvedSiteState();
           state.siteState = siteState || {};
           var allEntries = getCatalogLevelEntries(state.siteState || {});
-          var visibleEntries = allEntries.slice();
+          var visibleEntries = allEntries.filter(function(entry){ return !(entry && entry.hidden === true); });
           var currentEntry = resolveCurrentLevelEntry(allEntries, profile);
           var currentRank = normalizeLevelOrder(currentEntry && currentEntry.order) || readProfileLevelOrder(profile) || 0;
           var nextEntry = resolveNextLevelEntry(allEntries, currentRank);
@@ -25230,31 +25291,11 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
         }
 
         function fetchDevices(){
-          if (!state.currentUser){
-            state.devices = [];
-            renderDevices();
-            setDeviceStatus("info", "سجّل الدخول لعرض الأجهزة.");
-            setDevicesLoading(false);
-            return;
-          }
-          if (state.devicesLoading) return;
-          setDevicesLoading(true);
-          setDeviceStatus("info", "جاري تحميل الأجهزة...");
-          callAuth("devices_list", { deviceId: (function(){ try { return getDeviceId(); } catch(_){ return ""; } })() })
-            .then(function(res){
-              state.devices = Array.isArray(res?.devices) ? res.devices : [];
-              renderDevices();
-              setDeviceStatus("", "");
-            })
-            .catch(function(){
-              state.devices = [];
-              renderDevices();
-              setDeviceStatus("error", "تعذر تحميل الأجهزة.");
-            })
-            .finally(function(){
-              setDevicesLoading(false);
-              forceHideSecurityLoaderIfIdle();
-            });
+          state.devices = [];
+          renderDevices();
+          setDeviceStatus("", "");
+          setDevicesLoading(false);
+          forceHideSecurityLoaderIfIdle();
         }
 
         function handleLogoutAll(){
@@ -25263,10 +25304,10 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
             setDeviceStatus("info", "سجّل الدخول أولاً.");
             return;
           }
-          if (!confirm("سيتم تسجيل الخروج من جميع الأجهزة بما فيها هذا الجهاز. هل أنت متأكد؟")) return;
+          if (!confirm("سيتم تسجيل الخروج من كل الحسابات عبر تغيير رمز الجلسة. هل أنت متأكد؟")) return;
           setDevicesLoading(true);
-          setDeviceStatus("info", "جاري تسجيل الخروج من جميع الأجهزة...");
-          callAuth("devices_logout", { })
+          setDeviceStatus("info", "جاري تسجيل الخروج من كل الحسابات...");
+          callAuth("logout_all_accounts", { sessionKey: readSessionKey() })
             .then(function(){
               if (typeof window.performClientLogout === "function") {
                 window.performClientLogout();
@@ -25275,7 +25316,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
               }
             })
             .catch(function(){
-              setDeviceStatus("error", "تعذر تسجيل الخروج من جميع الأجهزة.");
+              setDeviceStatus("error", "تعذر تسجيل الخروج من كل الحسابات.");
             })
             .finally(function(){ setDevicesLoading(false); });
         }
@@ -25872,14 +25913,13 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
             '  </div>',
             '</main>',
             '<main class="security-card security-devices-card">',
-            '  <div id="securityDevicesSection" class="security-devices">',
-            '    <h3>الأجهزة المسجلة</h3>',
-            '    <p>راقب الأجهزة المسجلة في حسابك ويمكنك تسجيل الخروج منها في أي وقت.</p>',
+            '  <div id="securityDevicesSection" class="security-devices security-logout-all">',
+            '    <h3>تسجيل الخروج من كل الحسابات</h3>',
             '    <div class="device-toolbar">',
-            '      <button id="logoutAllDevices" type="button" class="security-btn ghost">تسجيل خروج من جميع الأجهزة</button>',
+            '      <button id="logoutAllDevices" type="button" class="security-btn ghost">تسجيل الخروج من كل الحسابات</button>',
             '    </div>',
             '    <div id="deviceStatus" class="security-status info"></div>',
-            '    <div id="deviceList" class="device-list"></div>',
+            '    <div id="deviceList" class="device-list" hidden></div>',
             '  </div>',
             '</main>',
             '  <div id="securityAlertModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="securityAlertTitle">',
@@ -30765,10 +30805,25 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           }
         }
 
+        function isCatalogLoadAllowedRoute(){
+          try{
+            var raw = String(location.hash || "").replace(/^#\/?/, "").split(/[?#]/)[0].trim();
+            if (!raw) return true;
+            var key = decodeURIComponent(raw.split("/").filter(Boolean)[0] || "").toLowerCase();
+            if (!key) return true;
+            if (key === "games" || key === "catalog") return true;
+            if (/^\d+$/.test(key)) return true;
+            try { if (typeof isCategoryKey === "function" && isCategoryKey(key)) return true; } catch(_){}
+            return false;
+          }catch(_){
+            return false;
+          }
+        }
+
         function shouldBlockLoadCategories(targetMode){
-          if (!isDepositCatalogBlockedRoute()) return false;
           var mode = String(targetMode || "").trim().toLowerCase();
-          return mode === "provider-games" || mode === "load-categories";
+          if (mode !== "provider-games" && mode !== "load-categories") return false;
+          return isDepositCatalogBlockedRoute() || !isCatalogLoadAllowedRoute();
         }
 
         function fetchWithCatalogTimeout(url, options, timeoutMs){
@@ -30970,7 +31025,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
         }
 
         function syncProviderCatalog(force){
-          if (isDepositCatalogBlockedRoute()) return Promise.resolve(null);
+          if (shouldBlockLoadCategories("provider-games")) return Promise.resolve(null);
           if (providerSyncInflight) return providerSyncInflight;
           var uid = getCurrentUid();
           if (!shouldSyncProvider(uid, force)) return Promise.resolve(null);
