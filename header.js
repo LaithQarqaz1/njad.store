@@ -7459,7 +7459,7 @@ function setSiteManifestLinkHref(manifestUrl, isObjectUrl){
   return href;
 }
 function setStaticSiteManifestLink(){
-  const manifestUrl = resolveInstallAppAbsoluteUrl("/manifest.webmanifest", "/manifest.webmanifest");
+  const manifestUrl = "/manifest.webmanifest";
   setSiteManifestLinkHref(manifestUrl, false);
   revokeSiteManifestUrl();
   return manifestUrl;
@@ -7593,11 +7593,11 @@ function buildSiteInstallManifestPayload(){
   }
   if (!icons.length) return null;
   return {
-    id: "/?source=pwa",
+    id: resolveInstallAppAbsoluteUrl("/?source=pwa", "/?source=pwa"),
     name: name,
     short_name: shortName,
-    start_url: "/index.html?source=pwa#/",
-    scope: "/",
+    start_url: resolveInstallAppAbsoluteUrl("/?source=pwa", "/?source=pwa"),
+    scope: resolveInstallAppAbsoluteUrl("/", "/"),
     display: "standalone",
     display_override: ["standalone", "minimal-ui"],
     background_color: "#0C0C0C",
@@ -7607,23 +7607,15 @@ function buildSiteInstallManifestPayload(){
     prefer_related_applications: false,
     icons: icons,
     shortcuts: [
-      { name: "\u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644", short_name: "\u0627\u0644\u062f\u062e\u0648\u0644", url: "/login" },
-      { name: "\u0627\u0644\u0625\u0639\u062f\u0627\u062f\u0627\u062a", short_name: "\u0625\u0639\u062f\u0627\u062f\u0627\u062a", url: "/settings" },
-      { name: "\u0637\u0644\u0628\u0627\u062a\u064a", short_name: "\u0637\u0644\u0628\u0627\u062a\u064a", url: "/orders" },
-      { name: "\u0627\u0644\u0645\u062d\u0641\u0638\u0629", short_name: "\u0645\u062d\u0641\u0638\u0629", url: "/wallet" }
+      { name: "\u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644", short_name: "\u0627\u0644\u062f\u062e\u0648\u0644", url: resolveInstallAppAbsoluteUrl("/login", "/login") },
+      { name: "\u0627\u0644\u0625\u0639\u062f\u0627\u062f\u0627\u062a", short_name: "\u0625\u0639\u062f\u0627\u062f\u0627\u062a", url: resolveInstallAppAbsoluteUrl("/settings", "/settings") },
+      { name: "\u0637\u0644\u0628\u0627\u062a\u064a", short_name: "\u0637\u0644\u0628\u0627\u062a\u064a", url: resolveInstallAppAbsoluteUrl("/orders", "/orders") },
+      { name: "\u0627\u0644\u0645\u062d\u0641\u0638\u0629", short_name: "\u0645\u062d\u0641\u0638\u0629", url: resolveInstallAppAbsoluteUrl("/wallet", "/wallet") }
     ]
   };
 }
 function setDynamicSiteManifestLink(){
-  try {
-    const manifest = buildSiteInstallManifestPayload();
-    if (!manifest) return setStaticSiteManifestLink();
-    const blob = new Blob([JSON.stringify(manifest, null, 2)], { type: "application/manifest+json" });
-    const manifestUrl = URL.createObjectURL(blob);
-    return setSiteManifestLinkHref(manifestUrl, true);
-  } catch (_) {
-    return setStaticSiteManifestLink();
-  }
+  return setStaticSiteManifestLink();
 }
 function ensureSiteInstallManifest(){
   return setDynamicSiteManifestLink();
