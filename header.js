@@ -6424,14 +6424,6 @@ function isBannedSessionUid(uid){
   try { return String(sessionStorage.getItem(BANNED_SESSION_UID_KEY) || '').trim() === safeUid; } catch {}
   return false;
 }
-try {
-  if (String(sessionStorage.getItem(BANNED_SESSION_UID_KEY) || '').trim()) {
-    try { clearAuthClientState(); } catch {}
-    try { applyAuthUi(null); } catch {}
-    try { setHeaderBalanceAmount(0); } catch {}
-    try { broadcastBalance(0); } catch {}
-  }
-} catch {}
 function normalizeAccountNoValue(value){
   const n = Number(value);
   if (!Number.isFinite(n) || n <= 0) return 0;
@@ -7296,7 +7288,7 @@ function applyAuthUi(user){
 }
 try { window.__applyAuthUi = applyAuthUi; } catch {}
 
-const SITE_PWA_SW_URL = "sw.js?v=20260519-03";
+const SITE_PWA_SW_URL = "sw.js?v=20260519-04";
 const SITE_PWA_CACHE_DISABLED = true;
 let deferredSiteInstallPrompt = null;
 let activeSiteManifestUrl = "";
@@ -7644,7 +7636,7 @@ function setSiteManifestLinkHref(manifestUrl, isObjectUrl){
   return href;
 }
 function setStaticSiteManifestLink(){
-  const manifestUrl = "/manifest.webmanifest";
+  const manifestUrl = "/manifest.webmanifest?v=20260519-04";
   setSiteManifestLinkHref(manifestUrl, false);
   revokeSiteManifestUrl();
   return manifestUrl;
@@ -9934,11 +9926,6 @@ try {
     sessionConflictHandled = false;
     bannedSessionHandled = false;
     if (typeof unsubscribeBalance === 'function') { try { unsubscribeBalance(); } catch (err) { console.warn('unsubscribeBalance error:', err); } unsubscribeBalance = null; }
-
-    if (user && isBannedSessionUid(user.uid)) {
-      handleBannedAccount('', user.uid, user.uid);
-      return;
-    }
 
     try {
       const displayUser = user || buildFallbackUserFromPayload(readPostLoginPayload());
