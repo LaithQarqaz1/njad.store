@@ -19122,7 +19122,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     state.submitting = true;
     try { window.__CATALOG_PURCHASE_ACTIVE__ = true; } catch(_) {}
     if (dom.modalBuy) dom.modalBuy.disabled = true;
-    showLoader(true);
+    holdCatalogNetworkPageLoader();
 
     try {
       let sessionKey = String(
@@ -19240,7 +19240,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
       dom.modalBuy.disabled = false;
       state.submitting = false;
       try { window.__CATALOG_PURCHASE_ACTIVE__ = false; } catch(_) {}
-      showLoader(false);
+      releaseCatalogNetworkPageLoader();
     }
   }
 

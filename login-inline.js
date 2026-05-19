@@ -85,6 +85,7 @@
   const GOOGLE_FLOW_TASK_KEY = "site:google:flow:task:v1";
   const GOOGLE_REDIRECT_PENDING_KEY = "site:google:redirect:pending:v1";
   const GOOGLE_REDIRECT_PENDING_TTL_MS = 15 * 60 * 1000;
+  const GOOGLE_REDIRECT_NAVIGATION_LOADER_GRACE_MS = 1800;
   const GOOGLE_AUTHORIZED_ORIGIN = normalizeGoogleRedirectOrigin(
     readSiteSetting("auth.googleRedirectOrigin", "") ||
     (firebaseConfig && firebaseConfig.authDomain ? ("https://" + firebaseConfig.authDomain) : "") ||
@@ -2543,6 +2544,23 @@
     try { window.location.hash = '#/'; } catch (_) { window.location.href = 'index.html'; }
   }
 
+  function releaseGoogleLoaderIfRedirectChooserStillVisible(entryPoint){
+    const startedAt = Date.now();
+    setTimeout(function(){
+      try {
+        const pending = readFreshGoogleRedirectPending();
+        if (!pending) return;
+        if (document.visibilityState && document.visibilityState !== "visible") return;
+        if ((Date.now() - startedAt) < GOOGLE_REDIRECT_NAVIGATION_LOADER_GRACE_MS) return;
+        pushGoogleFlowLog("google_redirect_loader_released_before_navigation", {
+          entryPoint,
+          elapsedMs: Date.now() - startedAt
+        });
+        hideGoogleRedirectLoader();
+      } catch (_) {}
+    }, GOOGLE_REDIRECT_NAVIGATION_LOADER_GRACE_MS);
+  }
+
   function beginPostLoginNavigationLoader(){
     try { window.__AUTH_POST_LOGIN_NAV_PENDING__ = true; } catch (_) {}
     try { document.documentElement.classList.add("auth-request-loader-pending"); } catch (_) {}
@@ -4328,6 +4346,7 @@
       "جاري فتح تسجيل Google...",
       "سيتم اختيار الحساب في نفس النافذة، ثم نكمل الجلسة داخل الموقع."
     );
+    releaseGoogleLoaderIfRedirectChooserStillVisible(entryPoint);
     pushGoogleFlowLog("google_signin_redirect_start", {
       entryPoint,
       authDomain: getFirebaseAuthDomainSafe(),
