@@ -30877,12 +30877,107 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           return isDepositCatalogBlockedRoute() || !isCatalogLoadAllowedRoute();
         }
 
+        function catalogTimingNow(){
+          try {
+            if (window.performance && typeof window.performance.now === "function") {
+              return window.performance.now();
+            }
+          } catch(_){}
+          return Date.now();
+        }
+
+        function roundCatalogTimingMs(value){
+          var num = Number(value);
+          if (!Number.isFinite(num)) return null;
+          return Math.max(0, Math.round(num * 1000) / 1000);
+        }
+
+        function readCatalogResponseHeaderNumber(res, name){
+          try {
+            var raw = res && res.headers && typeof res.headers.get === "function"
+              ? res.headers.get(name)
+              : "";
+            var num = Number(raw);
+            return Number.isFinite(num) ? num : null;
+          } catch(_){
+            return null;
+          }
+        }
+
+        function readCatalogResponseHeaderText(res, name){
+          try {
+            return res && res.headers && typeof res.headers.get === "function"
+              ? String(res.headers.get(name) || "")
+              : "";
+          } catch(_){
+            return "";
+          }
+        }
+
+        function annotateCatalogClientTimings(payload, res, timingInfo, bodyStartedAt, bodyEndedAt){
+          if (!payload || typeof payload !== "object") return payload;
+          if (!payload.timings || typeof payload.timings !== "object") return payload;
+          var startedAt = Number(timingInfo && timingInfo.startedAt);
+          var headersAt = Number(timingInfo && timingInfo.headersReceivedAt);
+          var bodyStart = Number(bodyStartedAt);
+          var bodyEnd = Number(bodyEndedAt);
+          if (!Number.isFinite(startedAt)) startedAt = bodyStart;
+          if (!Number.isFinite(headersAt)) headersAt = bodyStart;
+          if (!Number.isFinite(bodyStart)) bodyStart = headersAt;
+          if (!Number.isFinite(bodyEnd)) bodyEnd = catalogTimingNow();
+
+          var totalMs = roundCatalogTimingMs(bodyEnd - startedAt);
+          var headerWaitMs = roundCatalogTimingMs(headersAt - startedAt);
+          var beforeBodyReadMs = roundCatalogTimingMs(bodyStart - headersAt);
+          var bodyReadJsonMs = roundCatalogTimingMs(bodyEnd - bodyStart);
+          var afterHeadersMs = roundCatalogTimingMs(bodyEnd - headersAt);
+          var serverReportedTotalMs = readCatalogResponseHeaderNumber(res, "x-router-response-ready-ms");
+          if (serverReportedTotalMs == null) serverReportedTotalMs = readCatalogResponseHeaderNumber(res, "x-router-total-to-response-ms");
+          if (serverReportedTotalMs == null) serverReportedTotalMs = Number(payload.timings.totalMs);
+          if (!Number.isFinite(serverReportedTotalMs)) serverReportedTotalMs = null;
+          var estimatedUnmeasuredMs = (serverReportedTotalMs != null && totalMs != null)
+            ? roundCatalogTimingMs(totalMs - serverReportedTotalMs)
+            : null;
+          var clientTimings = {
+            measuredUntil: "response_json_parsed",
+            transferMeasured: true,
+            totalMs: totalMs,
+            totalSeconds: totalMs == null ? null : Number((totalMs / 1000).toFixed(3)),
+            headerWaitMs: headerWaitMs,
+            beforeBodyReadMs: beforeBodyReadMs,
+            bodyReadJsonMs: bodyReadJsonMs,
+            afterHeadersMs: afterHeadersMs,
+            serverReportedTotalMs: serverReportedTotalMs,
+            estimatedUnmeasuredMs: estimatedUnmeasuredMs,
+            responseStatus: res && typeof res.status === "number" ? res.status : null,
+            routerTimingScope: readCatalogResponseHeaderText(res, "x-router-timing-scope")
+          };
+          payload.timings.client = clientTimings;
+          payload.timings.measurement = Object.assign({}, payload.timings.measurement || {}, {
+            clientTransferMeasured: true,
+            clientMeasuredUntil: "response_json_parsed"
+          });
+          payload.timings.response = Object.assign({}, payload.timings.response || {}, {
+            clientTransferMeasured: true,
+            clientTotalMs: totalMs,
+            clientHeaderWaitMs: headerWaitMs,
+            clientBodyReadJsonMs: bodyReadJsonMs,
+            estimatedClientUnmeasuredMs: estimatedUnmeasuredMs
+          });
+          return payload;
+        }
+
         function fetchWithCatalogTimeout(url, options, timeoutMs){
           var finalOptions = Object.assign({}, options || {});
           var controller = null;
           var timer = 0;
           var ms = Math.max(3000, Number(timeoutMs || 0) || CATALOG_NETWORK_TIMEOUT_MS);
           var releaseCatalogFetchLoader = holdCatalogFetchLoader(url, ms);
+          var timingInfo = {
+            url: String(url || ""),
+            startedAt: catalogTimingNow(),
+            headersReceivedAt: 0
+          };
           try {
             if (typeof AbortController !== "undefined") {
               controller = new AbortController();
@@ -30896,7 +30991,8 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
             timer = 0;
           }
           return fetch(url, finalOptions).then(function(res){
-            return attachCatalogFetchLoaderRelease(res, releaseCatalogFetchLoader);
+            timingInfo.headersReceivedAt = catalogTimingNow();
+            return attachCatalogFetchLoaderRelease(res, releaseCatalogFetchLoader, timingInfo);
           }).catch(function(err){
             try { releaseCatalogFetchLoader(); } catch(_){}
             throw err;
@@ -30907,7 +31003,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           });
         }
 
-        function attachCatalogFetchLoaderRelease(res, releaseFn){
+        function attachCatalogFetchLoaderRelease(res, releaseFn, timingInfo){
           if (!res || typeof releaseFn !== "function") return res;
           var released = false;
           function releaseOnce(){
@@ -30920,8 +31016,15 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
               if (typeof res[method] !== "function") return;
               var original = res[method].bind(res);
               res[method] = function(){
+                var bodyStartedAt = catalogTimingNow();
                 try {
-                  return Promise.resolve(original.apply(null, arguments)).finally(releaseOnce);
+                  var result = Promise.resolve(original.apply(null, arguments));
+                  if (method === "json") {
+                    result = result.then(function(data){
+                      return annotateCatalogClientTimings(data, res, timingInfo, bodyStartedAt, catalogTimingNow());
+                    });
+                  }
+                  return result.finally(releaseOnce);
                 } catch(err) {
                   releaseOnce();
                   throw err;

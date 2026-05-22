@@ -5767,11 +5767,6 @@ try {
     if (target.closest && target.closest('#' + CONTEXT_MENU_ID + ',[data-native-context-menu]')) return;
     const context = buildContextSnapshot(target, Number(event.clientX), Number(event.clientY));
     if (shouldAllowNativeTouchSelection(context)) {
-      try {
-        event.preventDefault();
-        event.stopPropagation();
-        if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
-      } catch {}
       hideContextMenu();
       return;
     }
