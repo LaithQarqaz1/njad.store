@@ -1757,7 +1757,7 @@
       if (!canRecover) {
         totpLoginLostBtn.style.display = "none";
         totpLoginLostBtn.disabled = true;
-        totpLoginLostBtn.textContent = "فقدت حماية Google Authenticatorطں";
+        totpLoginLostBtn.textContent = "فقدت حماية Google Authenticator؟";
       } else {
         totpLoginLostBtn.style.display = "inline-block";
         if (pendingTotpLostBusy) {
@@ -1767,7 +1767,7 @@
             : "جاري إرسال رمز الاسترجاع...";
         } else if (!pendingTotpLostMode) {
           totpLoginLostBtn.disabled = false;
-          totpLoginLostBtn.textContent = "فقدت حماية Google Authenticatorطں";
+          totpLoginLostBtn.textContent = "فقدت حماية Google Authenticator؟";
         } else {
           const remaining = getTotpModalCooldownRemaining("lost");
           if (remaining > 0) {
@@ -2327,7 +2327,7 @@
   function translateFirebaseError(input) {
     const candidates = collectUiErrorMessageCandidates(input);
     const key = normalizeUiErrorCode(candidates[0] || input);
-    if (!candidates.length && !key) return "حدث خطأ غير متوقع، حاول مرة أخرى.";
+    if (!candidates.length && !key) return "حدث خطأ غير متوقڡ حاول مرة أخرى.";
     for (const candidate of candidates) {
       const candidateKey = normalizeUiErrorCode(candidate);
       if (!candidateKey) continue;
@@ -2344,7 +2344,7 @@
     if (key.startsWith("auth/http-")) return firebaseErrorMessages["network/fetch-failed"];
     if (key.startsWith("network/")) return firebaseErrorMessages["network/fetch-failed"];
     if (key.startsWith("auth/")) return firebaseErrorMessages["auth/unknown"];
-    return "حدث خطأ غير متوقع، حاول مرة أخرى.";
+    return "حدث خطأ غير متوقڡ حاول مرة أخرى.";
   }
 
   function setCriterionState(element, satisfied) {
@@ -2819,7 +2819,7 @@
       .toLowerCase()
       .replace(/[ًٌٍَُِّْـ]/g, "")
       .replace(/[إأآا]/g, "ا")
-      .replace(/ى/g, "ظٹ")
+      .replace(/ى/g, "ي")
       .replace(/ة/g, "ه")
       .replace(/\s+/g, " ")
       .trim();

@@ -349,8 +349,8 @@
 
       function normStatus(s){
         const v = (s||'').toString().toLowerCase();
-        if (v.includes('reject') || v.includes('مرفوض') || v.includes('ط¸â€¦ط·آ±ط¸ظ¾ط¸ث†ط·آ¶')) return 'rejected';
-        if (v.includes('approved') || v.includes('accept') || v.includes('accepted') || v.includes('done') || v.includes('completed') || v.includes('success') || v.includes('تم') || v.includes('مقبول') || v.includes('مقبولة') || v.includes('ط·ع¾ط¸â€¦') || v.includes('ط¸â€¦ط¸â€ڑط·آ¨ط¸ث†ط¸â€‍')) return 'approved';
+        if (v.includes('reject') || v.includes('مرفوض') || v.includes('ظâ€¦طآ±فظث†طآ¶')) return 'rejected';
+        if (v.includes('approved') || v.includes('accept') || v.includes('accepted') || v.includes('done') || v.includes('completed') || v.includes('success') || v.includes('تم') || v.includes('مقبول') || v.includes('مقبولة') || v.includes('تظâ€¦') || v.includes('ظâ€¦ظâ€ڑطآ¨ظث†ظâ€‍')) return 'approved';
         return 'pending';
       }
       function statusClass(s){
@@ -816,7 +816,7 @@
         var utf8Dec = null;
         try { utf8Dec = new TextDecoder('utf-8'); } catch(_){ }
         function countArabic(str){
-          var m = str && str.match(/[ط،-ظٹ]/g);
+          var m = str && str.match(/[ء-ي]/g);
           return m ? m.length : 0;
         }
         function countLatin1(str){
@@ -879,7 +879,7 @@
       function stripLedgerActionPrefix(value){
         var txt = normalizeLedgerText(value);
         if (!txt) return '';
-        return txt.replace(/^(?:شراء|استرداد|إرجاع|ارجاع|رد\s*رصيد)\s*[-:طŒ]?\s*/i, '').trim();
+        return txt.replace(/^(?:شراء|استرداد|إرجاع|ارجاع|رد\s*رصيد)\s*[-:،]?\s*/i, '').trim();
       }
 
       function stripPurchaseLedgerPrefix(value){
@@ -1285,7 +1285,7 @@
         if (Array.isArray(value)){
           return value.map(function(entry){
             return stringifyTransactionDetailValue(entry);
-          }).filter(Boolean).join('طŒ ');
+          }).filter(Boolean).join('، ');
         }
         if (typeof value === 'object'){
           var direct = normalizeTransactionDetailText(

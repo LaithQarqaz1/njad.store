@@ -1123,9 +1123,9 @@ function normalizeGameLookupKey(value){
   return String(value || "")
     .toLowerCase()
     .replace(/[أإآٱ]/g, "ا")
-    .replace(/ى/g, "ظٹ")
-    .replace(/ؤ/g, "ظˆ")
-    .replace(/ئ/g, "ظٹ")
+    .replace(/ى/g, "ي")
+    .replace(/ؤ/g, "و")
+    .replace(/ئ/g, "ي")
     .replace(/ة/g, "ه")
     .replace(/[\u064B-\u0652\u0640]/g, "")
     .replace(/[\s_:\-|>\/\\]+/g, "");
@@ -1399,7 +1399,7 @@ function formatAmountDisplay(totalStr, total, currency){
     ? String(totalStr).trim()
     : ((total != null && String(total).trim()) ? String(total).trim() : "-");
   if (fallback === "-") return "-";
-  if (/[A-Z]{3,8}/.test(fallback) || /[$â‚¬آ£]|ر\.س|د\.إ|د\.ظƒ|ر\.ق|د\.ب|ر\.ع|د\.ا/.test(fallback)) return fallback;
+  if (/[A-Z]{3,8}/.test(fallback) || /[$â‚¬آ£]|ر\.س|د\.إ|د\.ك|ر\.ق|د\.ب|ر\.ع|د\.ا/.test(fallback)) return fallback;
   return `${fallback} ${displaySymbol}`.trim();
 }
 
@@ -1531,7 +1531,7 @@ function orderMatchesSearch(o, qNorm){
   // المبلغ
   const amtRaw = (o?.total ?? o?.amount ?? o?.price ?? o?.cost);
   const amtNum = Number(amtRaw);
-  const symMap = { USD: "$", EUR: "â‚¬", GBP: "آ£", SAR: "ر.س", AED: "د.إ", KWD: "د.ظƒ", QAR: "ر.ق", BHD: "د.ب", OMR: "ر.ع", JOD: "د.ا" };
+  const symMap = { USD: "$", EUR: "â‚¬", GBP: "آ£", SAR: "ر.س", AED: "د.إ", KWD: "د.ك", QAR: "ر.ق", BHD: "د.ب", OMR: "ر.ع", JOD: "د.ا" };
   const curCode = (o?.currency || "").toUpperCase();
   const sym = symMap[curCode] || "";
   if (Number.isFinite(amtNum)) {

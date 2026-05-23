@@ -1,4 +1,4 @@
-// Deobfuscated and cleaned header logic
+﻿// Deobfuscated and cleaned header logic
 
 // Runtime config, router base, and Firebase bootstrap now come from site-bundle.js.
 // Realtime Firestore toggle (to reduce "channel?VER=8" requests)
@@ -1674,7 +1674,7 @@ function watchSessionDocForDevice(user){
     const RATES_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
     const STORE_BASE_CODE = 'USD'; // Balance stored in database is USD.
-    // Rates map — filled from cache or Firebase
+    // Rates map â€” filled from cache or Firebase
     const CURRENCIES = {};
     let ratesListenerStarted = false;
     let ratesRestLoadInFlight = false;
@@ -1918,8 +1918,8 @@ function watchSessionDocForDevice(user){
         let s = String(raw)
           .replace(/\uFEFF/g,'')
           .replace(/[\u200f\u200e\u202a-\u202e]/g,'')
-          .replace(/[“”«»]/g,'"')
-          .replace(/[‘’]/g,"'")
+          .replace(/[â€œâ€‌آ«آ»]/g,'"')
+          .replace(/[â€کâ€™]/g,"'")
           .replace(/،/g,',')
           .replace(/؛/g,',');
         // إذا كان النص ملفوفًا بعلامات اقتباس ويبدأ بـ {، أزل الاقتباس الزائد
@@ -2339,8 +2339,8 @@ function watchSessionDocForDevice(user){
         let s = String(raw || '')
           .replace(/\uFEFF/g,'')
           .replace(/[\u200f\u200e\u202a-\u202e]/g,'')
-          .replace(/[“”«»]/g,'"')
-          .replace(/[‘’]/g,"'")
+          .replace(/[â€œâ€‌آ«آ»]/g,'"')
+          .replace(/[â€کâ€™]/g,"'")
           .replace(/،/g,',').replace(/؛/g,',');
         s = s.replace(/([\{\[,]\s*)'([^']*)'\s*:/g,'$1"$2":');
         s = s.replace(/:\s*'([^']*)'/g,':"$1"');
@@ -2765,10 +2765,10 @@ try {
     'legal.privacy.cookies.body': 'يستخدم الموقع التخزين المحلي وملفات تعريف الارتباط لتحسين تجربة الاستخدام، حفظ التفضيلات، واستمرارية الجلسة وعرض المحتوى بشكل أسرع.',
     'legal.privacy.changes.title': '9) التعديلات على السياسة',
     'legal.privacy.changes.body': 'قد يتم تحديث هذه السياسة عند تطوير الخدمات. استمرار الاستخدام بعد التحديث يعني الاطلاع والقبول بالإصدار الأحدث.',
-    'legal.privacy.note': 'باستخدامك للموقع، فإنك توافق على هذه السياسة بما يضمن مصلحة المستخدم والمتجر ويحفظ حقوق الطرفين.',
+    'legal.privacy.note': 'باستخدامك للموقڡ فإنك توافق على هذه السياسة بما يضمن مصلحة المستخدم والمتجر ويحفظ حقوق الطرفين.',
     'legal.terms.title': 'شروط الاستخدام',
     'legal.terms.acceptance.title': '1) القبول والأهلية',
-    'legal.terms.acceptance.body': 'استخدامك للمتجر يعني موافقتك على هذه الشروط، وأن لديك الأهلية النظامية لإجراء الطلبات والالتزامات المالية.',
+    'legal.terms.acceptance.body': 'استخدامك للمتجر يعني موافقتك على هذه الشروء وأن لديك الأهلية النظامية لإجراء الطلبات والالتزامات المالية.',
     'legal.terms.services.title': '2) طبيعة الخدمات',
     'legal.terms.services.body': 'المتجر يقدم منتجات وخدمات رقمية (شحن/اشتراكات/أكواد). بعض الخدمات تعتمد على مزودين خارجيين وقد تختلف مدة التنفيذ وفق حالة المزود.',
     'legal.terms.user.title': '3) التزامات المستخدم',
@@ -2854,7 +2854,7 @@ try {
     'legal.terms.note': 'These terms were created to protect both the user and the store in a balanced way and to ensure a clear and fair relationship that preserves both parties\' rights.'
   });
   Object.assign(I18N_TEXT.fr, {
-    'legal.links.label': 'Liens légaux',
+    'legal.links.label': 'Liens lأ©gaux',
     'legal.consent.prefix': 'J\'accepte',
     'legal.consent.and': 'et',
     'legal.consent.requiredAccount': 'Vous devez accepter la Politique de confidentialite et les Conditions d\'utilisation pour finaliser la creation du compte.',
@@ -2931,7 +2931,7 @@ const LATIN_RE = /[A-Za-z]/;
 function hasLatin(value){
   return LATIN_RE.test(String(value || ''));
 }
-const CURRENCY_TOKEN_RE = /(?:[$€£¥₺₽₿]|[A-Z]{2,8}|د\.ا|د\.إ|د\.ك|ر\.س|ر\.ق|ر\.ع|د\.ب|ج\.م|ل\.س|ل\.ل)/i;
+const CURRENCY_TOKEN_RE = /(?:[$â‚¬آ£آ¥â‚؛â‚½â‚؟]|[A-Z]{2,8}|د\.ا|د\.إ|د\.ك|ر\.س|ر\.ق|ر\.ع|د\.ب|ج\.م|ل\.س|ل\.ل)/i;
 const ARABIC_INDIC_DIGITS_RE = /[\u0660-\u0669]/g;
 const EASTERN_ARABIC_INDIC_DIGITS_RE = /[\u06F0-\u06F9]/g;
 function normalizeDigitsForCurrency(value){
@@ -6370,8 +6370,8 @@ balanceSpan.style.padding = '0';
 balanceSpan.style.minWidth = '0';
 balanceSpan.innerHTML = `
   <span class="header-balance__metrics">
-    <span class="header-balance__currency" id="headerBalanceCurrency">—</span>
-    <span class="header-balance__value" id="headerBalanceText">…</span>
+    <span class="header-balance__currency" id="headerBalanceCurrency">â€”</span>
+    <span class="header-balance__value" id="headerBalanceText">â€¦</span>
   </span>
 `;
 
@@ -6644,8 +6644,8 @@ function headerGetSelectedCurrencyText(rawCode){
   if (symbol) return symbol;
   const fallbackMap = {
     USD: '$',
-    EUR: '€',
-    GBP: '£',
+    EUR: 'â‚¬',
+    GBP: 'آ£',
     JOD: 'د.أ',
     SAR: 'ر.س',
     AED: 'د.إ',
@@ -6816,35 +6816,35 @@ function setHeaderBalance(text){
     if (Number.isFinite(numeric)) {
       text = formatHeaderBalanceText(numeric);
     } else {
-      valueEl.textContent = text == null ? '—' : String(text);
-      if (currencyEl) currencyEl.textContent = '—';
+      valueEl.textContent = text == null ? 'â€”' : String(text);
+      if (currencyEl) currencyEl.textContent = 'â€”';
       enforceFixedSidebarCurrencyBadgeColor();
       return;
     }
   }
   const trimmed = text.trim();
   if (!trimmed) {
-    valueEl.textContent = '—';
-    if (currencyEl) currencyEl.textContent = '—';
+    valueEl.textContent = 'â€”';
+    if (currencyEl) currencyEl.textContent = 'â€”';
     enforceFixedSidebarCurrencyBadgeColor();
     return;
   }
   const hasDigits = /[0-9]/.test(trimmed);
   if (!hasDigits) {
     valueEl.textContent = trimmed;
-    if (currencyEl) currencyEl.textContent = '—';
+    if (currencyEl) currencyEl.textContent = 'â€”';
     enforceFixedSidebarCurrencyBadgeColor();
     return;
   }
   const parts = splitHeaderBalanceParts(trimmed);
   if (parts) {
     valueEl.textContent = parts.value || trimmed;
-    if (currencyEl) currencyEl.textContent = parts.currency || headerGetSelectedCurrencyText() || '—';
+    if (currencyEl) currencyEl.textContent = parts.currency || headerGetSelectedCurrencyText() || 'â€”';
     enforceFixedSidebarCurrencyBadgeColor();
     return;
   }
   valueEl.textContent = trimmed;
-  if (currencyEl) currencyEl.textContent = headerGetSelectedCurrencyText() || '—';
+  if (currencyEl) currencyEl.textContent = headerGetSelectedCurrencyText() || 'â€”';
   enforceFixedSidebarCurrencyBadgeColor();
 }
 try {
@@ -9144,7 +9144,7 @@ function syncSidebarBalanceFromHeader(){
     const val = node ? String(node.textContent || '').trim() : '';
     const cur = curNode ? String(curNode.textContent || '').trim() : '';
     if (!val && !cur) return;
-    setSidebarBalanceText(cur && cur !== '—' ? `${val} ${cur}` : val);
+    setSidebarBalanceText(cur && cur !== 'â€”' ? `${val} ${cur}` : val);
   } catch {}
 }
 
@@ -12051,6 +12051,7 @@ function wirePageBalanceBox(){
       realtimeUnsubscribe: null,
       realtimeStarting: false,
       realtimeReady: false,
+      realtimeDisabled: false,
       realtimeError: '',
       realtimeRunId: 0,
       markReadInFlight: false,
@@ -12060,6 +12061,7 @@ function wirePageBalanceBox(){
       lastIncomingMessageKey: '',
       lastNotifyAt: 0,
       titleBase: '',
+      aiTypedMessageKeys: {},
       selectedMessageKeys: []
     };
     var supportChatAuthUser = null;
@@ -12084,6 +12086,10 @@ function wirePageBalanceBox(){
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+    }
+
+    function isSupportAiAuthorName(value){
+      return /^(?:المساعد الذكي|ai|assistant|support ai)$/i.test(String(value || '').trim());
     }
 
     function normalizeSupportMediaUrl(value){
@@ -12656,10 +12662,10 @@ function wirePageBalanceBox(){
       var source = raw && typeof raw === 'object' ? raw : {};
       var type = String(source.type || source.kind || '').trim().toLowerCase();
       var action = String(source.action || source.actionCode || source.code || '').trim().toLowerCase();
-      if (['product', 'deposit', 'order'].indexOf(type) < 0) return null;
-      if (['open_product', 'open_deposit', 'start_objection'].indexOf(action) < 0) return null;
+      if (['product', 'deposit', 'order', 'support'].indexOf(type) < 0) return null;
+      if (['open_product', 'open_deposit', 'start_objection', 'open_ticket'].indexOf(action) < 0) return null;
       var title = String(source.title || source.name || source.label || '').trim();
-      var id = String(source.id || source.cardId || source.productId || source.methodId || source.orderCode || title || '').trim();
+      var id = String(source.id || source.cardId || source.productId || source.methodId || source.orderCode || (action === 'open_ticket' ? 'open_ticket' : '') || title || '').trim();
       if (!id && !title) return null;
       return {
         id: id,
@@ -12699,7 +12705,16 @@ function wirePageBalanceBox(){
     function renderSupportCards(cards){
       var list = normalizeSupportCards(cards);
       if (!list.length) return '';
-      return '<div class="site-support-chat__cards" role="list">' + list.map(function(card){
+      var ticketOnly = list.length === 1 && list[0].type === 'support' && list[0].action === 'open_ticket';
+      return '<div class="site-support-chat__cards' + (ticketOnly ? ' is-ticket-prompt' : '') + '" role="list">' + list.map(function(card){
+        if (card.type === 'support' && card.action === 'open_ticket') {
+          var ticketData = [
+            'data-support-card-action="' + escapeSupport(card.action) + '"',
+            'data-card-type="' + escapeSupport(card.type) + '"',
+            'data-card-id="' + escapeSupport(card.id || 'open_ticket') + '"'
+          ].join(' ');
+          return '<button class="site-support-chat__ticket-btn" type="button" role="listitem" ' + ticketData + '>فتح تذكرة</button>';
+        }
         var icon = card.type === 'deposit' ? 'fa-wallet' : (card.type === 'order' ? 'fa-receipt' : 'fa-bag-shopping');
         var cta = card.action === 'open_deposit' ? 'إيداع' : (card.action === 'start_objection' ? 'اعتراض' : 'شراء');
         var media = card.imageUrl
@@ -12993,6 +13008,7 @@ function wirePageBalanceBox(){
       if (!list) return;
       list.removeAttribute('aria-busy');
       var messages = Array.isArray(thread && thread.messages) ? thread.messages.map(normalizeSupportMessage) : [];
+      var firstRender = supportChatState.lastThreadVersion === '';
       if (!messages.length && supportChatState.loading) {
         renderSupportMessagesLoading();
         return;
@@ -13007,6 +13023,9 @@ function wirePageBalanceBox(){
         var system = message.sender === 'system';
         var own = message.sender === 'user';
         var messageKey = getSupportMessageKey(thread || {}, message);
+        var isAi = !own && isSupportAiAuthorName(message.authorName);
+        var shouldTypeAi = isAi && !!message.text && !firstRender && !supportChatState.aiTypedMessageKeys[messageKey];
+        if (isAi && firstRender) supportChatState.aiTypedMessageKeys[messageKey] = true;
         var selectedClass = isSupportMessageSelected(messageKey) ? ' is-selected' : '';
         if (system) {
           return [
@@ -13021,9 +13040,13 @@ function wirePageBalanceBox(){
           : '';
         var cardsHtml = renderSupportCards(message.cards);
         return [
-          '<div class="site-support-chat__bubble ' + (own ? 'is-user' : 'is-admin') + selectedClass + '" data-support-message-key="' + escapeSupport(messageKey) + '" role="button" tabindex="0" aria-selected="' + (selectedClass ? 'true' : 'false') + '">',
+          '<div class="site-support-chat__bubble ' + (own ? 'is-user' : 'is-admin') + (isAi ? ' is-ai' : '') + (shouldTypeAi ? ' is-typing' : '') + selectedClass + '" data-support-message-key="' + escapeSupport(messageKey) + '" role="button" tabindex="0" aria-selected="' + (selectedClass ? 'true' : 'false') + '">',
             '<span class="site-support-chat__select-mark" aria-hidden="true"><i class="fa-solid fa-check"></i></span>',
-            message.text ? '<div>' + escapeSupport(message.text).replace(/\n/g, '<br>') + '</div>' : '',
+            message.text
+              ? (shouldTypeAi
+                ? '<div class="site-support-chat__text" data-support-ai-typing="1" data-support-ai-text="' + escapeSupport(message.text) + '"></div>'
+                : '<div class="site-support-chat__text">' + escapeSupport(message.text).replace(/\n/g, '<br>') + '</div>')
+              : '',
             cardsHtml,
             imageHtml,
             '<span>' + escapeSupport(formatSupportTime(message.createdAt)) + '</span>',
@@ -13038,7 +13061,36 @@ function wirePageBalanceBox(){
         });
       } catch (_) {}
       updateSupportSelectionBar();
+      animateSupportAiTyping(list);
       scrollSupportMessagesToBottom();
+    }
+
+    function animateSupportAiTyping(list){
+      if (!list) return;
+      try {
+        Array.prototype.forEach.call(list.querySelectorAll('[data-support-ai-typing="1"]'), function(node){
+          var bubble = node.closest ? node.closest('.site-support-chat__bubble') : null;
+          var key = bubble ? String(bubble.getAttribute('data-support-message-key') || '') : '';
+          var fullText = String(node.getAttribute('data-support-ai-text') || '');
+          node.removeAttribute('data-support-ai-typing');
+          node.removeAttribute('data-support-ai-text');
+          node.textContent = '';
+          var index = 0;
+          var chunkSize = Math.max(1, Math.ceil(fullText.length / 80));
+          var step = function(){
+            index = Math.min(fullText.length, index + chunkSize);
+            node.textContent = fullText.slice(0, index);
+            scrollSupportMessagesToBottom();
+            if (index < fullText.length) {
+              setTimeout(step, 12);
+              return;
+            }
+            if (bubble) bubble.classList.remove('is-typing');
+            if (key) supportChatState.aiTypedMessageKeys[key] = true;
+          };
+          step();
+        });
+      } catch (_) {}
     }
 
     function showSupportChatPageLoader(){
@@ -13117,6 +13169,15 @@ function wirePageBalanceBox(){
         supportChatState.lastIncomingMessageKey = incomingKey;
       }
       supportChatState.lastThreadVersion = nextThreadVersion;
+      if (isSupportChatActive()) {
+        if (isSupportThreadTicketOpen(supportChatState.thread)) {
+          if (supportChatState.realtimeDisabled) startSupportPolling();
+          else startSupportRealtime().catch(function(){});
+        } else {
+          stopSupportPolling();
+          stopSupportRealtime();
+        }
+      }
       return !!(previousThreadVersion && nextThreadVersion && previousThreadVersion !== nextThreadVersion);
     }
 
@@ -13178,6 +13239,14 @@ function wirePageBalanceBox(){
       return firebase.firestore();
     }
 
+    function supportIsRealtimePermissionError(err){
+      var text = err && err.message ? String(err.message) : '';
+      var code = String(err && err.code ? err.code : '').trim().toLowerCase();
+      return code === 'permission-denied' ||
+        code === 'permission_denied' ||
+        /missing or insufficient permissions|permission denied|insufficient permissions/i.test(text);
+    }
+
     function markSupportThreadReadFromRealtime(){
       if (!isSupportChatActive() || supportChatState.markReadInFlight) return;
       var thread = supportChatState.thread || {};
@@ -13206,9 +13275,66 @@ function wirePageBalanceBox(){
       supportChatState.realtimeReady = false;
     }
 
+    function supportShouldPollFallback(){
+      return supportChatState.realtimeDisabled === true && isSupportThreadTicketOpen(supportChatState.thread);
+    }
+
+    function stopSupportPolling(){
+      if (!supportChatState.pollTimer) return;
+      clearTimeout(supportChatState.pollTimer);
+      supportChatState.pollTimer = 0;
+    }
+
+    function scheduleSupportPolling(delayMs){
+      stopSupportPolling();
+      if (!isSupportChatActive() || !supportShouldPollFallback()) return;
+      var delay = Number(delayMs);
+      if (!Number.isFinite(delay) || delay < 0) delay = Number(supportChatState.pollDelayMs || 0);
+      delay = Math.max(2500, delay || 4000);
+      supportChatState.pollTimer = setTimeout(function(){
+        supportRunPollingCycle();
+      }, delay);
+    }
+
+    function supportRunPollingCycle(){
+      if (!isSupportChatActive() || !supportShouldPollFallback()) {
+        stopSupportPolling();
+        return;
+      }
+      supportChatState.pollTimer = 0;
+      Promise.resolve(loadSupportThread(true, { markRead: true, notify: false, force: true }))
+        .catch(function(){})
+        .finally(function(){
+          if (!isSupportChatActive()) {
+            stopSupportPolling();
+            return;
+          }
+          if (supportShouldPollFallback()) scheduleSupportPolling();
+          else stopSupportPolling();
+        });
+    }
+
+    function startSupportPolling(){
+      if (!isSupportChatActive()) {
+        stopSupportPolling();
+        return false;
+      }
+      if (!supportShouldPollFallback()) {
+        stopSupportPolling();
+        return false;
+      }
+      if (supportChatState.pollTimer) return true;
+      supportRunPollingCycle();
+      return true;
+    }
+
     async function startSupportRealtime(){
       if (!isSupportChatActive()) {
         stopSupportRealtime();
+        return false;
+      }
+      if (supportChatState.realtimeDisabled) {
+        if (supportShouldPollFallback()) startSupportPolling();
         return false;
       }
       if (supportChatState.realtimeUnsubscribe || supportChatState.realtimeStarting) return true;
@@ -13241,24 +13367,26 @@ function wirePageBalanceBox(){
           }, function(err){
             if (supportChatState.realtimeRunId !== runId) return;
             supportChatState.realtimeError = err && err.message ? err.message : 'realtime_failed';
-            try { console.warn('support_realtime_failed', supportChatState.realtimeError); } catch (_) {}
-            if (isSupportChatActive()) {
-              setSupportChatStatus('تعذر تشغيل التحديث الفوري. افتح المحادثة مجددًا أو حدّث الصفحة.');
+            if (!supportIsRealtimePermissionError(err)) {
+              try { console.warn('support_realtime_failed', supportChatState.realtimeError); } catch (_) {}
             }
             stopSupportRealtime();
+            if (supportShouldPollFallback()) startSupportPolling();
           });
         if (!isSupportChatActive() || supportChatState.realtimeRunId !== runId) {
           try { if (typeof unsubscribe === 'function') unsubscribe(); } catch (_) {}
           return false;
         }
+        supportChatState.realtimeDisabled = false;
         supportChatState.realtimeUnsubscribe = unsubscribe;
         return true;
       } catch (err) {
         supportChatState.realtimeError = err && err.message ? err.message : 'realtime_failed';
-        try { console.warn('support_realtime_start_failed', supportChatState.realtimeError); } catch (_) {}
-        if (isSupportChatActive()) {
-          setSupportChatStatus('تعذر تشغيل التحديث الفوري. افتح المحادثة مجددًا أو حدّث الصفحة.');
+        supportChatState.realtimeDisabled = true;
+        if (!supportIsRealtimePermissionError(err)) {
+          try { console.warn('support_realtime_start_failed', supportChatState.realtimeError); } catch (_) {}
         }
+        if (supportShouldPollFallback()) startSupportPolling();
         return false;
       } finally {
         if (supportChatState.realtimeRunId === runId) {
@@ -13304,24 +13432,6 @@ function wirePageBalanceBox(){
         supportChatState.loading = false;
         if (usePageLoader) hideSupportChatPageLoader();
       }
-    }
-
-    function stopSupportPolling(){
-      if (!supportChatState.pollTimer) return;
-      clearTimeout(supportChatState.pollTimer);
-      supportChatState.pollTimer = 0;
-    }
-
-    function scheduleSupportPolling(delayMs){
-      stopSupportPolling();
-      if (!isSupportChatActive()) return;
-      startSupportRealtime().catch(function(){});
-    }
-
-    function startSupportPolling(){
-      stopSupportPolling();
-      if (!isSupportChatActive()) return;
-      startSupportRealtime().catch(function(){});
     }
 
     function stopSupportBadgePolling(){
@@ -13523,7 +13633,6 @@ function wirePageBalanceBox(){
           if (supportChatState.titleBase) document.title = supportChatState.titleBase;
         } catch (_) {}
         ensureSupportNotificationPermission();
-        startSupportRealtime().catch(function(){});
         loadSupportThread(false, { markRead: true, notify: false, force: true }).catch(function(){});
         startSupportPolling();
         setTimeout(function(){
@@ -13574,10 +13683,21 @@ function wirePageBalanceBox(){
       setSupportSelectedImage(null);
     }
 
+    function setSupportSendButtonBusy(busy){
+      var sendBtn = document.getElementById('siteSupportChatSend');
+      if (!sendBtn) return;
+      sendBtn.disabled = !!busy;
+      sendBtn.classList.toggle('is-sending', !!busy);
+      sendBtn.setAttribute('aria-busy', busy ? 'true' : 'false');
+      sendBtn.setAttribute('aria-label', busy ? 'جاري الإرسال' : 'إرسال');
+      sendBtn.innerHTML = busy
+        ? '<i class="fa-solid fa-circle-notch" aria-hidden="true"></i>'
+        : '<i class="fa-solid fa-paper-plane" aria-hidden="true"></i>';
+    }
+
     async function submitSupportMessage(){
       if (supportChatState.sending) return;
       var input = document.getElementById('siteSupportChatInput');
-      var sendBtn = document.getElementById('siteSupportChatSend');
       var text = input ? String(input.value || '').trim() : '';
       var imageFile = supportChatState.imageFile || null;
       if (!text && !imageFile) {
@@ -13585,7 +13705,7 @@ function wirePageBalanceBox(){
         return;
       }
       supportChatState.sending = true;
-      if (sendBtn) sendBtn.disabled = true;
+      setSupportSendButtonBusy(true);
       try {
         setSupportChatStatus(imageFile ? 'جاري رفع الصورة...' : 'جاري الإرسال...');
         var imageUrl = imageFile ? await uploadSupportImageFile(imageFile) : '';
@@ -13616,7 +13736,7 @@ function wirePageBalanceBox(){
         setSupportChatStatus(err && err.message ? err.message : 'تعذر إرسال الرسالة.');
       } finally {
         supportChatState.sending = false;
-        if (sendBtn) sendBtn.disabled = false;
+        setSupportSendButtonBusy(false);
       }
     }
 
@@ -13754,8 +13874,41 @@ function wirePageBalanceBox(){
       }
     }
 
+    async function submitSupportOpenTicket(){
+      if (supportChatState.sending) return;
+      supportChatState.sending = true;
+      setSupportSendButtonBusy(true);
+      try {
+        setSupportChatStatus('جاري فتح تذكرة الدعم...');
+        var payload = await callSupportApi('support-message', {
+          method: 'POST',
+          body: {
+            action: 'open_ticket',
+            type: 'open_ticket',
+            chatId: String((supportChatAuthUser && supportChatAuthUser.uid) || (supportChatState.thread && supportChatState.thread.userUid) || '')
+          }
+        });
+        clearSupportMessageSelection({ render: false });
+        if (payload && Array.isArray(payload.messages)) {
+          renderSupportThread(mergeSupportThreadMessages(payload.thread || null, payload.messages), { notify: false });
+        } else {
+          renderSupportThread(payload.thread || null, { notify: false });
+        }
+        setSupportChatStatus(payload && payload.message ? payload.message : 'تم فتح تذكرة الدعم.');
+      } catch (err) {
+        setSupportChatStatus(err && err.message ? err.message : 'تعذر فتح تذكرة الدعم.');
+      } finally {
+        supportChatState.sending = false;
+        setSupportSendButtonBusy(false);
+      }
+    }
+
     function handleSupportCardAction(button){
       var action = String(button && button.getAttribute('data-support-card-action') || '').trim();
+      if (action === 'open_ticket') {
+        submitSupportOpenTicket().catch(function(){});
+        return;
+      }
       if (action === 'open_product') {
         openSupportProductCard(button);
         return;
@@ -14122,6 +14275,24 @@ function wirePageBalanceBox(){
           color:#eef2f7;
           border-bottom-right-radius:6px;
         }
+        .site-support-chat__text{
+          white-space:pre-wrap;
+        }
+        .site-support-chat__bubble.is-ai.is-typing .site-support-chat__text::after{
+          content:"";
+          display:inline-block;
+          width:2px;
+          height:1em;
+          margin-inline-start:2px;
+          vertical-align:-0.12em;
+          background:currentColor;
+          opacity:.8;
+          animation:siteSupportTypingCaret .7s steps(2,end) infinite;
+        }
+        @keyframes siteSupportTypingCaret{
+          0%,45%{opacity:.85}
+          46%,100%{opacity:.12}
+        }
         .site-support-chat__system{
           align-self:center;
           max-width:min(86%,520px);
@@ -14152,48 +14323,88 @@ function wirePageBalanceBox(){
           display:block;
         }
         .site-support-chat__cards{
-          width:min(420px,100%);
+          width:min(620px,100%);
           max-width:100%;
-          display:grid;
-          grid-template-columns:1fr;
-          gap:8px;
+          display:flex;
+          gap:14px;
+          overflow-x:auto;
+          overflow-y:hidden;
+          padding:6px 2px 12px;
+          margin-top:4px;
+          scroll-snap-type:x proximity;
+          scrollbar-width:thin;
+        }
+        .site-support-chat__cards.is-ticket-prompt{
+          width:100%;
+          display:block;
           overflow:visible;
-          padding:4px 0 2px;
+          padding:8px 0 0;
+          margin-top:6px;
+          scroll-snap-type:none;
         }
         .site-support-chat__bubble:has(.site-support-chat__cards){
-          max-width:min(92%,560px);
+          max-width:min(96%,680px);
+        }
+        .site-support-chat__bubble:has(.site-support-chat__cards.is-ticket-prompt){
+          max-width:min(88%,360px);
+        }
+        .site-support-chat__ticket-btn{
+          width:100%;
+          min-height:38px;
+          border:0;
+          border-radius:12px;
+          display:grid;
+          place-items:center;
+          padding:0 14px;
+          background:#229ed9;
+          color:#fff;
+          font-size:.86rem;
+          font-weight:900;
+          line-height:1.2;
+          box-shadow:none;
+          cursor:pointer;
+          direction:rtl;
+          text-align:center;
+        }
+        .site-support-chat__ticket-btn:hover{
+          transform:none;
+          filter:brightness(1.05);
         }
         .site-support-chat__card{
-          width:100%;
-          min-height:82px;
-          border:1px solid rgba(148,163,184,.2);
-          border-radius:12px;
-          background:linear-gradient(135deg,#0f172a,#111827);
+          flex:0 0 clamp(132px,28vw,174px);
+          width:clamp(132px,28vw,174px);
+          min-height:0;
+          border:0;
+          border-radius:0;
+          background:transparent;
           color:#f8fafc;
-          display:grid;
-          grid-template-columns:64px minmax(0,1fr) auto;
-          align-items:center;
-          gap:10px;
-          padding:8px;
-          text-align:right;
+          display:flex;
+          flex-direction:column;
+          align-items:stretch;
+          gap:8px;
+          padding:0;
+          text-align:center;
           direction:rtl;
           line-height:1.45;
           cursor:pointer;
-          box-shadow:0 10px 18px rgba(0,0,0,.18);
+          box-shadow:none;
+          scroll-snap-align:start;
         }
         .site-support-chat__card:hover{
-          border-color:rgba(34,197,94,.45);
-          transform:translateY(-1px);
+          transform:translateY(-2px);
         }
         .site-support-chat__card-media{
-          width:64px;
-          height:64px;
-          border-radius:10px;
+          width:100%;
+          aspect-ratio:1 / 1;
+          height:auto;
+          border-radius:14px;
           overflow:hidden;
           display:grid;
           place-items:center;
-          background:rgba(34,197,94,.12);
+          background:linear-gradient(135deg,rgba(34,197,94,.14),rgba(15,23,42,.94));
           color:#86efac;
+          border:1px solid rgba(148,163,184,.18);
+          box-shadow:0 14px 28px rgba(0,0,0,.22);
         }
         .site-support-chat__bubble .site-support-chat__card-media,
         .site-support-chat__bubble .site-support-chat__card-body,
@@ -14214,6 +14425,7 @@ function wirePageBalanceBox(){
           align-content:center;
           gap:2px;
           direction:rtl;
+          padding:0 2px;
         }
         .site-support-chat__card-body strong,
         .site-support-chat__card-body small,
@@ -14226,7 +14438,7 @@ function wirePageBalanceBox(){
         }
         .site-support-chat__card-body strong{
           color:#fff;
-          font-size:.82rem;
+          font-size:.84rem;
           line-height:1.45;
         }
         .site-support-chat__card-body small{
@@ -14241,15 +14453,16 @@ function wirePageBalanceBox(){
           font-weight:900;
         }
         .site-support-chat__card-cta{
-          min-width:58px;
-          min-height:38px;
-          padding:0 12px;
+          align-self:center;
+          min-width:62px;
+          min-height:30px;
+          padding:0 14px;
           border-radius:999px;
           display:grid;
           place-items:center;
           background:#22c55e;
           color:#052e16;
-          font-size:.78rem;
+          font-size:.74rem;
           font-weight:900;
           white-space:nowrap;
         }
@@ -14258,16 +14471,14 @@ function wirePageBalanceBox(){
           font-size:.78rem;
         }
         @media (max-width:520px){
+          .site-support-chat__cards{
+            width:100%;
+            gap:12px;
+            padding-bottom:10px;
+          }
           .site-support-chat__card{
-            grid-template-columns:56px minmax(0,1fr);
-          }
-          .site-support-chat__card-media{
-            width:56px;
-            height:56px;
-          }
-          .site-support-chat__card-cta{
-            grid-column:1 / -1;
-            min-height:34px;
+            flex-basis:136px;
+            width:136px;
           }
         }
         .site-support-chat__image-btn{
@@ -14415,8 +14626,22 @@ function wirePageBalanceBox(){
           color:#fff;
           background:#22c55e;
           cursor:pointer;
+          transition:transform .16s ease,filter .16s ease,background .16s ease;
         }
-        .site-support-chat__form button:disabled{opacity:.6;cursor:not-allowed}
+        .site-support-chat__form button:not(.site-support-chat__attach):not(:disabled):hover{
+          transform:translateY(-1px);
+          filter:brightness(1.05);
+        }
+        .site-support-chat__form button:disabled{opacity:.72;cursor:not-allowed}
+        .site-support-chat__form button.is-sending{
+          background:#16a34a;
+        }
+        .site-support-chat__form button.is-sending i{
+          animation:siteSupportSendSpin .8s linear infinite;
+        }
+        @keyframes siteSupportSendSpin{
+          to{transform:rotate(360deg)}
+        }
         #siteSupportChatStatus{
           min-height:18px;
           padding:0 max(16px,calc((100vw - 820px)/2)) max(10px,env(safe-area-inset-bottom,0px));
@@ -14657,7 +14882,10 @@ function wirePageBalanceBox(){
           return;
         }
         if (supportChatState.open) {
-          startSupportRealtime().catch(function(){});
+          if (isSupportThreadTicketOpen(supportChatState.thread)) {
+            if (supportChatState.realtimeDisabled) startSupportPolling();
+            else startSupportRealtime().catch(function(){});
+          }
           loadSupportThread(true, { markRead: true, notify: false, force: true }).catch(function(){});
         }
       });
@@ -17764,7 +17992,7 @@ function wirePageBalanceBox(){
         const el=document.createElement("div");
         if(kind==="leaf"){
           el.className="leaf";
-          el.textContent="🍁";
+          el.textContent="ًںچپ";
           el.style.top=`-${5+Math.random()*15}%`;
           el.style.left=`${Math.random()*100}vw`;
           el.style.animationDelay=`${Math.random()*1.2}s`;
@@ -17773,7 +18001,7 @@ function wirePageBalanceBox(){
           el.style.transform=`rotate(${Math.random()*40-20}deg)`;
         } else if(kind==="snow"){
           el.className="snowflake";
-          el.textContent="❄";
+          el.textContent="â‌„";
           const durationSec = 14 + Math.random() * 9;
           el.style.top=`-${5+Math.random()*15}%`;
           el.style.left=`${Math.random()*100}vw`;
@@ -21228,7 +21456,6 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
     log("siteState listener failed", err?.message||err);
   }
 })();
-
 
 
 

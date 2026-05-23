@@ -651,7 +651,7 @@
 
 ;
 /* Inline script 21, original index.html line 2767. */
-// حركة تبدأ من الحافة، تمر عبر الشريط، تخرج بالكامل، ثم تعاود من البداية
+// حركة تبدأ من الحافة، تمر عبر الشريء تخرج بالكامل، ثم تعاود من البداية
     (function(){
       var ticker = document.getElementById('homeTicker');
       var track  = ticker && ticker.querySelector('.ticker-track');
@@ -8341,7 +8341,7 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
     return String(value == null ? '' : value)
       .replace(/[\u064B-\u065F\u0670]/g, '')
       .replace(/[أإآ]/g, 'ا')
-      .replace(/ى/g, 'ظٹ')
+      .replace(/ى/g, 'ي')
       .replace(/\s+/g, ' ')
       .trim()
       .toLowerCase();
@@ -14433,12 +14433,12 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
         fr: "Le code est livre instantanement. "
       },
       {
-        pattern: /يمكن\s*استرداد\s*الكود\s*(?:ظپظٹ|من)\s*موقع\s*pubg\s*mobile\s*العالمي\s*:?\s*/gi,
+        pattern: /يمكن\s*استرداد\s*الكود\s*(?:في|من)\s*موقع\s*pubg\s*mobile\s*العالمي\s*:?\s*/gi,
         en: "The code can be redeemed on the official PUBG Mobile global site: ",
         fr: "Le code peut etre utilise sur le site mondial officiel de PUBG Mobile : "
       },
       {
-        pattern: /يمكن\s*استرداد\s*الكود\s*(?:ظپظٹ|من)\s*موقع\s*/gi,
+        pattern: /يمكن\s*استرداد\s*الكود\s*(?:في|من)\s*موقع\s*/gi,
         en: "The code can be redeemed on ",
         fr: "Le code peut etre utilise sur "
       }
@@ -14473,7 +14473,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
       { pattern: /كلاش\s*رويال/gi, en: "Clash Royale", fr: "Clash Royale" },
       { pattern: /براول\s*ستارز/gi, en: "Brawl Stars", fr: "Brawl Stars" },
       { pattern: /بلود\s*سترايك/gi, en: "Blood Strike", fr: "Blood Strike" },
-      { pattern: /ظˆظٹ\s*بلاي/gi, en: "WePlay", fr: "WePlay" },
+      { pattern: /وي\s*بلاي/gi, en: "WePlay", fr: "WePlay" },
       { pattern: /ليبي/gi, en: "Ludo", fr: "Ludo" },
       { pattern: /اورلي/gi, en: "Orly", fr: "Orly" }
     ];
@@ -15411,7 +15411,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     const list = normalizeQtyOptions(options);
     if (!list.length) return "";
     const maxItems = Number.isFinite(limit) ? Math.max(1, limit) : 8;
-    const shown = list.slice(0, maxItems).join("طŒ ");
+    const shown = list.slice(0, maxItems).join("، ");
     if (list.length > maxItems) return `${shown} ...`;
     return shown;
   }
@@ -18193,7 +18193,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     let cut = token.length;
     while (cut > 0) {
       const ch = token.charAt(cut - 1);
-      if (/[).,;:!?]/.test(ch) || ch === "،" || ch === "؛" || ch === "؟" || ch === "طŒ" || ch === "طں") {
+      if (/[).,;:!?]/.test(ch) || ch === "،" || ch === "؛" || ch === "؟" || ch === "،" || ch === "؟") {
         cut -= 1;
         continue;
       }
@@ -22609,7 +22609,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           }) || null;
 
           if (state.refs.currentLabel) state.refs.currentLabel.textContent = currentEntry ? currentEntry.label : (profile.level || '--');
-          if (state.refs.currentBadge) state.refs.currentBadge.innerHTML = currentEntry ? buildBadgeMedia(currentEntry) : '<span>طں</span>';
+          if (state.refs.currentBadge) state.refs.currentBadge.innerHTML = currentEntry ? buildBadgeMedia(currentEntry) : '<span>؟</span>';
           if (state.refs.spentValue) state.refs.spentValue.textContent = formatMoney(totalSpent);
           if (state.refs.nextValue) state.refs.nextValue.textContent = nextEntry ? (nextEntry.label + (nextEntry.requiredSpent > 0 ? ' - ' + formatMoney(nextEntry.requiredSpent) : '')) : 'لا يوجد مستوى تلقائي تالٍ';
           if (state.refs.autoValue) state.refs.autoValue.textContent = nextEntry ? (nextEntry.manualUnlockOnly ? 'يدوي فقط' : 'تلقائي عند الوصول') : 'لا توجد ترقية تلقائية تالية';
@@ -22619,7 +22619,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
               : 'يمكنك متابعة المستويات المتاحة وشروط فتح كل عضوية من هذه الصفحة.';
           }
           if (state.refs.currentBadge && !currentEntry) {
-            state.refs.currentBadge.innerHTML = '<span>طں</span>';
+            state.refs.currentBadge.innerHTML = '<span>؟</span>';
           }
           if (state.refs.nextValue) {
             state.refs.nextValue.textContent = nextEntry
@@ -22643,7 +22643,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
             state.refs.warning.className = 'levels-warning' + (warningText ? ' is-visible' : '');
           }
           if (state.refs.currentBadge) {
-            state.refs.currentBadge.innerHTML = currentEntry ? buildBadgeMedia(currentEntry) : '<span>طں</span>';
+            state.refs.currentBadge.innerHTML = currentEntry ? buildBadgeMedia(currentEntry) : '<span>؟</span>';
           }
           if (state.refs.leadText) {
             var currentLevelLabel = currentEntry ? currentEntry.label : (profile.level || '--');
@@ -22778,7 +22778,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
             '  <div class="container levels-shell">',
             '    <section class="levels-hero">',
             '      <div class="levels-current-head">',
-            '        <div class="levels-hero-badge" id="levelsCurrentBadge"><span>طں</span></div>',
+            '        <div class="levels-hero-badge" id="levelsCurrentBadge"><span>؟</span></div>',
             '        <h2 id="levelsCurrentLabel">--</h2>',
             '      </div>',
             '      <div class="levels-hero-copy">',
@@ -25333,7 +25333,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           var city = String(source.locationCity || "").trim();
           var region = String(source.locationRegion || "").trim();
           var country = String(source.locationCountry || source.locationCountryCode || "").trim();
-          return [city, region, country].filter(Boolean).join("طŒ ").trim();
+          return [city, region, country].filter(Boolean).join("، ").trim();
         }
 
         function renderDevices(){
@@ -27552,7 +27552,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
             var webuid = data.webuid || "";
             nameEl.textContent = username;
             var hint = webuid ? ("المعرف: " + webuid) : "تم العثور على المستلم.";
-            if (data.level) hint += " â€¢ ط§ظ„ظ…ط³طھظˆظ‰: " + data.level;
+            if (data.level) hint += " â€¢ المستوى: " + data.level;
             hintEl.textContent = hint;
           } else if (stateName === "error"){
             nameEl.textContent = "تعذر العثور على اسم المستلم.";
@@ -31680,7 +31680,7 @@ function normalizeCategory(value){
         }
         function normalizeTreeNumericPart(value){
           var text = String(value || "")
-            .replace(/[ظ -٩]/g, function(digit){ return String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)); })
+            .replace(/[٠-٩]/g, function(digit){ return String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)); })
             .trim();
           if (!/^\d+$/.test(text)) return "";
           return text.replace(/^0+(?=\d)/, "");
@@ -36050,7 +36050,7 @@ function normalizeCategory(value){
             .toLowerCase()
             .replace(/[ًٌٍَُِّْـ]/g,'')
             .replace(/[إأآا]/g,'ا')
-            .replace(/ى/g,'ظٹ')
+            .replace(/ى/g,'ي')
             .replace(/ة/g,'ه')
             .replace(/\s+/g,' ')
             .trim();
@@ -36070,7 +36070,7 @@ function normalizeCategory(value){
 
         var CATEGORY_ICON_RULES = [
           { icon: '\u{1F916}', keywords: ['gpt', 'شات gpt', 'بريميوم'] },
-          { icon: '\u{1F3B5}', keywords: ['طھظٹظƒ طھظˆظƒ', 'tiktok'] },
+          { icon: '\u{1F3B5}', keywords: ['تيك توك', 'tiktok'] },
           { icon: '\u{1F4D8}', keywords: ['فيسبوك', 'facebook'] },
           { icon: '\u{1F4F8}', keywords: ['انستجرام', 'انستا', 'instagram'] },
           { icon: '\u25B6\uFE0F', keywords: ['يوتيوب', 'youtube'] },
@@ -36085,7 +36085,7 @@ function normalizeCategory(value){
           { icon: '\u{1F451}', keywords: ['vip', 'نجوم', 'premium'] },
           { icon: '\u2705', keywords: ['توثيق', 'verified'] },
           { icon: '\u{1F4F0}', keywords: ['جرايد', 'جريدة', 'google', 'جوجل'] },
-          { icon: '\u{1F3A5}', keywords: ['ظƒظٹظƒ', 'kick', 'بيغو', 'bigo'] },
+          { icon: '\u{1F3A5}', keywords: ['كيك', 'kick', 'بيغو', 'bigo'] },
           { icon: '\u{1F680}', keywords: ['رشق', 'خدمات'] },
           { icon: '\u{1F4E1}', keywords: ['قنوات', 'قناة', 'channel'] },
           { icon: '\u{1F4C8}', keywords: ['ساعات', 'minutes', 'مشاهدات', 'views'] },
@@ -38928,7 +38928,7 @@ function normalizeCategory(value){
             numericKey = !!normalizeTreeNumericPart(key);
           } else {
             var latin = String(key || '')
-              .replace(/[ظ -٩]/g, function(digit){ return String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)); })
+              .replace(/[٠-٩]/g, function(digit){ return String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)); })
               .trim();
             numericKey = /^\d+$/.test(latin);
           }
