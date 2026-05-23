@@ -12656,10 +12656,10 @@ function wirePageBalanceBox(){
       var source = raw && typeof raw === 'object' ? raw : {};
       var type = String(source.type || source.kind || '').trim().toLowerCase();
       var action = String(source.action || source.actionCode || source.code || '').trim().toLowerCase();
-      if (['product', 'deposit', 'order', 'support'].indexOf(type) < 0) return null;
-      if (['open_product', 'open_deposit', 'start_objection', 'open_ticket'].indexOf(action) < 0) return null;
+      if (['product', 'deposit', 'order'].indexOf(type) < 0) return null;
+      if (['open_product', 'open_deposit', 'start_objection'].indexOf(action) < 0) return null;
       var title = String(source.title || source.name || source.label || '').trim();
-      var id = String(source.id || source.cardId || source.productId || source.methodId || source.orderCode || (action === 'open_ticket' ? 'open_ticket' : '') || title || '').trim();
+      var id = String(source.id || source.cardId || source.productId || source.methodId || source.orderCode || title || '').trim();
       if (!id && !title) return null;
       return {
         id: id,
@@ -12699,16 +12699,7 @@ function wirePageBalanceBox(){
     function renderSupportCards(cards){
       var list = normalizeSupportCards(cards);
       if (!list.length) return '';
-      var ticketOnly = list.length === 1 && list[0].type === 'support' && list[0].action === 'open_ticket';
-      return '<div class="site-support-chat__cards' + (ticketOnly ? ' is-ticket-prompt' : '') + '" role="list">' + list.map(function(card){
-        if (card.type === 'support' && card.action === 'open_ticket') {
-          var ticketData = [
-            'data-support-card-action="' + escapeSupport(card.action) + '"',
-            'data-card-type="' + escapeSupport(card.type) + '"',
-            'data-card-id="' + escapeSupport(card.id || 'open_ticket') + '"'
-          ].join(' ');
-          return '<button class="site-support-chat__ticket-btn" type="button" role="listitem" ' + ticketData + '>فتح تذكرة</button>';
-        }
+      return '<div class="site-support-chat__cards" role="list">' + list.map(function(card){
         var icon = card.type === 'deposit' ? 'fa-wallet' : (card.type === 'order' ? 'fa-receipt' : 'fa-bag-shopping');
         var cta = card.action === 'open_deposit' ? 'إيداع' : (card.action === 'start_objection' ? 'اعتراض' : 'شراء');
         var media = card.imageUrl
@@ -13583,21 +13574,10 @@ function wirePageBalanceBox(){
       setSupportSelectedImage(null);
     }
 
-    function setSupportSendButtonBusy(busy){
-      var sendBtn = document.getElementById('siteSupportChatSend');
-      if (!sendBtn) return;
-      sendBtn.disabled = !!busy;
-      sendBtn.classList.toggle('is-sending', !!busy);
-      sendBtn.setAttribute('aria-busy', busy ? 'true' : 'false');
-      sendBtn.setAttribute('aria-label', busy ? 'جاري الإرسال' : 'إرسال');
-      sendBtn.innerHTML = busy
-        ? '<i class="fa-solid fa-circle-notch" aria-hidden="true"></i>'
-        : '<i class="fa-solid fa-paper-plane" aria-hidden="true"></i>';
-    }
-
     async function submitSupportMessage(){
       if (supportChatState.sending) return;
       var input = document.getElementById('siteSupportChatInput');
+      var sendBtn = document.getElementById('siteSupportChatSend');
       var text = input ? String(input.value || '').trim() : '';
       var imageFile = supportChatState.imageFile || null;
       if (!text && !imageFile) {
@@ -13605,7 +13585,7 @@ function wirePageBalanceBox(){
         return;
       }
       supportChatState.sending = true;
-      setSupportSendButtonBusy(true);
+      if (sendBtn) sendBtn.disabled = true;
       try {
         setSupportChatStatus(imageFile ? 'جاري رفع الصورة...' : 'جاري الإرسال...');
         var imageUrl = imageFile ? await uploadSupportImageFile(imageFile) : '';
@@ -13636,7 +13616,7 @@ function wirePageBalanceBox(){
         setSupportChatStatus(err && err.message ? err.message : 'تعذر إرسال الرسالة.');
       } finally {
         supportChatState.sending = false;
-        setSupportSendButtonBusy(false);
+        if (sendBtn) sendBtn.disabled = false;
       }
     }
 
@@ -13774,41 +13754,8 @@ function wirePageBalanceBox(){
       }
     }
 
-    async function submitSupportOpenTicket(){
-      if (supportChatState.sending) return;
-      supportChatState.sending = true;
-      setSupportSendButtonBusy(true);
-      try {
-        setSupportChatStatus('جاري فتح تذكرة الدعم...');
-        var payload = await callSupportApi('support-message', {
-          method: 'POST',
-          body: {
-            action: 'open_ticket',
-            type: 'open_ticket',
-            chatId: String((supportChatAuthUser && supportChatAuthUser.uid) || (supportChatState.thread && supportChatState.thread.userUid) || '')
-          }
-        });
-        clearSupportMessageSelection({ render: false });
-        if (payload && Array.isArray(payload.messages)) {
-          renderSupportThread(mergeSupportThreadMessages(payload.thread || null, payload.messages), { notify: false });
-        } else {
-          renderSupportThread(payload.thread || null, { notify: false });
-        }
-        setSupportChatStatus(payload && payload.message ? payload.message : 'تم فتح تذكرة الدعم.');
-      } catch (err) {
-        setSupportChatStatus(err && err.message ? err.message : 'تعذر فتح تذكرة الدعم.');
-      } finally {
-        supportChatState.sending = false;
-        setSupportSendButtonBusy(false);
-      }
-    }
-
     function handleSupportCardAction(button){
       var action = String(button && button.getAttribute('data-support-card-action') || '').trim();
-      if (action === 'open_ticket') {
-        submitSupportOpenTicket().catch(function(){});
-        return;
-      }
       if (action === 'open_product') {
         openSupportProductCard(button);
         return;
@@ -14205,88 +14152,48 @@ function wirePageBalanceBox(){
           display:block;
         }
         .site-support-chat__cards{
-          width:min(620px,100%);
+          width:min(420px,100%);
           max-width:100%;
-          display:flex;
-          gap:14px;
-          overflow-x:auto;
-          overflow-y:hidden;
-          padding:6px 2px 12px;
-          margin-top:4px;
-          scroll-snap-type:x proximity;
-          scrollbar-width:thin;
-        }
-        .site-support-chat__cards.is-ticket-prompt{
-          width:100%;
-          display:block;
+          display:grid;
+          grid-template-columns:1fr;
+          gap:8px;
           overflow:visible;
-          padding:8px 0 0;
-          margin-top:6px;
-          scroll-snap-type:none;
+          padding:4px 0 2px;
         }
         .site-support-chat__bubble:has(.site-support-chat__cards){
-          max-width:min(96%,680px);
-        }
-        .site-support-chat__bubble:has(.site-support-chat__cards.is-ticket-prompt){
-          max-width:min(88%,360px);
-        }
-        .site-support-chat__ticket-btn{
-          width:100%;
-          min-height:38px;
-          border:0;
-          border-radius:12px;
-          display:grid;
-          place-items:center;
-          padding:0 14px;
-          background:#229ed9;
-          color:#fff;
-          font-size:.86rem;
-          font-weight:900;
-          line-height:1.2;
-          box-shadow:none;
-          cursor:pointer;
-          direction:rtl;
-          text-align:center;
-        }
-        .site-support-chat__ticket-btn:hover{
-          transform:none;
-          filter:brightness(1.05);
+          max-width:min(92%,560px);
         }
         .site-support-chat__card{
-          flex:0 0 clamp(132px,28vw,174px);
-          width:clamp(132px,28vw,174px);
-          min-height:0;
-          border:0;
-          border-radius:0;
-          background:transparent;
+          width:100%;
+          min-height:82px;
+          border:1px solid rgba(148,163,184,.2);
+          border-radius:12px;
+          background:linear-gradient(135deg,#0f172a,#111827);
           color:#f8fafc;
-          display:flex;
-          flex-direction:column;
-          align-items:stretch;
-          gap:8px;
-          padding:0;
-          text-align:center;
+          display:grid;
+          grid-template-columns:64px minmax(0,1fr) auto;
+          align-items:center;
+          gap:10px;
+          padding:8px;
+          text-align:right;
           direction:rtl;
           line-height:1.45;
           cursor:pointer;
-          box-shadow:none;
-          scroll-snap-align:start;
+          box-shadow:0 10px 18px rgba(0,0,0,.18);
         }
         .site-support-chat__card:hover{
-          transform:translateY(-2px);
+          border-color:rgba(34,197,94,.45);
+          transform:translateY(-1px);
         }
         .site-support-chat__card-media{
-          width:100%;
-          aspect-ratio:1 / 1;
-          height:auto;
-          border-radius:14px;
+          width:64px;
+          height:64px;
+          border-radius:10px;
           overflow:hidden;
           display:grid;
           place-items:center;
-          background:linear-gradient(135deg,rgba(34,197,94,.14),rgba(15,23,42,.94));
+          background:rgba(34,197,94,.12);
           color:#86efac;
-          border:1px solid rgba(148,163,184,.18);
-          box-shadow:0 14px 28px rgba(0,0,0,.22);
         }
         .site-support-chat__bubble .site-support-chat__card-media,
         .site-support-chat__bubble .site-support-chat__card-body,
@@ -14307,7 +14214,6 @@ function wirePageBalanceBox(){
           align-content:center;
           gap:2px;
           direction:rtl;
-          padding:0 2px;
         }
         .site-support-chat__card-body strong,
         .site-support-chat__card-body small,
@@ -14320,7 +14226,7 @@ function wirePageBalanceBox(){
         }
         .site-support-chat__card-body strong{
           color:#fff;
-          font-size:.84rem;
+          font-size:.82rem;
           line-height:1.45;
         }
         .site-support-chat__card-body small{
@@ -14335,16 +14241,15 @@ function wirePageBalanceBox(){
           font-weight:900;
         }
         .site-support-chat__card-cta{
-          align-self:center;
-          min-width:62px;
-          min-height:30px;
-          padding:0 14px;
+          min-width:58px;
+          min-height:38px;
+          padding:0 12px;
           border-radius:999px;
           display:grid;
           place-items:center;
           background:#22c55e;
           color:#052e16;
-          font-size:.74rem;
+          font-size:.78rem;
           font-weight:900;
           white-space:nowrap;
         }
@@ -14353,14 +14258,16 @@ function wirePageBalanceBox(){
           font-size:.78rem;
         }
         @media (max-width:520px){
-          .site-support-chat__cards{
-            width:100%;
-            gap:12px;
-            padding-bottom:10px;
-          }
           .site-support-chat__card{
-            flex-basis:136px;
-            width:136px;
+            grid-template-columns:56px minmax(0,1fr);
+          }
+          .site-support-chat__card-media{
+            width:56px;
+            height:56px;
+          }
+          .site-support-chat__card-cta{
+            grid-column:1 / -1;
+            min-height:34px;
           }
         }
         .site-support-chat__image-btn{
@@ -14508,22 +14415,8 @@ function wirePageBalanceBox(){
           color:#fff;
           background:#22c55e;
           cursor:pointer;
-          transition:transform .16s ease,filter .16s ease,background .16s ease;
         }
-        .site-support-chat__form button:not(.site-support-chat__attach):not(:disabled):hover{
-          transform:translateY(-1px);
-          filter:brightness(1.05);
-        }
-        .site-support-chat__form button:disabled{opacity:.72;cursor:not-allowed}
-        .site-support-chat__form button.is-sending{
-          background:#16a34a;
-        }
-        .site-support-chat__form button.is-sending i{
-          animation:siteSupportSendSpin .8s linear infinite;
-        }
-        @keyframes siteSupportSendSpin{
-          to{transform:rotate(360deg)}
-        }
+        .site-support-chat__form button:disabled{opacity:.6;cursor:not-allowed}
         #siteSupportChatStatus{
           min-height:18px;
           padding:0 max(16px,calc((100vw - 820px)/2)) max(10px,env(safe-area-inset-bottom,0px));
