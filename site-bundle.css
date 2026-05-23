@@ -267,7 +267,7 @@ a img {
 .app-touch-selection {
   position: fixed;
   inset: 0;
-  z-index: 5200;
+  z-index: 2147483647;
   display: none;
   pointer-events: none;
 }
@@ -351,7 +351,7 @@ body.light-mode .app-touch-selection__toolbar {
   position: fixed;
   top: 0;
   left: 0;
-  z-index: 5000;
+  z-index: 2147483647;
   display: none;
   min-width: 220px;
   max-width: min(320px, calc(100vw - 20px));
@@ -11444,7 +11444,8 @@ body.motion-ui :is(
     }
     #purchase-modal .pm-card{
       width:min(560px,92vw);
-      background:linear-gradient(180deg, rgba(8,14,24,.94), rgba(8,14,24,.9));
+      --purchase-modal-surface:linear-gradient(180deg, rgba(8,14,24,.94), rgba(8,14,24,.9));
+      background:var(--purchase-modal-surface);
       color:var(--card-text);
       border:1px solid rgba(var(--site-accent-rgb, 148, 163, 184), .34);
       border-radius:18px;
@@ -11462,7 +11463,8 @@ body.motion-ui :is(
     }
     html[data-theme="light"] #purchase-modal .pm-card,
     body.light-mode #purchase-modal .pm-card{
-      background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,250,255,.96));
+      --purchase-modal-surface:linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,250,255,.96));
+      background:var(--purchase-modal-surface);
       border-color:rgba(var(--site-accent-rgb, 148, 163, 184), .28);
       box-shadow:0 16px 42px rgba(15,23,42,.14);
     }
@@ -11554,7 +11556,7 @@ body.motion-ui :is(
       height:30px;
       border-radius:999px;
       border:1px solid rgba(var(--site-accent-rgb, 148, 163, 184), .38);
-      background:rgba(4,10,28,.45);
+      background:inherit;
       color:#aebce6;
       display:inline-flex;
       align-items:center;
@@ -11573,7 +11575,7 @@ body.motion-ui :is(
     }
     html[data-theme="light"] #purchase-modal .pm-fav-toggle,
     body.light-mode #purchase-modal .pm-fav-toggle{
-      background:rgba(255,255,255,.8);
+      background:inherit !important;
       color:#7a86a8;
       border-color:rgba(99,118,163,.35);
     }

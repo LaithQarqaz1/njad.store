@@ -1,4 +1,4 @@
-// Deobfuscated and cleaned header logic
+﻿// Deobfuscated and cleaned header logic
 
 // Runtime config, router base, and Firebase bootstrap now come from site-bundle.js.
 // Realtime Firestore toggle (to reduce "channel?VER=8" requests)
@@ -731,7 +731,7 @@ function ensureSiteLoaderLogoNode(loaderNode){
       try { el.innerHTML = ''; } catch {}
       loaderRing = document.createElement('div');
       loaderRing.className = 'loader';
-      loaderRing.setAttribute('aria-label', 'جارِ التحميل');
+      loaderRing.setAttribute('aria-label', 'ط¬ط§ط±ظگ ط§ظ„طھط­ظ…ظٹظ„');
       el.appendChild(loaderRing);
     }
     ensureSiteLoaderLogoNode(loaderRing);
@@ -1434,10 +1434,10 @@ function ensureSessionConflictDialog(){
     overlay.setAttribute('aria-hidden', 'true');
     overlay.innerHTML = `
       <div class="session-conflict-card" role="alertdialog" aria-modal="true" aria-labelledby="sessionConflictTitle" aria-describedby="sessionConflictMessage">
-        <h2 id="sessionConflictTitle" class="session-conflict-title">تنبيه أمني</h2>
+        <h2 id="sessionConflictTitle" class="session-conflict-title">طھظ†ط¨ظٹظ‡ ط£ظ…ظ†ظٹ</h2>
         <p id="sessionConflictMessage" class="session-conflict-msg"></p>
         <div class="session-conflict-actions">
-          <button type="button" id="sessionConflictOkBtn" class="session-conflict-btn">حسنًا</button>
+          <button type="button" id="sessionConflictOkBtn" class="session-conflict-btn">ط­ط³ظ†ظ‹ط§</button>
         </div>
       </div>
     `;
@@ -1502,12 +1502,12 @@ function triggerSessionConflictLogout(reasonCode){
   clearSessionDocWatcher();
   clearAuthClientState();
   try { window.dispatchEvent(new CustomEvent('session:conflict')); } catch {}
-  let message = 'انتهت الجلسة الحالية. يرجى تسجيل الدخول من جديد.';
+  let message = 'ط§ظ†طھظ‡طھ ط§ظ„ط¬ظ„ط³ط© ط§ظ„ط­ط§ظ„ظٹط©. ظٹط±ط¬ظ‰ طھط³ط¬ظٹظ„ ط§ظ„ط¯ط®ظˆظ„ ظ…ظ† ط¬ط¯ظٹط¯.';
   const code = String(reasonCode || '').trim();
-  if (code === 'session_revoked') message = 'تم تسجيل الخروج من هذا الجهاز.';
-  else if (code === 'session_expired') message = 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى.';
+  if (code === 'session_revoked') message = 'طھظ… طھط³ط¬ظٹظ„ ط§ظ„ط®ط±ظˆط¬ ظ…ظ† ظ‡ط°ط§ ط§ظ„ط¬ظ‡ط§ط².';
+  else if (code === 'session_expired') message = 'ط§ظ†طھظ‡طھ طµظ„ط§ط­ظٹط© ط§ظ„ط¬ظ„ط³ط©. ظٹط±ط¬ظ‰ طھط³ط¬ظٹظ„ ط§ظ„ط¯ط®ظˆظ„ ظ…ط±ط© ط£ط®ط±ظ‰.';
   else if (code === 'session_mismatch' || code === 'session_conflict') {
-    message = 'تم تسجيل الدخول من جهاز آخر وتم إنهاء هذه الجلسة.';
+    message = 'طھظ… طھط³ط¬ظٹظ„ ط§ظ„ط¯ط®ظˆظ„ ظ…ظ† ط¬ظ‡ط§ط² ط¢ط®ط± ظˆطھظ… ط¥ظ†ظ‡ط§ط، ظ‡ط°ظ‡ ط§ظ„ط¬ظ„ط³ط©.';
   }
   const shown = showSessionConflictDialog(message, {
     autoCloseMs: 3200,
@@ -1674,7 +1674,7 @@ function watchSessionDocForDevice(user){
     const RATES_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
     const STORE_BASE_CODE = 'USD'; // Balance stored in database is USD.
-    // Rates map — filled from cache or Firebase
+    // Rates map â€” filled from cache or Firebase
     const CURRENCIES = {};
     let ratesListenerStarted = false;
     let ratesRestLoadInFlight = false;
@@ -1918,16 +1918,16 @@ function watchSessionDocForDevice(user){
         let s = String(raw)
           .replace(/\uFEFF/g,'')
           .replace(/[\u200f\u200e\u202a-\u202e]/g,'')
-          .replace(/[“”«»]/g,'"')
-          .replace(/[‘’]/g,"'")
-          .replace(/،/g,',')
-          .replace(/؛/g,',');
-        // إذا كان النص ملفوفًا بعلامات اقتباس ويبدأ بـ {، أزل الاقتباس الزائد
+          .replace(/[â€œâ€‌آ«آ»]/g,'"')
+          .replace(/[â€کâ€™]/g,"'")
+          .replace(/طŒ/g,',')
+          .replace(/ط›/g,',');
+        // ط¥ط°ط§ ظƒط§ظ† ط§ظ„ظ†طµ ظ…ظ„ظپظˆظپظ‹ط§ ط¨ط¹ظ„ط§ظ…ط§طھ ط§ظ‚طھط¨ط§ط³ ظˆظٹط¨ط¯ط£ ط¨ظ€ {طŒ ط£ط²ظ„ ط§ظ„ط§ظ‚طھط¨ط§ط³ ط§ظ„ط²ط§ط¦ط¯
         if (/^"\{/.test(s) && /\}"$/.test(s)) s = s.slice(1, -1);
         s = s.replace(/([\{,]\s*)([A-Za-z_][A-Za-z0-9_-]*)\s*:/g,'$1"$2":');
         s = s.replace(/([\{,]\s*)'([^']*)'\s*:/g,'$1"$2":');
         s = s.replace(/:\s*'([^']*)'/g,':"$1"');
-        // إزالة الفواصل الزائدة
+        // ط¥ط²ط§ظ„ط© ط§ظ„ظپظˆط§طµظ„ ط§ظ„ط²ط§ط¦ط¯ط©
         s = s.replace(/,(\s*[}\]])/g,'$1');
         const obj = JSON.parse(s);
         return (obj && typeof obj === 'object') ? obj : {};
@@ -1940,9 +1940,9 @@ function watchSessionDocForDevice(user){
       try {
         const s = String(t||'');
         if (/\$/.test(s)) return 'USD';
-        if (/د\.أ|دينار/.test(s)) return 'JOD';
-        if (/ر\.س|ريال/.test(s)) return 'SAR';
-        if (/ج\.م|جنيه/.test(s)) return 'EGP';
+        if (/ط¯\.ط£|ط¯ظٹظ†ط§ط±/.test(s)) return 'JOD';
+        if (/ط±\.ط³|ط±ظٹط§ظ„/.test(s)) return 'SAR';
+        if (/ط¬\.ظ…|ط¬ظ†ظٹظ‡/.test(s)) return 'EGP';
       } catch {}
       return '';
     }
@@ -2339,9 +2339,9 @@ function watchSessionDocForDevice(user){
         let s = String(raw || '')
           .replace(/\uFEFF/g,'')
           .replace(/[\u200f\u200e\u202a-\u202e]/g,'')
-          .replace(/[“”«»]/g,'"')
-          .replace(/[‘’]/g,"'")
-          .replace(/،/g,',').replace(/؛/g,',');
+          .replace(/[â€œâ€‌آ«آ»]/g,'"')
+          .replace(/[â€کâ€™]/g,"'")
+          .replace(/طŒ/g,',').replace(/ط›/g,',');
         s = s.replace(/([\{\[,]\s*)'([^']*)'\s*:/g,'$1"$2":');
         s = s.replace(/:\s*'([^']*)'/g,':"$1"');
         s = s.replace(/,(\s*[}\]])/g,'$1');
@@ -2732,65 +2732,65 @@ const I18N_TEXT = {
 };
 try {
   Object.assign(I18N_TEXT.ar, {
-    'legal.links.label': 'روابط قانونية',
-    'legal.consent.prefix': 'أوافق على',
-    'legal.consent.and': 'و',
-    'legal.consent.requiredAccount': 'يجب الموافقة على سياسة الخصوصية وشروط الاستخدام لإكمال إنشاء الحساب.',
-    'legal.consent.requiredFirst': 'يجب الموافقة على سياسة الخصوصية وشروط الاستخدام أولا.',
-    'legal.consent.googlePrompt': 'لإنشاء حساب جديد عبر Google يجب الموافقة على سياسة الخصوصية وشروط الاستخدام. هل توافق الآن؟',
-    'legal.consent.googleRequired': 'يجب الموافقة على سياسة الخصوصية وشروط الاستخدام لإكمال التسجيل عبر Google.',
-    'legal.consent.googleCanceled': 'تم إلغاء المتابعة. وافق على سياسة الخصوصية وشروط الاستخدام ثم أعد المحاولة.',
-    'legal.updated': 'آخر تحديث: 18 فبراير 2026',
-    'legal.privacy.title': 'سياسة الخصوصية',
-    'legal.privacy.scope.title': '1) نطاق السياسة',
-    'legal.privacy.scope.body': 'توضح هذه السياسة طريقة جمع واستخدام وحماية بيانات مستخدمي المتجر عبر الموقع والخدمات المرتبطة به.',
-    'legal.privacy.collect.title': '2) البيانات التي نجمعها',
-    'legal.privacy.collect.account': 'بيانات الحساب: الاسم، البريد الإلكتروني، رقم الهاتف، ومعرّفات تسجيل الدخول.',
-    'legal.privacy.collect.orders': 'بيانات الطلبات: الخدمة المطلوبة، حالة الطلب، تفاصيل الدفع اللازمة للتنفيذ والتوثيق.',
-    'legal.privacy.collect.tech': 'بيانات تقنية: نوع الجهاز، المتصفح، عنوان IP، وسجلات الاستخدام لتحسين الأداء والأمان.',
-    'legal.privacy.use.title': '3) كيف نستخدم البيانات',
-    'legal.privacy.use.orders': 'تنفيذ الطلبات وتقديم الدعم الفني.',
-    'legal.privacy.use.security': 'التحقق من الأمان ومنع الاحتيال وإساءة الاستخدام.',
-    'legal.privacy.use.notifications': 'إرسال الإشعارات المتعلقة بالحساب والطلبات والعروض (عند السماح بذلك).',
-    'legal.privacy.use.compliance': 'الامتثال للالتزامات القانونية والتنظيمية.',
-    'legal.privacy.share.title': '4) مشاركة البيانات',
-    'legal.privacy.share.body': 'لا يتم بيع بياناتك. قد تتم المشاركة فقط مع مزودي الدفع أو مزودي الخدمات التقنية أو الجهات الرسمية عند وجود سبب قانوني أو تشغيلي مشروع.',
-    'legal.privacy.protection.title': '5) حماية البيانات',
-    'legal.privacy.protection.body': 'نطبق إجراءات تنظيمية وتقنية معقولة لحماية البيانات. كما يلتزم المستخدم بالحفاظ على سرية كلمة المرور والرموز الأمنية وعدم مشاركتها.',
-    'legal.privacy.retention.title': '6) الاحتفاظ بالبيانات',
-    'legal.privacy.retention.body': 'يتم الاحتفاظ بالبيانات للمدة اللازمة لتقديم الخدمة، وتسوية النزاعات، والالتزام القانوني، ثم تزال أو تخفى هوية البيانات متى أمكن.',
-    'legal.privacy.rights.title': '7) حقوق المستخدم',
-    'legal.privacy.rights.body': 'يمكنك طلب تحديث بياناتك أو تصحيحها، وطلب حذفها ضمن الحدود النظامية وما لا يتعارض مع الالتزامات القانونية أو حقوق الطرفين في إثبات العمليات.',
-    'legal.privacy.cookies.title': '8) ملفات الارتباط والتخزين المحلي',
-    'legal.privacy.cookies.body': 'يستخدم الموقع التخزين المحلي وملفات تعريف الارتباط لتحسين تجربة الاستخدام، حفظ التفضيلات، واستمرارية الجلسة وعرض المحتوى بشكل أسرع.',
-    'legal.privacy.changes.title': '9) التعديلات على السياسة',
-    'legal.privacy.changes.body': 'قد يتم تحديث هذه السياسة عند تطوير الخدمات. استمرار الاستخدام بعد التحديث يعني الاطلاع والقبول بالإصدار الأحدث.',
-    'legal.privacy.note': 'باستخدامك للموقع، فإنك توافق على هذه السياسة بما يضمن مصلحة المستخدم والمتجر ويحفظ حقوق الطرفين.',
-    'legal.terms.title': 'شروط الاستخدام',
-    'legal.terms.acceptance.title': '1) القبول والأهلية',
-    'legal.terms.acceptance.body': 'استخدامك للمتجر يعني موافقتك على هذه الشروط، وأن لديك الأهلية النظامية لإجراء الطلبات والالتزامات المالية.',
-    'legal.terms.services.title': '2) طبيعة الخدمات',
-    'legal.terms.services.body': 'المتجر يقدم منتجات وخدمات رقمية (شحن/اشتراكات/أكواد). بعض الخدمات تعتمد على مزودين خارجيين وقد تختلف مدة التنفيذ وفق حالة المزود.',
-    'legal.terms.user.title': '3) التزامات المستخدم',
-    'legal.terms.user.accurate': 'إدخال بيانات صحيحة وكاملة عند الطلب.',
-    'legal.terms.user.lawful': 'عدم استخدام الموقع لأي نشاط مخالف للأنظمة أو ينتهك حقوق الغير.',
-    'legal.terms.user.responsibility': 'تحمل المسؤولية عن أي خطأ في البيانات المدخلة من طرفك.',
-    'legal.terms.pricing.title': '4) الأسعار والدفع',
-    'legal.terms.pricing.body': 'الأسعار المعروضة وقت تنفيذ الطلب هي المعتمدة، ويحق للمتجر تعديل الأسعار مستقبلًا دون أثر رجعي على الطلبات المكتملة.',
-    'legal.terms.orders.title': '5) قبول أو رفض الطلب',
-    'legal.terms.orders.body': 'يحق للمتجر إلغاء أو رفض أي طلب قبل التسليم في حال عدم التوفر، الاشتباه الاحتيالي، أو تعارض البيانات، مع إعادة المبلغ وفق وسيلة الدفع المتاحة عند الاقتضاء.',
-    'legal.terms.return.title': '6) الإرجاع والاستبدال',
-    'legal.terms.return.delivered': 'بعد تسليم الخدمة الرقمية أو ظهور الكود/تنفيذ الشحن، لا يحق طلب استرجاع إلا في حالات فشل موثقة بسبب من المتجر أو المزود.',
-    'legal.terms.return.issue': 'في حال ثبوت خلل قابل للتحقق، يتم التعويض المناسب (إعادة التنفيذ أو الرصيد أو الاسترجاع) وفق تقييم الحالة.',
-    'legal.terms.disputes.title': '7) النزاعات وعمليات الاعتراض',
-    'legal.terms.disputes.body': 'أي اعتراض دفع غير مبرر أو إساءة استخدام قد يؤدي إلى تعليق الحساب مؤقتًا حتى اكتمال التحقق وحماية حقوق جميع الأطراف.',
-    'legal.terms.liability.title': '8) حدود المسؤولية',
-    'legal.terms.liability.body': 'لا يتحمل المتجر المسؤولية عن الأضرار غير المباشرة أو الناتجة عن إدخال بيانات خاطئة من المستخدم أو عن انقطاع خارجي خارج السيطرة المعقولة.',
-    'legal.terms.ip.title': '9) الملكية الفكرية',
-    'legal.terms.ip.body': 'جميع محتويات الموقع من تصميم ونصوص وشعارات وواجهات هي ملك للمتجر أو لأصحابها المرخصين، ولا يجوز نسخها أو إعادة استخدامها دون إذن.',
-    'legal.terms.changes.title': '10) تعديل الشروط',
-    'legal.terms.changes.body': 'يجوز تحديث هذه الشروط عند الحاجة. استمرار استخدام الموقع بعد التعديل يعد قبولا بالإصدار المحدث.',
-    'legal.terms.note': 'هذه الشروط وضعت لحماية المستخدم والمتجر بشكل متوازن، وضمان تعامل واضح وعادل يحفظ حق الطرفين.'
+    'legal.links.label': 'ط±ظˆط§ط¨ط· ظ‚ط§ظ†ظˆظ†ظٹط©',
+    'legal.consent.prefix': 'ط£ظˆط§ظپظ‚ ط¹ظ„ظ‰',
+    'legal.consent.and': 'ظˆ',
+    'legal.consent.requiredAccount': 'ظٹط¬ط¨ ط§ظ„ظ…ظˆط§ظپظ‚ط© ط¹ظ„ظ‰ ط³ظٹط§ط³ط© ط§ظ„ط®طµظˆطµظٹط© ظˆط´ط±ظˆط· ط§ظ„ط§ط³طھط®ط¯ط§ظ… ظ„ط¥ظƒظ…ط§ظ„ ط¥ظ†ط´ط§ط، ط§ظ„ط­ط³ط§ط¨.',
+    'legal.consent.requiredFirst': 'ظٹط¬ط¨ ط§ظ„ظ…ظˆط§ظپظ‚ط© ط¹ظ„ظ‰ ط³ظٹط§ط³ط© ط§ظ„ط®طµظˆطµظٹط© ظˆط´ط±ظˆط· ط§ظ„ط§ط³طھط®ط¯ط§ظ… ط£ظˆظ„ط§.',
+    'legal.consent.googlePrompt': 'ظ„ط¥ظ†ط´ط§ط، ط­ط³ط§ط¨ ط¬ط¯ظٹط¯ ط¹ط¨ط± Google ظٹط¬ط¨ ط§ظ„ظ…ظˆط§ظپظ‚ط© ط¹ظ„ظ‰ ط³ظٹط§ط³ط© ط§ظ„ط®طµظˆطµظٹط© ظˆط´ط±ظˆط· ط§ظ„ط§ط³طھط®ط¯ط§ظ…. ظ‡ظ„ طھظˆط§ظپظ‚ ط§ظ„ط¢ظ†طں',
+    'legal.consent.googleRequired': 'ظٹط¬ط¨ ط§ظ„ظ…ظˆط§ظپظ‚ط© ط¹ظ„ظ‰ ط³ظٹط§ط³ط© ط§ظ„ط®طµظˆطµظٹط© ظˆط´ط±ظˆط· ط§ظ„ط§ط³طھط®ط¯ط§ظ… ظ„ط¥ظƒظ…ط§ظ„ ط§ظ„طھط³ط¬ظٹظ„ ط¹ط¨ط± Google.',
+    'legal.consent.googleCanceled': 'طھظ… ط¥ظ„ط؛ط§ط، ط§ظ„ظ…طھط§ط¨ط¹ط©. ظˆط§ظپظ‚ ط¹ظ„ظ‰ ط³ظٹط§ط³ط© ط§ظ„ط®طµظˆطµظٹط© ظˆط´ط±ظˆط· ط§ظ„ط§ط³طھط®ط¯ط§ظ… ط«ظ… ط£ط¹ط¯ ط§ظ„ظ…ط­ط§ظˆظ„ط©.',
+    'legal.updated': 'ط¢ط®ط± طھط­ط¯ظٹط«: 18 ظپط¨ط±ط§ظٹط± 2026',
+    'legal.privacy.title': 'ط³ظٹط§ط³ط© ط§ظ„ط®طµظˆطµظٹط©',
+    'legal.privacy.scope.title': '1) ظ†ط·ط§ظ‚ ط§ظ„ط³ظٹط§ط³ط©',
+    'legal.privacy.scope.body': 'طھظˆط¶ط­ ظ‡ط°ظ‡ ط§ظ„ط³ظٹط§ط³ط© ط·ط±ظٹظ‚ط© ط¬ظ…ط¹ ظˆط§ط³طھط®ط¯ط§ظ… ظˆط­ظ…ط§ظٹط© ط¨ظٹط§ظ†ط§طھ ظ…ط³طھط®ط¯ظ…ظٹ ط§ظ„ظ…طھط¬ط± ط¹ط¨ط± ط§ظ„ظ…ظˆظ‚ط¹ ظˆط§ظ„ط®ط¯ظ…ط§طھ ط§ظ„ظ…ط±طھط¨ط·ط© ط¨ظ‡.',
+    'legal.privacy.collect.title': '2) ط§ظ„ط¨ظٹط§ظ†ط§طھ ط§ظ„طھظٹ ظ†ط¬ظ…ط¹ظ‡ط§',
+    'legal.privacy.collect.account': 'ط¨ظٹط§ظ†ط§طھ ط§ظ„ط­ط³ط§ط¨: ط§ظ„ط§ط³ظ…طŒ ط§ظ„ط¨ط±ظٹط¯ ط§ظ„ط¥ظ„ظƒطھط±ظˆظ†ظٹطŒ ط±ظ‚ظ… ط§ظ„ظ‡ط§طھظپطŒ ظˆظ…ط¹ط±ظ‘ظپط§طھ طھط³ط¬ظٹظ„ ط§ظ„ط¯ط®ظˆظ„.',
+    'legal.privacy.collect.orders': 'ط¨ظٹط§ظ†ط§طھ ط§ظ„ط·ظ„ط¨ط§طھ: ط§ظ„ط®ط¯ظ…ط© ط§ظ„ظ…ط·ظ„ظˆط¨ط©طŒ ط­ط§ظ„ط© ط§ظ„ط·ظ„ط¨طŒ طھظپط§طµظٹظ„ ط§ظ„ط¯ظپط¹ ط§ظ„ظ„ط§ط²ظ…ط© ظ„ظ„طھظ†ظپظٹط° ظˆط§ظ„طھظˆط«ظٹظ‚.',
+    'legal.privacy.collect.tech': 'ط¨ظٹط§ظ†ط§طھ طھظ‚ظ†ظٹط©: ظ†ظˆط¹ ط§ظ„ط¬ظ‡ط§ط²طŒ ط§ظ„ظ…طھطµظپط­طŒ ط¹ظ†ظˆط§ظ† IPطŒ ظˆط³ط¬ظ„ط§طھ ط§ظ„ط§ط³طھط®ط¯ط§ظ… ظ„طھط­ط³ظٹظ† ط§ظ„ط£ط¯ط§ط، ظˆط§ظ„ط£ظ…ط§ظ†.',
+    'legal.privacy.use.title': '3) ظƒظٹظپ ظ†ط³طھط®ط¯ظ… ط§ظ„ط¨ظٹط§ظ†ط§طھ',
+    'legal.privacy.use.orders': 'طھظ†ظپظٹط° ط§ظ„ط·ظ„ط¨ط§طھ ظˆطھظ‚ط¯ظٹظ… ط§ظ„ط¯ط¹ظ… ط§ظ„ظپظ†ظٹ.',
+    'legal.privacy.use.security': 'ط§ظ„طھط­ظ‚ظ‚ ظ…ظ† ط§ظ„ط£ظ…ط§ظ† ظˆظ…ظ†ط¹ ط§ظ„ط§ط­طھظٹط§ظ„ ظˆط¥ط³ط§ط،ط© ط§ظ„ط§ط³طھط®ط¯ط§ظ….',
+    'legal.privacy.use.notifications': 'ط¥ط±ط³ط§ظ„ ط§ظ„ط¥ط´ط¹ط§ط±ط§طھ ط§ظ„ظ…طھط¹ظ„ظ‚ط© ط¨ط§ظ„ط­ط³ط§ط¨ ظˆط§ظ„ط·ظ„ط¨ط§طھ ظˆط§ظ„ط¹ط±ظˆط¶ (ط¹ظ†ط¯ ط§ظ„ط³ظ…ط§ط­ ط¨ط°ظ„ظƒ).',
+    'legal.privacy.use.compliance': 'ط§ظ„ط§ظ…طھط«ط§ظ„ ظ„ظ„ط§ظ„طھط²ط§ظ…ط§طھ ط§ظ„ظ‚ط§ظ†ظˆظ†ظٹط© ظˆط§ظ„طھظ†ط¸ظٹظ…ظٹط©.',
+    'legal.privacy.share.title': '4) ظ…ط´ط§ط±ظƒط© ط§ظ„ط¨ظٹط§ظ†ط§طھ',
+    'legal.privacy.share.body': 'ظ„ط§ ظٹطھظ… ط¨ظٹط¹ ط¨ظٹط§ظ†ط§طھظƒ. ظ‚ط¯ طھطھظ… ط§ظ„ظ…ط´ط§ط±ظƒط© ظپظ‚ط· ظ…ط¹ ظ…ط²ظˆط¯ظٹ ط§ظ„ط¯ظپط¹ ط£ظˆ ظ…ط²ظˆط¯ظٹ ط§ظ„ط®ط¯ظ…ط§طھ ط§ظ„طھظ‚ظ†ظٹط© ط£ظˆ ط§ظ„ط¬ظ‡ط§طھ ط§ظ„ط±ط³ظ…ظٹط© ط¹ظ†ط¯ ظˆط¬ظˆط¯ ط³ط¨ط¨ ظ‚ط§ظ†ظˆظ†ظٹ ط£ظˆ طھط´ط؛ظٹظ„ظٹ ظ…ط´ط±ظˆط¹.',
+    'legal.privacy.protection.title': '5) ط­ظ…ط§ظٹط© ط§ظ„ط¨ظٹط§ظ†ط§طھ',
+    'legal.privacy.protection.body': 'ظ†ط·ط¨ظ‚ ط¥ط¬ط±ط§ط،ط§طھ طھظ†ط¸ظٹظ…ظٹط© ظˆطھظ‚ظ†ظٹط© ظ…ط¹ظ‚ظˆظ„ط© ظ„ط­ظ…ط§ظٹط© ط§ظ„ط¨ظٹط§ظ†ط§طھ. ظƒظ…ط§ ظٹظ„طھط²ظ… ط§ظ„ظ…ط³طھط®ط¯ظ… ط¨ط§ظ„ط­ظپط§ط¸ ط¹ظ„ظ‰ ط³ط±ظٹط© ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط± ظˆط§ظ„ط±ظ…ظˆط² ط§ظ„ط£ظ…ظ†ظٹط© ظˆط¹ط¯ظ… ظ…ط´ط§ط±ظƒطھظ‡ط§.',
+    'legal.privacy.retention.title': '6) ط§ظ„ط§ط­طھظپط§ط¸ ط¨ط§ظ„ط¨ظٹط§ظ†ط§طھ',
+    'legal.privacy.retention.body': 'ظٹطھظ… ط§ظ„ط§ط­طھظپط§ط¸ ط¨ط§ظ„ط¨ظٹط§ظ†ط§طھ ظ„ظ„ظ…ط¯ط© ط§ظ„ظ„ط§ط²ظ…ط© ظ„طھظ‚ط¯ظٹظ… ط§ظ„ط®ط¯ظ…ط©طŒ ظˆطھط³ظˆظٹط© ط§ظ„ظ†ط²ط§ط¹ط§طھطŒ ظˆط§ظ„ط§ظ„طھط²ط§ظ… ط§ظ„ظ‚ط§ظ†ظˆظ†ظٹطŒ ط«ظ… طھط²ط§ظ„ ط£ظˆ طھط®ظپظ‰ ظ‡ظˆظٹط© ط§ظ„ط¨ظٹط§ظ†ط§طھ ظ…طھظ‰ ط£ظ…ظƒظ†.',
+    'legal.privacy.rights.title': '7) ط­ظ‚ظˆظ‚ ط§ظ„ظ…ط³طھط®ط¯ظ…',
+    'legal.privacy.rights.body': 'ظٹظ…ظƒظ†ظƒ ط·ظ„ط¨ طھط­ط¯ظٹط« ط¨ظٹط§ظ†ط§طھظƒ ط£ظˆ طھطµط­ظٹط­ظ‡ط§طŒ ظˆط·ظ„ط¨ ط­ط°ظپظ‡ط§ ط¶ظ…ظ† ط§ظ„ط­ط¯ظˆط¯ ط§ظ„ظ†ط¸ط§ظ…ظٹط© ظˆظ…ط§ ظ„ط§ ظٹطھط¹ط§ط±ط¶ ظ…ط¹ ط§ظ„ط§ظ„طھط²ط§ظ…ط§طھ ط§ظ„ظ‚ط§ظ†ظˆظ†ظٹط© ط£ظˆ ط­ظ‚ظˆظ‚ ط§ظ„ط·ط±ظپظٹظ† ظپظٹ ط¥ط«ط¨ط§طھ ط§ظ„ط¹ظ…ظ„ظٹط§طھ.',
+    'legal.privacy.cookies.title': '8) ظ…ظ„ظپط§طھ ط§ظ„ط§ط±طھط¨ط§ط· ظˆط§ظ„طھط®ط²ظٹظ† ط§ظ„ظ…ط­ظ„ظٹ',
+    'legal.privacy.cookies.body': 'ظٹط³طھط®ط¯ظ… ط§ظ„ظ…ظˆظ‚ط¹ ط§ظ„طھط®ط²ظٹظ† ط§ظ„ظ…ط­ظ„ظٹ ظˆظ…ظ„ظپط§طھ طھط¹ط±ظٹظپ ط§ظ„ط§ط±طھط¨ط§ط· ظ„طھط­ط³ظٹظ† طھط¬ط±ط¨ط© ط§ظ„ط§ط³طھط®ط¯ط§ظ…طŒ ط­ظپط¸ ط§ظ„طھظپط¶ظٹظ„ط§طھطŒ ظˆط§ط³طھظ…ط±ط§ط±ظٹط© ط§ظ„ط¬ظ„ط³ط© ظˆط¹ط±ط¶ ط§ظ„ظ…ط­طھظˆظ‰ ط¨ط´ظƒظ„ ط£ط³ط±ط¹.',
+    'legal.privacy.changes.title': '9) ط§ظ„طھط¹ط¯ظٹظ„ط§طھ ط¹ظ„ظ‰ ط§ظ„ط³ظٹط§ط³ط©',
+    'legal.privacy.changes.body': 'ظ‚ط¯ ظٹطھظ… طھط­ط¯ظٹط« ظ‡ط°ظ‡ ط§ظ„ط³ظٹط§ط³ط© ط¹ظ†ط¯ طھط·ظˆظٹط± ط§ظ„ط®ط¯ظ…ط§طھ. ط§ط³طھظ…ط±ط§ط± ط§ظ„ط§ط³طھط®ط¯ط§ظ… ط¨ط¹ط¯ ط§ظ„طھط­ط¯ظٹط« ظٹط¹ظ†ظٹ ط§ظ„ط§ط·ظ„ط§ط¹ ظˆط§ظ„ظ‚ط¨ظˆظ„ ط¨ط§ظ„ط¥طµط¯ط§ط± ط§ظ„ط£ط­ط¯ط«.',
+    'legal.privacy.note': 'ط¨ط§ط³طھط®ط¯ط§ظ…ظƒ ظ„ظ„ظ…ظˆظ‚ط¹طŒ ظپط¥ظ†ظƒ طھظˆط§ظپظ‚ ط¹ظ„ظ‰ ظ‡ط°ظ‡ ط§ظ„ط³ظٹط§ط³ط© ط¨ظ…ط§ ظٹط¶ظ…ظ† ظ…طµظ„ط­ط© ط§ظ„ظ…ط³طھط®ط¯ظ… ظˆط§ظ„ظ…طھط¬ط± ظˆظٹط­ظپط¸ ط­ظ‚ظˆظ‚ ط§ظ„ط·ط±ظپظٹظ†.',
+    'legal.terms.title': 'ط´ط±ظˆط· ط§ظ„ط§ط³طھط®ط¯ط§ظ…',
+    'legal.terms.acceptance.title': '1) ط§ظ„ظ‚ط¨ظˆظ„ ظˆط§ظ„ط£ظ‡ظ„ظٹط©',
+    'legal.terms.acceptance.body': 'ط§ط³طھط®ط¯ط§ظ…ظƒ ظ„ظ„ظ…طھط¬ط± ظٹط¹ظ†ظٹ ظ…ظˆط§ظپظ‚طھظƒ ط¹ظ„ظ‰ ظ‡ط°ظ‡ ط§ظ„ط´ط±ظˆط·طŒ ظˆط£ظ† ظ„ط¯ظٹظƒ ط§ظ„ط£ظ‡ظ„ظٹط© ط§ظ„ظ†ط¸ط§ظ…ظٹط© ظ„ط¥ط¬ط±ط§ط، ط§ظ„ط·ظ„ط¨ط§طھ ظˆط§ظ„ط§ظ„طھط²ط§ظ…ط§طھ ط§ظ„ظ…ط§ظ„ظٹط©.',
+    'legal.terms.services.title': '2) ط·ط¨ظٹط¹ط© ط§ظ„ط®ط¯ظ…ط§طھ',
+    'legal.terms.services.body': 'ط§ظ„ظ…طھط¬ط± ظٹظ‚ط¯ظ… ظ…ظ†طھط¬ط§طھ ظˆط®ط¯ظ…ط§طھ ط±ظ‚ظ…ظٹط© (ط´ط­ظ†/ط§ط´طھط±ط§ظƒط§طھ/ط£ظƒظˆط§ط¯). ط¨ط¹ط¶ ط§ظ„ط®ط¯ظ…ط§طھ طھط¹طھظ…ط¯ ط¹ظ„ظ‰ ظ…ط²ظˆط¯ظٹظ† ط®ط§ط±ط¬ظٹظٹظ† ظˆظ‚ط¯ طھط®طھظ„ظپ ظ…ط¯ط© ط§ظ„طھظ†ظپظٹط° ظˆظپظ‚ ط­ط§ظ„ط© ط§ظ„ظ…ط²ظˆط¯.',
+    'legal.terms.user.title': '3) ط§ظ„طھط²ط§ظ…ط§طھ ط§ظ„ظ…ط³طھط®ط¯ظ…',
+    'legal.terms.user.accurate': 'ط¥ط¯ط®ط§ظ„ ط¨ظٹط§ظ†ط§طھ طµط­ظٹط­ط© ظˆظƒط§ظ…ظ„ط© ط¹ظ†ط¯ ط§ظ„ط·ظ„ط¨.',
+    'legal.terms.user.lawful': 'ط¹ط¯ظ… ط§ط³طھط®ط¯ط§ظ… ط§ظ„ظ…ظˆظ‚ط¹ ظ„ط£ظٹ ظ†ط´ط§ط· ظ…ط®ط§ظ„ظپ ظ„ظ„ط£ظ†ط¸ظ…ط© ط£ظˆ ظٹظ†طھظ‡ظƒ ط­ظ‚ظˆظ‚ ط§ظ„ط؛ظٹط±.',
+    'legal.terms.user.responsibility': 'طھط­ظ…ظ„ ط§ظ„ظ…ط³ط¤ظˆظ„ظٹط© ط¹ظ† ط£ظٹ ط®ط·ط£ ظپظٹ ط§ظ„ط¨ظٹط§ظ†ط§طھ ط§ظ„ظ…ط¯ط®ظ„ط© ظ…ظ† ط·ط±ظپظƒ.',
+    'legal.terms.pricing.title': '4) ط§ظ„ط£ط³ط¹ط§ط± ظˆط§ظ„ط¯ظپط¹',
+    'legal.terms.pricing.body': 'ط§ظ„ط£ط³ط¹ط§ط± ط§ظ„ظ…ط¹ط±ظˆط¶ط© ظˆظ‚طھ طھظ†ظپظٹط° ط§ظ„ط·ظ„ط¨ ظ‡ظٹ ط§ظ„ظ…ط¹طھظ…ط¯ط©طŒ ظˆظٹط­ظ‚ ظ„ظ„ظ…طھط¬ط± طھط¹ط¯ظٹظ„ ط§ظ„ط£ط³ط¹ط§ط± ظ…ط³طھظ‚ط¨ظ„ظ‹ط§ ط¯ظˆظ† ط£ط«ط± ط±ط¬ط¹ظٹ ط¹ظ„ظ‰ ط§ظ„ط·ظ„ط¨ط§طھ ط§ظ„ظ…ظƒطھظ…ظ„ط©.',
+    'legal.terms.orders.title': '5) ظ‚ط¨ظˆظ„ ط£ظˆ ط±ظپط¶ ط§ظ„ط·ظ„ط¨',
+    'legal.terms.orders.body': 'ظٹط­ظ‚ ظ„ظ„ظ…طھط¬ط± ط¥ظ„ط؛ط§ط، ط£ظˆ ط±ظپط¶ ط£ظٹ ط·ظ„ط¨ ظ‚ط¨ظ„ ط§ظ„طھط³ظ„ظٹظ… ظپظٹ ط­ط§ظ„ ط¹ط¯ظ… ط§ظ„طھظˆظپط±طŒ ط§ظ„ط§ط´طھط¨ط§ظ‡ ط§ظ„ط§ط­طھظٹط§ظ„ظٹطŒ ط£ظˆ طھط¹ط§ط±ط¶ ط§ظ„ط¨ظٹط§ظ†ط§طھطŒ ظ…ط¹ ط¥ط¹ط§ط¯ط© ط§ظ„ظ…ط¨ظ„ط؛ ظˆظپظ‚ ظˆط³ظٹظ„ط© ط§ظ„ط¯ظپط¹ ط§ظ„ظ…طھط§ط­ط© ط¹ظ†ط¯ ط§ظ„ط§ظ‚طھط¶ط§ط،.',
+    'legal.terms.return.title': '6) ط§ظ„ط¥ط±ط¬ط§ط¹ ظˆط§ظ„ط§ط³طھط¨ط¯ط§ظ„',
+    'legal.terms.return.delivered': 'ط¨ط¹ط¯ طھط³ظ„ظٹظ… ط§ظ„ط®ط¯ظ…ط© ط§ظ„ط±ظ‚ظ…ظٹط© ط£ظˆ ط¸ظ‡ظˆط± ط§ظ„ظƒظˆط¯/طھظ†ظپظٹط° ط§ظ„ط´ط­ظ†طŒ ظ„ط§ ظٹط­ظ‚ ط·ظ„ط¨ ط§ط³طھط±ط¬ط§ط¹ ط¥ظ„ط§ ظپظٹ ط­ط§ظ„ط§طھ ظپط´ظ„ ظ…ظˆط«ظ‚ط© ط¨ط³ط¨ط¨ ظ…ظ† ط§ظ„ظ…طھط¬ط± ط£ظˆ ط§ظ„ظ…ط²ظˆط¯.',
+    'legal.terms.return.issue': 'ظپظٹ ط­ط§ظ„ ط«ط¨ظˆطھ ط®ظ„ظ„ ظ‚ط§ط¨ظ„ ظ„ظ„طھط­ظ‚ظ‚طŒ ظٹطھظ… ط§ظ„طھط¹ظˆظٹط¶ ط§ظ„ظ…ظ†ط§ط³ط¨ (ط¥ط¹ط§ط¯ط© ط§ظ„طھظ†ظپظٹط° ط£ظˆ ط§ظ„ط±طµظٹط¯ ط£ظˆ ط§ظ„ط§ط³طھط±ط¬ط§ط¹) ظˆظپظ‚ طھظ‚ظٹظٹظ… ط§ظ„ط­ط§ظ„ط©.',
+    'legal.terms.disputes.title': '7) ط§ظ„ظ†ط²ط§ط¹ط§طھ ظˆط¹ظ…ظ„ظٹط§طھ ط§ظ„ط§ط¹طھط±ط§ط¶',
+    'legal.terms.disputes.body': 'ط£ظٹ ط§ط¹طھط±ط§ط¶ ط¯ظپط¹ ط؛ظٹط± ظ…ط¨ط±ط± ط£ظˆ ط¥ط³ط§ط،ط© ط§ط³طھط®ط¯ط§ظ… ظ‚ط¯ ظٹط¤ط¯ظٹ ط¥ظ„ظ‰ طھط¹ظ„ظٹظ‚ ط§ظ„ط­ط³ط§ط¨ ظ…ط¤ظ‚طھظ‹ط§ ط­طھظ‰ ط§ظƒطھظ…ط§ظ„ ط§ظ„طھط­ظ‚ظ‚ ظˆط­ظ…ط§ظٹط© ط­ظ‚ظˆظ‚ ط¬ظ…ظٹط¹ ط§ظ„ط£ط·ط±ط§ظپ.',
+    'legal.terms.liability.title': '8) ط­ط¯ظˆط¯ ط§ظ„ظ…ط³ط¤ظˆظ„ظٹط©',
+    'legal.terms.liability.body': 'ظ„ط§ ظٹطھط­ظ…ظ„ ط§ظ„ظ…طھط¬ط± ط§ظ„ظ…ط³ط¤ظˆظ„ظٹط© ط¹ظ† ط§ظ„ط£ط¶ط±ط§ط± ط؛ظٹط± ط§ظ„ظ…ط¨ط§ط´ط±ط© ط£ظˆ ط§ظ„ظ†ط§طھط¬ط© ط¹ظ† ط¥ط¯ط®ط§ظ„ ط¨ظٹط§ظ†ط§طھ ط®ط§ط·ط¦ط© ظ…ظ† ط§ظ„ظ…ط³طھط®ط¯ظ… ط£ظˆ ط¹ظ† ط§ظ†ظ‚ط·ط§ط¹ ط®ط§ط±ط¬ظٹ ط®ط§ط±ط¬ ط§ظ„ط³ظٹط·ط±ط© ط§ظ„ظ…ط¹ظ‚ظˆظ„ط©.',
+    'legal.terms.ip.title': '9) ط§ظ„ظ…ظ„ظƒظٹط© ط§ظ„ظپظƒط±ظٹط©',
+    'legal.terms.ip.body': 'ط¬ظ…ظٹط¹ ظ…ط­طھظˆظٹط§طھ ط§ظ„ظ…ظˆظ‚ط¹ ظ…ظ† طھطµظ…ظٹظ… ظˆظ†طµظˆطµ ظˆط´ط¹ط§ط±ط§طھ ظˆظˆط§ط¬ظ‡ط§طھ ظ‡ظٹ ظ…ظ„ظƒ ظ„ظ„ظ…طھط¬ط± ط£ظˆ ظ„ط£طµط­ط§ط¨ظ‡ط§ ط§ظ„ظ…ط±ط®طµظٹظ†طŒ ظˆظ„ط§ ظٹط¬ظˆط² ظ†ط³ط®ظ‡ط§ ط£ظˆ ط¥ط¹ط§ط¯ط© ط§ط³طھط®ط¯ط§ظ…ظ‡ط§ ط¯ظˆظ† ط¥ط°ظ†.',
+    'legal.terms.changes.title': '10) طھط¹ط¯ظٹظ„ ط§ظ„ط´ط±ظˆط·',
+    'legal.terms.changes.body': 'ظٹط¬ظˆط² طھط­ط¯ظٹط« ظ‡ط°ظ‡ ط§ظ„ط´ط±ظˆط· ط¹ظ†ط¯ ط§ظ„ط­ط§ط¬ط©. ط§ط³طھظ…ط±ط§ط± ط§ط³طھط®ط¯ط§ظ… ط§ظ„ظ…ظˆظ‚ط¹ ط¨ط¹ط¯ ط§ظ„طھط¹ط¯ظٹظ„ ظٹط¹ط¯ ظ‚ط¨ظˆظ„ط§ ط¨ط§ظ„ط¥طµط¯ط§ط± ط§ظ„ظ…ط­ط¯ط«.',
+    'legal.terms.note': 'ظ‡ط°ظ‡ ط§ظ„ط´ط±ظˆط· ظˆط¶ط¹طھ ظ„ط­ظ…ط§ظٹط© ط§ظ„ظ…ط³طھط®ط¯ظ… ظˆط§ظ„ظ…طھط¬ط± ط¨ط´ظƒظ„ ظ…طھظˆط§ط²ظ†طŒ ظˆط¶ظ…ط§ظ† طھط¹ط§ظ…ظ„ ظˆط§ط¶ط­ ظˆط¹ط§ط¯ظ„ ظٹط­ظپط¸ ط­ظ‚ ط§ظ„ط·ط±ظپظٹظ†.'
   });
   Object.assign(I18N_TEXT.en, {
     'legal.links.label': 'Legal links',
@@ -2854,7 +2854,7 @@ try {
     'legal.terms.note': 'These terms were created to protect both the user and the store in a balanced way and to ensure a clear and fair relationship that preserves both parties\' rights.'
   });
   Object.assign(I18N_TEXT.fr, {
-    'legal.links.label': 'Liens légaux',
+    'legal.links.label': 'Liens lأ©gaux',
     'legal.consent.prefix': 'J\'accepte',
     'legal.consent.and': 'et',
     'legal.consent.requiredAccount': 'Vous devez accepter la Politique de confidentialite et les Conditions d\'utilisation pour finaliser la creation du compte.',
@@ -2931,7 +2931,7 @@ const LATIN_RE = /[A-Za-z]/;
 function hasLatin(value){
   return LATIN_RE.test(String(value || ''));
 }
-const CURRENCY_TOKEN_RE = /(?:[$€£¥₺₽₿]|[A-Z]{2,8}|د\.ا|د\.إ|د\.ك|ر\.س|ر\.ق|ر\.ع|د\.ب|ج\.م|ل\.س|ل\.ل)/i;
+const CURRENCY_TOKEN_RE = /(?:[$â‚¬آ£آ¥â‚؛â‚½â‚؟]|[A-Z]{2,8}|ط¯\.ط§|ط¯\.ط¥|ط¯\.ظƒ|ط±\.ط³|ط±\.ظ‚|ط±\.ط¹|ط¯\.ط¨|ط¬\.ظ…|ظ„\.ط³|ظ„\.ظ„)/i;
 const ARABIC_INDIC_DIGITS_RE = /[\u0660-\u0669]/g;
 const EASTERN_ARABIC_INDIC_DIGITS_RE = /[\u06F0-\u06F9]/g;
 function normalizeDigitsForCurrency(value){
@@ -3072,20 +3072,20 @@ try {
   });
 } catch {}
 try {
-  I18N_AR_OVERRIDES['ابحث داخل القائمة الحالية.'] = {
+  I18N_AR_OVERRIDES['ط§ط¨ط­ط« ط¯ط§ط®ظ„ ط§ظ„ظ‚ط§ط¦ظ…ط© ط§ظ„ط­ط§ظ„ظٹط©.'] = {
     en: 'Search within the current list.',
     fr: 'Recherchez dans la liste actuelle.'
   };
   I18N_EN_OVERRIDES['Search within the current list.'] = {
-    ar: 'ابحث داخل القائمة الحالية.',
+    ar: 'ط§ط¨ط­ط« ط¯ط§ط®ظ„ ط§ظ„ظ‚ط§ط¦ظ…ط© ط§ظ„ط­ط§ظ„ظٹط©.',
     fr: 'Recherchez dans la liste actuelle.'
   };
-  I18N_AR_OVERRIDES['ابحث عن الباقات...'] = {
+  I18N_AR_OVERRIDES['ط§ط¨ط­ط« ط¹ظ† ط§ظ„ط¨ط§ظ‚ط§طھ...'] = {
     en: 'Search for packages...',
     fr: 'Recherchez les forfaits...'
   };
   I18N_EN_OVERRIDES['Search for packages...'] = {
-    ar: 'ابحث عن الباقات...',
+    ar: 'ط§ط¨ط­ط« ط¹ظ† ط§ظ„ط¨ط§ظ‚ط§طھ...',
     fr: 'Recherchez les forfaits...'
   };
 } catch {}
@@ -4273,46 +4273,46 @@ var translateCatalogDynamicText = function(rawText){
   } catch {}
 
   const overrides = {
-    'دفعاتي': { en: 'My Payments', fr: 'Mes paiements' },
-    'ايدي اللاعب': { en: 'Player ID', fr: "ID du joueur" },
-    'ايدي اللاعب:': { en: 'Player ID:', fr: "ID du joueur :" },
-    'ادخل الايدي هنا': { en: 'Enter Player ID', fr: "Entrez l'ID du joueur" },
-    'ادخل ايدي اللاعب': { en: 'Enter Player ID', fr: "Entrez l'ID du joueur" },
-    'شراء': { en: 'Buy', fr: 'Acheter' },
-    'شراء الآن': { en: 'Buy Now', fr: 'Acheter maintenant' },
-    'رجوع': { en: 'Back', fr: 'Retour' },
-    'مسح': { en: 'Clear', fr: 'Effacer' },
-    'غير متوفر': { en: 'Unavailable', fr: 'Indisponible' },
-    'ببجي': { en: 'PUBG Mobile', fr: 'PUBG Mobile' },
-    'ببجي موبايل': { en: 'PUBG Mobile', fr: 'PUBG Mobile' },
-    'فري فاير': { en: 'Free Fire', fr: 'Free Fire' },
-    'جواكر': { en: 'Jawaker', fr: 'Jawaker' },
-    'موبايل ليجند': { en: 'Mobile Legends', fr: 'Mobile Legends' },
-    'ماين كرافت': { en: 'Minecraft', fr: 'Minecraft' },
-    'كلاش اوف كلانس': { en: 'Clash of Clans', fr: 'Clash of Clans' },
-    'كلاش رويال': { en: 'Clash Royale', fr: 'Clash Royale' },
-    'براول ستارز': { en: 'Brawl Stars', fr: 'Brawl Stars' },
-    'بلود سترايك': { en: 'Blood Strike', fr: 'Blood Strike' },
-    'وي بلاي': { en: 'WePlay', fr: 'WePlay' },
-    'ليبي': { en: 'Ludo', fr: 'Ludo' },
-    'اورلي': { en: 'Orly', fr: 'Orly' },
-    'اكواد': { en: 'Codes', fr: 'Codes' },
-    'عروض': { en: 'Offers', fr: 'Offres' },
-    'روبوت': { en: 'Bot', fr: 'Bot' },
-    'جوهرة': { en: 'Gem', fr: 'Gemme' },
-    'جواهر': { en: 'Gems', fr: 'Gemmes' },
-    'هذا المنتج يعمل بشكل تلقائي 24 ساعة': { en: 'This product works automatically 24/7', fr: 'Ce produit fonctionne automatiquement 24h/24' },
-    'الخدمة تلقائية وتعمل على مدار ال24 ساعة': { en: 'The service is automatic and operates 24 hours a day', fr: 'Le service est automatique et fonctionne 24h/24' }
+    'ط¯ظپط¹ط§طھظٹ': { en: 'My Payments', fr: 'Mes paiements' },
+    'ط§ظٹط¯ظٹ ط§ظ„ظ„ط§ط¹ط¨': { en: 'Player ID', fr: "ID du joueur" },
+    'ط§ظٹط¯ظٹ ط§ظ„ظ„ط§ط¹ط¨:': { en: 'Player ID:', fr: "ID du joueur :" },
+    'ط§ط¯ط®ظ„ ط§ظ„ط§ظٹط¯ظٹ ظ‡ظ†ط§': { en: 'Enter Player ID', fr: "Entrez l'ID du joueur" },
+    'ط§ط¯ط®ظ„ ط§ظٹط¯ظٹ ط§ظ„ظ„ط§ط¹ط¨': { en: 'Enter Player ID', fr: "Entrez l'ID du joueur" },
+    'ط´ط±ط§ط،': { en: 'Buy', fr: 'Acheter' },
+    'ط´ط±ط§ط، ط§ظ„ط¢ظ†': { en: 'Buy Now', fr: 'Acheter maintenant' },
+    'ط±ط¬ظˆط¹': { en: 'Back', fr: 'Retour' },
+    'ظ…ط³ط­': { en: 'Clear', fr: 'Effacer' },
+    'ط؛ظٹط± ظ…طھظˆظپط±': { en: 'Unavailable', fr: 'Indisponible' },
+    'ط¨ط¨ط¬ظٹ': { en: 'PUBG Mobile', fr: 'PUBG Mobile' },
+    'ط¨ط¨ط¬ظٹ ظ…ظˆط¨ط§ظٹظ„': { en: 'PUBG Mobile', fr: 'PUBG Mobile' },
+    'ظپط±ظٹ ظپط§ظٹط±': { en: 'Free Fire', fr: 'Free Fire' },
+    'ط¬ظˆط§ظƒط±': { en: 'Jawaker', fr: 'Jawaker' },
+    'ظ…ظˆط¨ط§ظٹظ„ ظ„ظٹط¬ظ†ط¯': { en: 'Mobile Legends', fr: 'Mobile Legends' },
+    'ظ…ط§ظٹظ† ظƒط±ط§ظپطھ': { en: 'Minecraft', fr: 'Minecraft' },
+    'ظƒظ„ط§ط´ ط§ظˆظپ ظƒظ„ط§ظ†ط³': { en: 'Clash of Clans', fr: 'Clash of Clans' },
+    'ظƒظ„ط§ط´ ط±ظˆظٹط§ظ„': { en: 'Clash Royale', fr: 'Clash Royale' },
+    'ط¨ط±ط§ظˆظ„ ط³طھط§ط±ط²': { en: 'Brawl Stars', fr: 'Brawl Stars' },
+    'ط¨ظ„ظˆط¯ ط³طھط±ط§ظٹظƒ': { en: 'Blood Strike', fr: 'Blood Strike' },
+    'ظˆظٹ ط¨ظ„ط§ظٹ': { en: 'WePlay', fr: 'WePlay' },
+    'ظ„ظٹط¨ظٹ': { en: 'Ludo', fr: 'Ludo' },
+    'ط§ظˆط±ظ„ظٹ': { en: 'Orly', fr: 'Orly' },
+    'ط§ظƒظˆط§ط¯': { en: 'Codes', fr: 'Codes' },
+    'ط¹ط±ظˆط¶': { en: 'Offers', fr: 'Offres' },
+    'ط±ظˆط¨ظˆطھ': { en: 'Bot', fr: 'Bot' },
+    'ط¬ظˆظ‡ط±ط©': { en: 'Gem', fr: 'Gemme' },
+    'ط¬ظˆط§ظ‡ط±': { en: 'Gems', fr: 'Gemmes' },
+    'ظ‡ط°ط§ ط§ظ„ظ…ظ†طھط¬ ظٹط¹ظ…ظ„ ط¨ط´ظƒظ„ طھظ„ظ‚ط§ط¦ظٹ 24 ط³ط§ط¹ط©': { en: 'This product works automatically 24/7', fr: 'Ce produit fonctionne automatiquement 24h/24' },
+    'ط§ظ„ط®ط¯ظ…ط© طھظ„ظ‚ط§ط¦ظٹط© ظˆطھط¹ظ…ظ„ ط¹ظ„ظ‰ ظ…ط¯ط§ط± ط§ظ„24 ط³ط§ط¹ط©': { en: 'The service is automatic and operates 24 hours a day', fr: 'Le service est automatique et fonctionne 24h/24' }
   };
   if (overrides[trimmed] && overrides[trimmed][lang]) {
     return text.replace(trimmed, overrides[trimmed][lang]);
   }
 
-  let match = trimmed.match(/^(?:شدة|شدات)\s*(\d+(?:\.\d+)?)$/);
-  if (!match) match = trimmed.match(/^(\d+(?:\.\d+)?)\s*(?:شدة|شدات)$/);
+  let match = trimmed.match(/^(?:ط´ط¯ط©|ط´ط¯ط§طھ)\s*(\d+(?:\.\d+)?)$/);
+  if (!match) match = trimmed.match(/^(\d+(?:\.\d+)?)\s*(?:ط´ط¯ط©|ط´ط¯ط§طھ)$/);
   if (match) return text.replace(trimmed, `${match[1]} UC`);
 
-  match = trimmed.match(/^كود\s*(\d+(?:\.\d+)?)\s*(?:شدة|شدات)$/);
+  match = trimmed.match(/^ظƒظˆط¯\s*(\d+(?:\.\d+)?)\s*(?:ط´ط¯ط©|ط´ط¯ط§طھ)$/);
   if (match) return text.replace(trimmed, lang === 'fr' ? `Code ${match[1]} UC` : `${match[1]} UC Code`);
 
   const gemUnit = function(amount){
@@ -4322,32 +4322,32 @@ var translateCatalogDynamicText = function(rawText){
     return singular ? 'Gem' : 'Gems';
   };
 
-  match = trimmed.match(/^(?:جواهر|جوهرة)\s*(\d+(?:\.\d+)?)$/);
-  if (!match) match = trimmed.match(/^(\d+(?:\.\d+)?)\s*(?:جواهر|جوهرة)$/);
+  match = trimmed.match(/^(?:ط¬ظˆط§ظ‡ط±|ط¬ظˆظ‡ط±ط©)\s*(\d+(?:\.\d+)?)$/);
+  if (!match) match = trimmed.match(/^(\d+(?:\.\d+)?)\s*(?:ط¬ظˆط§ظ‡ط±|ط¬ظˆظ‡ط±ط©)$/);
   if (match) return text.replace(trimmed, `${match[1]} ${gemUnit(match[1])}`);
 
-  match = trimmed.match(/^كود\s*(\d+(?:\.\d+)?)\s*(?:جواهر|جوهرة)$/);
+  match = trimmed.match(/^ظƒظˆط¯\s*(\d+(?:\.\d+)?)\s*(?:ط¬ظˆط§ظ‡ط±|ط¬ظˆظ‡ط±ط©)$/);
   if (match) return text.replace(trimmed, lang === 'fr' ? `Code ${match[1]} ${gemUnit(match[1])}` : `${match[1]} ${gemUnit(match[1])} Code`);
 
   let replaced = trimmed;
   const phraseReplacements = [
     {
-      pattern: /هذا\s*المنتج\s*يعمل\s*بشكل\s*تلقائي\s*(?:على\s*)?(?:مدار|مدا)?\s*24\s*ساعة\s*/gi,
+      pattern: /ظ‡ط°ط§\s*ط§ظ„ظ…ظ†طھط¬\s*ظٹط¹ظ…ظ„\s*ط¨ط´ظƒظ„\s*طھظ„ظ‚ط§ط¦ظٹ\s*(?:ط¹ظ„ظ‰\s*)?(?:ظ…ط¯ط§ط±|ظ…ط¯ط§)?\s*24\s*ط³ط§ط¹ط©\s*/gi,
       en: 'This product works automatically 24/7. ',
       fr: 'Ce produit fonctionne automatiquement 24h/24. '
     },
     {
-      pattern: /يتم\s*تسليم\s*الكود\s*بشكل\s*فوري\s*/gi,
+      pattern: /ظٹطھظ…\s*طھط³ظ„ظٹظ…\s*ط§ظ„ظƒظˆط¯\s*ط¨ط´ظƒظ„\s*ظپظˆط±ظٹ\s*/gi,
       en: 'The code is delivered instantly. ',
       fr: 'Le code est livre instantanement. '
     },
     {
-      pattern: /يمكن\s*استرداد\s*الكود\s*(?:في|من)\s*موقع\s*pubg\s*mobile\s*العالمي\s*:?\s*/gi,
+      pattern: /ظٹظ…ظƒظ†\s*ط§ط³طھط±ط¯ط§ط¯\s*ط§ظ„ظƒظˆط¯\s*(?:ظپظٹ|ظ…ظ†)\s*ظ…ظˆظ‚ط¹\s*pubg\s*mobile\s*ط§ظ„ط¹ط§ظ„ظ…ظٹ\s*:?\s*/gi,
       en: 'The code can be redeemed on the official PUBG Mobile global site: ',
       fr: 'Le code peut etre utilise sur le site mondial officiel de PUBG Mobile : '
     },
     {
-      pattern: /يمكن\s*استرداد\s*الكود\s*(?:في|من)\s*موقع\s*/gi,
+      pattern: /ظٹظ…ظƒظ†\s*ط§ط³طھط±ط¯ط§ط¯\s*ط§ظ„ظƒظˆط¯\s*(?:ظپظٹ|ظ…ظ†)\s*ظ…ظˆظ‚ط¹\s*/gi,
       en: 'The code can be redeemed on ',
       fr: 'Le code peut etre utilise sur '
     }
@@ -4358,12 +4358,12 @@ var translateCatalogDynamicText = function(rawText){
     } catch {}
   });
   const mixedLabelPatterns = [
-    { pattern: /^اكواد\s+(.+)$/i, value: '$1 __catalog_codes__' },
-    { pattern: /^عروض\s+(.+)$/i, value: '$1 __catalog_offers__' },
-    { pattern: /^روبوت\s+(.+)$/i, value: '$1 __catalog_bot__' },
-    { pattern: /^(.+)\s+اكواد$/i, value: '$1 __catalog_codes__' },
-    { pattern: /^(.+)\s+عروض$/i, value: '$1 __catalog_offers__' },
-    { pattern: /^(.+)\s+روبوت$/i, value: '$1 __catalog_bot__' }
+    { pattern: /^ط§ظƒظˆط§ط¯\s+(.+)$/i, value: '$1 __catalog_codes__' },
+    { pattern: /^ط¹ط±ظˆط¶\s+(.+)$/i, value: '$1 __catalog_offers__' },
+    { pattern: /^ط±ظˆط¨ظˆطھ\s+(.+)$/i, value: '$1 __catalog_bot__' },
+    { pattern: /^(.+)\s+ط§ظƒظˆط§ط¯$/i, value: '$1 __catalog_codes__' },
+    { pattern: /^(.+)\s+ط¹ط±ظˆط¶$/i, value: '$1 __catalog_offers__' },
+    { pattern: /^(.+)\s+ط±ظˆط¨ظˆطھ$/i, value: '$1 __catalog_bot__' }
   ];
   mixedLabelPatterns.forEach((entry) => {
     try {
@@ -4373,19 +4373,19 @@ var translateCatalogDynamicText = function(rawText){
   });
   if (replaced !== trimmed) {
     const replacements = [
-      { pattern: /ببجي\s*موبايل/gi, en: 'PUBG Mobile', fr: 'PUBG Mobile' },
-      { pattern: /ببجي/gi, en: 'PUBG Mobile', fr: 'PUBG Mobile' },
-      { pattern: /فري\s*فاير/gi, en: 'Free Fire', fr: 'Free Fire' },
-      { pattern: /جواكر/gi, en: 'Jawaker', fr: 'Jawaker' },
-      { pattern: /موبايل\s*ليجند/gi, en: 'Mobile Legends', fr: 'Mobile Legends' },
-      { pattern: /ماين\s*كرافت/gi, en: 'Minecraft', fr: 'Minecraft' },
-      { pattern: /كلاش\s*اوف\s*كلانس/gi, en: 'Clash of Clans', fr: 'Clash of Clans' },
-      { pattern: /كلاش\s*رويال/gi, en: 'Clash Royale', fr: 'Clash Royale' },
-      { pattern: /براول\s*ستارز/gi, en: 'Brawl Stars', fr: 'Brawl Stars' },
-      { pattern: /بلود\s*سترايك/gi, en: 'Blood Strike', fr: 'Blood Strike' },
-      { pattern: /وي\s*بلاي/gi, en: 'WePlay', fr: 'WePlay' },
-      { pattern: /ليبي/gi, en: 'Ludo', fr: 'Ludo' },
-      { pattern: /اورلي/gi, en: 'Orly', fr: 'Orly' }
+      { pattern: /ط¨ط¨ط¬ظٹ\s*ظ…ظˆط¨ط§ظٹظ„/gi, en: 'PUBG Mobile', fr: 'PUBG Mobile' },
+      { pattern: /ط¨ط¨ط¬ظٹ/gi, en: 'PUBG Mobile', fr: 'PUBG Mobile' },
+      { pattern: /ظپط±ظٹ\s*ظپط§ظٹط±/gi, en: 'Free Fire', fr: 'Free Fire' },
+      { pattern: /ط¬ظˆط§ظƒط±/gi, en: 'Jawaker', fr: 'Jawaker' },
+      { pattern: /ظ…ظˆط¨ط§ظٹظ„\s*ظ„ظٹط¬ظ†ط¯/gi, en: 'Mobile Legends', fr: 'Mobile Legends' },
+      { pattern: /ظ…ط§ظٹظ†\s*ظƒط±ط§ظپطھ/gi, en: 'Minecraft', fr: 'Minecraft' },
+      { pattern: /ظƒظ„ط§ط´\s*ط§ظˆظپ\s*ظƒظ„ط§ظ†ط³/gi, en: 'Clash of Clans', fr: 'Clash of Clans' },
+      { pattern: /ظƒظ„ط§ط´\s*ط±ظˆظٹط§ظ„/gi, en: 'Clash Royale', fr: 'Clash Royale' },
+      { pattern: /ط¨ط±ط§ظˆظ„\s*ط³طھط§ط±ط²/gi, en: 'Brawl Stars', fr: 'Brawl Stars' },
+      { pattern: /ط¨ظ„ظˆط¯\s*ط³طھط±ط§ظٹظƒ/gi, en: 'Blood Strike', fr: 'Blood Strike' },
+      { pattern: /ظˆظٹ\s*ط¨ظ„ط§ظٹ/gi, en: 'WePlay', fr: 'WePlay' },
+      { pattern: /ظ„ظٹط¨ظٹ/gi, en: 'Ludo', fr: 'Ludo' },
+      { pattern: /ط§ظˆط±ظ„ظٹ/gi, en: 'Orly', fr: 'Orly' }
     ];
     replacements.forEach((entry) => {
       try {
@@ -4400,27 +4400,27 @@ var translateCatalogDynamicText = function(rawText){
   }
 
   let directMixed = trimmed
-    .replace(/^اكواد\s+(.+)$/i, '$1 __catalog_codes__')
-    .replace(/^عروض\s+(.+)$/i, '$1 __catalog_offers__')
-    .replace(/^روبوت\s+(.+)$/i, '$1 __catalog_bot__')
-    .replace(/^(.+)\s+اكواد$/i, '$1 __catalog_codes__')
-    .replace(/^(.+)\s+عروض$/i, '$1 __catalog_offers__')
-    .replace(/^(.+)\s+روبوت$/i, '$1 __catalog_bot__');
+    .replace(/^ط§ظƒظˆط§ط¯\s+(.+)$/i, '$1 __catalog_codes__')
+    .replace(/^ط¹ط±ظˆط¶\s+(.+)$/i, '$1 __catalog_offers__')
+    .replace(/^ط±ظˆط¨ظˆطھ\s+(.+)$/i, '$1 __catalog_bot__')
+    .replace(/^(.+)\s+ط§ظƒظˆط§ط¯$/i, '$1 __catalog_codes__')
+    .replace(/^(.+)\s+ط¹ط±ظˆط¶$/i, '$1 __catalog_offers__')
+    .replace(/^(.+)\s+ط±ظˆط¨ظˆطھ$/i, '$1 __catalog_bot__');
   if (directMixed !== trimmed) {
     directMixed = directMixed
-      .replace(/ببجي\s*موبايل/gi, 'PUBG Mobile')
-      .replace(/ببجي/gi, 'PUBG Mobile')
-      .replace(/فري\s*فاير/gi, 'Free Fire')
-      .replace(/جواكر/gi, 'Jawaker')
-      .replace(/موبايل\s*ليجند/gi, 'Mobile Legends')
-      .replace(/ماين\s*كرافت/gi, 'Minecraft')
-      .replace(/كلاش\s*اوف\s*كلانس/gi, 'Clash of Clans')
-      .replace(/كلاش\s*رويال/gi, 'Clash Royale')
-      .replace(/براول\s*ستارز/gi, 'Brawl Stars')
-      .replace(/بلود\s*سترايك/gi, 'Blood Strike')
-      .replace(/وي\s*بلاي/gi, 'WePlay')
-      .replace(/ليبي/gi, 'Ludo')
-      .replace(/اورلي/gi, 'Orly')
+      .replace(/ط¨ط¨ط¬ظٹ\s*ظ…ظˆط¨ط§ظٹظ„/gi, 'PUBG Mobile')
+      .replace(/ط¨ط¨ط¬ظٹ/gi, 'PUBG Mobile')
+      .replace(/ظپط±ظٹ\s*ظپط§ظٹط±/gi, 'Free Fire')
+      .replace(/ط¬ظˆط§ظƒط±/gi, 'Jawaker')
+      .replace(/ظ…ظˆط¨ط§ظٹظ„\s*ظ„ظٹط¬ظ†ط¯/gi, 'Mobile Legends')
+      .replace(/ظ…ط§ظٹظ†\s*ظƒط±ط§ظپطھ/gi, 'Minecraft')
+      .replace(/ظƒظ„ط§ط´\s*ط§ظˆظپ\s*ظƒظ„ط§ظ†ط³/gi, 'Clash of Clans')
+      .replace(/ظƒظ„ط§ط´\s*ط±ظˆظٹط§ظ„/gi, 'Clash Royale')
+      .replace(/ط¨ط±ط§ظˆظ„\s*ط³طھط§ط±ط²/gi, 'Brawl Stars')
+      .replace(/ط¨ظ„ظˆط¯\s*ط³طھط±ط§ظٹظƒ/gi, 'Blood Strike')
+      .replace(/ظˆظٹ\s*ط¨ظ„ط§ظٹ/gi, 'WePlay')
+      .replace(/ظ„ظٹط¨ظٹ/gi, 'Ludo')
+      .replace(/ط§ظˆط±ظ„ظٹ/gi, 'Orly')
       .replace(/__catalog_codes__/g, lang === 'fr' ? 'Codes' : 'Codes')
       .replace(/__catalog_offers__/g, lang === 'fr' ? 'Offres' : 'Offers')
       .replace(/__catalog_bot__/g, lang === 'fr' ? 'Bot' : 'Bot');
@@ -4436,8 +4436,17 @@ try {
 } catch {}
 
 (function(){
+  const IS_TOUCH_DEVICE = (function(){
+    try {
+      if (!window.matchMedia) return false;
+      return window.matchMedia('(hover: none), (pointer: coarse)').matches;
+    } catch (_) {
+      return false;
+    }
+  })();
   const CUSTOM_CONTEXT_MENU_ENABLED = (function(){
     try {
+      if (IS_TOUCH_DEVICE) return false;
       const root = document && document.documentElement ? document.documentElement : null;
       const raw = String(root && root.getAttribute ? (root.getAttribute('data-custom-context-menu') || '') : '').trim().toLowerCase();
       if (!raw) return true;
@@ -5169,10 +5178,10 @@ try {
     root.setAttribute('aria-hidden', 'true');
     root.innerHTML = [
       '<div class="app-touch-selection__toolbar" data-touch-selection-toolbar="1">',
-      '  <button type="button" class="app-touch-selection__btn" data-touch-selection-action="copy">نسخ</button>',
+      '  <button type="button" class="app-touch-selection__btn" data-touch-selection-action="copy">ظ†ط³ط®</button>',
       '</div>',
-      '<button type="button" class="app-touch-selection__handle app-touch-selection__handle--start" data-touch-selection-handle="start" aria-label="بداية التحديد"></button>',
-      '<button type="button" class="app-touch-selection__handle app-touch-selection__handle--end" data-touch-selection-handle="end" aria-label="نهاية التحديد"></button>'
+      '<button type="button" class="app-touch-selection__handle app-touch-selection__handle--start" data-touch-selection-handle="start" aria-label="ط¨ط¯ط§ظٹط© ط§ظ„طھط­ط¯ظٹط¯"></button>',
+      '<button type="button" class="app-touch-selection__handle app-touch-selection__handle--end" data-touch-selection-handle="end" aria-label="ظ†ظ‡ط§ظٹط© ط§ظ„طھط­ط¯ظٹط¯"></button>'
     ].join('');
     root.addEventListener('pointerdown', function(event){
       const handle = event.target && event.target.closest ? event.target.closest('[data-touch-selection-handle]') : null;
@@ -6050,7 +6059,7 @@ hamburger.id = 'hamburger';
 hamburger.onclick = toggleSidebar;
 hamburger.setAttribute('role', 'button');
 hamburger.setAttribute('tabindex', '0');
-hamburger.setAttribute('aria-label', 'فتح وإغلاق القائمة');
+hamburger.setAttribute('aria-label', 'ظپطھط­ ظˆط¥ط؛ظ„ط§ظ‚ ط§ظ„ظ‚ط§ط¦ظ…ط©');
 hamburger.setAttribute('aria-expanded', 'false');
 hamburger.addEventListener('keydown', function(event){
   if (!event) return;
@@ -6361,8 +6370,8 @@ balanceSpan.style.padding = '0';
 balanceSpan.style.minWidth = '0';
 balanceSpan.innerHTML = `
   <span class="header-balance__metrics">
-    <span class="header-balance__currency" id="headerBalanceCurrency">—</span>
-    <span class="header-balance__value" id="headerBalanceText">…</span>
+    <span class="header-balance__currency" id="headerBalanceCurrency">â€”</span>
+    <span class="header-balance__value" id="headerBalanceText">â€¦</span>
   </span>
 `;
 
@@ -6370,8 +6379,8 @@ const headerLevelsBtn = document.createElement('button');
 headerLevelsBtn.type = 'button';
 headerLevelsBtn.className = 'header-levels-btn';
 headerLevelsBtn.id = 'headerLevelsBtn';
-headerLevelsBtn.setAttribute('aria-label', 'المستويات');
-headerLevelsBtn.setAttribute('title', 'عرض المستويات');
+headerLevelsBtn.setAttribute('aria-label', 'ط§ظ„ظ…ط³طھظˆظٹط§طھ');
+headerLevelsBtn.setAttribute('title', 'ط¹ط±ط¶ ط§ظ„ظ…ط³طھظˆظٹط§طھ');
 headerLevelsBtn.innerHTML = '<span class="header-levels-btn__fallback"><i class="fa-solid fa-medal" aria-hidden="true"></i></span>';
 headerLevelsBtn.hidden = true;
 headerLevelsBtn.disabled = true;
@@ -6635,15 +6644,15 @@ function headerGetSelectedCurrencyText(rawCode){
   if (symbol) return symbol;
   const fallbackMap = {
     USD: '$',
-    EUR: '€',
-    GBP: '£',
-    JOD: 'د.أ',
-    SAR: 'ر.س',
-    AED: 'د.إ',
-    KWD: 'د.ك',
-    QAR: 'ر.ق',
-    BHD: 'د.ب',
-    OMR: 'ر.ع',
+    EUR: 'â‚¬',
+    GBP: 'آ£',
+    JOD: 'ط¯.ط£',
+    SAR: 'ط±.ط³',
+    AED: 'ط¯.ط¥',
+    KWD: 'ط¯.ظƒ',
+    QAR: 'ط±.ظ‚',
+    BHD: 'ط¯.ط¨',
+    OMR: 'ط±.ط¹',
     EGP: 'EGP'
   };
   return fallbackMap[code] || String(rateEntry && (rateEntry.code || code) || code).trim().toUpperCase();
@@ -6740,7 +6749,7 @@ function renderHeaderLevelBadge(profile){
     headerLevelsBtn.classList.remove('header-levels-btn--image');
     headerLevelsBtn.innerHTML = '<span class="header-levels-btn__fallback"><i class="fa-solid fa-medal" aria-hidden="true"></i></span>';
     setHeaderLevelsVisibility(true);
-    try { headerLevelsBtn.setAttribute('title', 'عرض المستويات'); } catch {}
+    try { headerLevelsBtn.setAttribute('title', 'ط¹ط±ط¶ ط§ظ„ظ…ط³طھظˆظٹط§طھ'); } catch {}
     return;
   }
   headerLevelsBtn.classList.toggle('header-levels-btn--image', !!imageUrl);
@@ -6749,7 +6758,7 @@ function renderHeaderLevelBadge(profile){
     const currentImg = headerLevelsBtn.querySelector && headerLevelsBtn.querySelector('img.header-levels-btn__img');
     const currentUrl = String(headerLevelsBtn.dataset && headerLevelsBtn.dataset.levelImageUrl || '').trim();
     if (currentImg && currentUrl === imageUrl) {
-      headerLevelsBtn.setAttribute('title', 'عرض المستويات - ' + String(entry && entry.label || '').trim());
+      headerLevelsBtn.setAttribute('title', 'ط¹ط±ط¶ ط§ظ„ظ…ط³طھظˆظٹط§طھ - ' + String(entry && entry.label || '').trim());
       return;
     }
     const img = document.createElement('img');
@@ -6768,14 +6777,14 @@ function renderHeaderLevelBadge(profile){
     headerLevelsBtn.innerHTML = '';
     try { headerLevelsBtn.dataset.levelImageUrl = imageUrl; } catch {}
     headerLevelsBtn.appendChild(img);
-    headerLevelsBtn.setAttribute('title', 'عرض المستويات - ' + String(entry && entry.label || '').trim());
+    headerLevelsBtn.setAttribute('title', 'ط¹ط±ط¶ ط§ظ„ظ…ط³طھظˆظٹط§طھ - ' + String(entry && entry.label || '').trim());
     return;
   }
   try { delete headerLevelsBtn.dataset.levelImageUrl; } catch {}
   headerLevelsBtn.classList.remove('header-levels-btn--image');
   headerLevelsBtn.innerHTML = '<span class="header-levels-btn__fallback"><i class="fa-solid fa-medal" aria-hidden="true"></i></span>';
   setHeaderLevelsVisibility(true);
-  try { headerLevelsBtn.setAttribute('title', 'عرض المستويات'); } catch {}
+  try { headerLevelsBtn.setAttribute('title', 'ط¹ط±ط¶ ط§ظ„ظ…ط³طھظˆظٹط§طھ'); } catch {}
 }
 const FIXED_SIDEBAR_CURRENCY_BADGE_COLOR = '#99760c';
 function enforceFixedSidebarCurrencyBadgeColor(){
@@ -6807,35 +6816,35 @@ function setHeaderBalance(text){
     if (Number.isFinite(numeric)) {
       text = formatHeaderBalanceText(numeric);
     } else {
-      valueEl.textContent = text == null ? '—' : String(text);
-      if (currencyEl) currencyEl.textContent = '—';
+      valueEl.textContent = text == null ? 'â€”' : String(text);
+      if (currencyEl) currencyEl.textContent = 'â€”';
       enforceFixedSidebarCurrencyBadgeColor();
       return;
     }
   }
   const trimmed = text.trim();
   if (!trimmed) {
-    valueEl.textContent = '—';
-    if (currencyEl) currencyEl.textContent = '—';
+    valueEl.textContent = 'â€”';
+    if (currencyEl) currencyEl.textContent = 'â€”';
     enforceFixedSidebarCurrencyBadgeColor();
     return;
   }
   const hasDigits = /[0-9]/.test(trimmed);
   if (!hasDigits) {
     valueEl.textContent = trimmed;
-    if (currencyEl) currencyEl.textContent = '—';
+    if (currencyEl) currencyEl.textContent = 'â€”';
     enforceFixedSidebarCurrencyBadgeColor();
     return;
   }
   const parts = splitHeaderBalanceParts(trimmed);
   if (parts) {
     valueEl.textContent = parts.value || trimmed;
-    if (currencyEl) currencyEl.textContent = parts.currency || headerGetSelectedCurrencyText() || '—';
+    if (currencyEl) currencyEl.textContent = parts.currency || headerGetSelectedCurrencyText() || 'â€”';
     enforceFixedSidebarCurrencyBadgeColor();
     return;
   }
   valueEl.textContent = trimmed;
-  if (currencyEl) currencyEl.textContent = headerGetSelectedCurrencyText() || '—';
+  if (currencyEl) currencyEl.textContent = headerGetSelectedCurrencyText() || 'â€”';
   enforceFixedSidebarCurrencyBadgeColor();
 }
 try {
@@ -7097,7 +7106,7 @@ function headerNormalizeSiteBrandState(raw){
       src.deposit_item ??
       src.depositCategory ??
       src.deposit_category,
-      'الإيداع'
+      'ط§ظ„ط¥ظٹط¯ط§ط¹'
     ),};
 }
 function readHeaderSiteBrandState(){
@@ -7519,10 +7528,10 @@ function ensureInstallAppGuideDialog(){
     overlay.setAttribute('inert', '');
     overlay.innerHTML = `
       <div class="install-app-guide-card" role="dialog" aria-modal="true" aria-labelledby="installAppGuideTitle" aria-describedby="installAppGuideMessage">
-        <h2 id="installAppGuideTitle" class="install-app-guide-title">تنزيل التطبيق</h2>
+        <h2 id="installAppGuideTitle" class="install-app-guide-title">طھظ†ط²ظٹظ„ ط§ظ„طھط·ط¨ظٹظ‚</h2>
         <p id="installAppGuideMessage" class="install-app-guide-msg"></p>
         <div class="install-app-guide-actions">
-          <button type="button" id="installAppGuideOkBtn" class="install-app-guide-btn">حسنًا</button>
+          <button type="button" id="installAppGuideOkBtn" class="install-app-guide-btn">ط­ط³ظ†ظ‹ط§</button>
         </div>
       </div>
     `;
@@ -7805,7 +7814,7 @@ function syncInstallAppSidebarUi(){
 }
 function showInstallAppInstructions(){
   if (!isIosInstallBrowser()) return false;
-  return showInstallAppGuideDialog('لتثبيت التطبيق على iPhone أو iPad افتح زر المشاركة في Safari ثم اختر "Add to Home Screen".');
+  return showInstallAppGuideDialog('ظ„طھط«ط¨ظٹطھ ط§ظ„طھط·ط¨ظٹظ‚ ط¹ظ„ظ‰ iPhone ط£ظˆ iPad ط§ظپطھط­ ط²ط± ط§ظ„ظ…ط´ط§ط±ظƒط© ظپظٹ Safari ط«ظ… ط§ط®طھط± "Add to Home Screen".');
 }
 async function promptSiteInstallApp(){
   if (isSiteInstallStandalone()) {
@@ -8100,32 +8109,32 @@ function readBannedOverlaySupportAnchors(){
 
 function readBannedOverlaySupportItems(){
   const META = {
-    whatsapp: { label: 'واتساب', icon: 'fa-brands fa-whatsapp', iconURL: 'https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg' },
-    telegram: { label: 'تيليغرام', icon: 'fa-brands fa-telegram', iconURL: 'https://upload.wikimedia.org/wikipedia/commons/8/82/Telegram_logo.svg' },
-    instagram: { label: 'إنستغرام', icon: 'fa-brands fa-instagram', iconURL: 'https://upload.wikimedia.org/wikipedia/commons/a/a5/Instagram_icon.png' },
-    facebook: { label: 'فيسبوك', icon: 'fa-brands fa-facebook-f', iconURL: 'https://upload.wikimedia.org/wikipedia/commons/5/51/Facebook_f_logo_%282019%29.svg' },
-    email: { label: 'البريد', icon: 'fa-solid fa-envelope', iconURL: 'https://upload.wikimedia.org/wikipedia/commons/4/4e/Gmail_Icon.png' }
+    whatsapp: { label: 'ظˆط§طھط³ط§ط¨', icon: 'fa-brands fa-whatsapp', iconURL: 'https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg' },
+    telegram: { label: 'طھظٹظ„ظٹط؛ط±ط§ظ…', icon: 'fa-brands fa-telegram', iconURL: 'https://upload.wikimedia.org/wikipedia/commons/8/82/Telegram_logo.svg' },
+    instagram: { label: 'ط¥ظ†ط³طھط؛ط±ط§ظ…', icon: 'fa-brands fa-instagram', iconURL: 'https://upload.wikimedia.org/wikipedia/commons/a/a5/Instagram_icon.png' },
+    facebook: { label: 'ظپظٹط³ط¨ظˆظƒ', icon: 'fa-brands fa-facebook-f', iconURL: 'https://upload.wikimedia.org/wikipedia/commons/5/51/Facebook_f_logo_%282019%29.svg' },
+    email: { label: 'ط§ظ„ط¨ط±ظٹط¯', icon: 'fa-solid fa-envelope', iconURL: 'https://upload.wikimedia.org/wikipedia/commons/4/4e/Gmail_Icon.png' }
   };
   const out = [];
   const seen = new Set();
   const normalizeText = function(value){
     return String(value == null ? '' : value)
       .toLowerCase()
-      .replace(/[ًٌٍَُِّْـ]/g, '')
-      .replace(/[إأآا]/g, 'ا')
-      .replace(/ى/g, 'ي')
-      .replace(/ة/g, 'ه')
+      .replace(/[ظژظ‹ظڈظŒظگظچظ’ظ‘ظ€]/g, '')
+      .replace(/[ط¥ط£ط¢ط§]/g, 'ط§')
+      .replace(/ظ‰/g, 'ظٹ')
+      .replace(/ط©/g, 'ظ‡')
       .replace(/\s+/g, ' ')
       .trim();
   };
   const inferType = function(labelLike, href){
     const text = normalizeText(String(labelLike || '') + ' ' + String(href || ''));
     if (!text) return '';
-    if (/wa\.me|chat\.whatsapp|whatsapp|واتساب|واتس|واتس اب/.test(text) || /(?:^|\s)wa(?:\s|$)/.test(text)) return 'whatsapp';
-    if (/t\.me|tg:\/\/|telegram|تيليجرام|تيليغرام|تليجرام|تليغرام/.test(text)) return 'telegram';
-    if (/instagram|انستجرام|انستغرام|انستا/.test(text)) return 'instagram';
-    if (/facebook|فيسبوك|fb\.com|m\.me/.test(text)) return 'facebook';
-    if (/mailto:|email|mail|ايميل|بريد/.test(text) || /@/.test(String(href || ''))) return 'email';
+    if (/wa\.me|chat\.whatsapp|whatsapp|ظˆط§طھط³ط§ط¨|ظˆط§طھط³|ظˆط§طھط³ ط§ط¨/.test(text) || /(?:^|\s)wa(?:\s|$)/.test(text)) return 'whatsapp';
+    if (/t\.me|tg:\/\/|telegram|طھظٹظ„ظٹط¬ط±ط§ظ…|طھظٹظ„ظٹط؛ط±ط§ظ…|طھظ„ظٹط¬ط±ط§ظ…|طھظ„ظٹط؛ط±ط§ظ…/.test(text)) return 'telegram';
+    if (/instagram|ط§ظ†ط³طھط¬ط±ط§ظ…|ط§ظ†ط³طھط؛ط±ط§ظ…|ط§ظ†ط³طھط§/.test(text)) return 'instagram';
+    if (/facebook|ظپظٹط³ط¨ظˆظƒ|fb\.com|m\.me/.test(text)) return 'facebook';
+    if (/mailto:|email|mail|ط§ظٹظ…ظٹظ„|ط¨ط±ظٹط¯/.test(text) || /@/.test(String(href || ''))) return 'email';
     return '';
   };
   const normalizeHref = function(type, value){
@@ -8474,13 +8483,13 @@ function showBannedOverlay(reason, webuid){
         const reasonEl = root.querySelector('#banReasonText');
         const cleanReason = (typeof reason === 'string' ? reason.trim() : '');
         if (reasonEl) {
-          reasonEl.textContent = cleanReason ? ('سبب الحظر: ' + cleanReason) : '';
+          reasonEl.textContent = cleanReason ? ('ط³ط¨ط¨ ط§ظ„ط­ط¸ط±: ' + cleanReason) : '';
           reasonEl.style.display = cleanReason ? 'block' : 'none';
         }
         const webuidEl = root.querySelector('#banWebuidText');
         const cleanWebuid = (webuid == null ? '' : String(webuid)).trim();
         if (webuidEl) {
-          webuidEl.textContent = cleanWebuid ? ('الايدي: \u2066' + cleanWebuid + '\u2069') : '';
+          webuidEl.textContent = cleanWebuid ? ('ط§ظ„ط§ظٹط¯ظٹ: \u2066' + cleanWebuid + '\u2069') : '';
           webuidEl.style.display = cleanWebuid ? 'block' : 'none';
         }
         renderBannedOverlaySupport(root);
@@ -8535,7 +8544,7 @@ function showBannedOverlay(reason, webuid){
         <p id="banReasonText" style="margin:0 0 8px;line-height:1.7;font-size:1rem;color:#ff8f8f;display:none;"></p>
         <p id="banWebuidText" style="margin:0 0 16px;line-height:1.7;font-size:.95rem;color:#ffb9b9;opacity:.95;display:none;"></p>
         <button id="banLogoutBtn" type="button" style="width:100%;padding:12px 14px;border-radius:10px;border:1px solid rgba(255,145,145,0.45);background:linear-gradient(180deg,#ed3a3a 0%,#b11f1f 100%);color:#fff;font-weight:900;font-size:1rem;cursor:pointer;">\u062D\u0633\u0646\u064B\u0627</button>
-        <p id="banSupportNote" class="ban-support-note" style="display:none;">يرجى التواصل مع الدعم لحل المشكلة.</p>
+        <p id="banSupportNote" class="ban-support-note" style="display:none;">ظٹط±ط¬ظ‰ ط§ظ„طھظˆط§طµظ„ ظ…ط¹ ط§ظ„ط¯ط¹ظ… ظ„ط­ظ„ ط§ظ„ظ…ط´ظƒظ„ط©.</p>
         <div id="banSupportLinks" class="ban-support-links" style="display:none;"></div>
       </div>
     `;
@@ -8696,18 +8705,18 @@ sidebarTop.innerHTML = `
     <div class="sidebar-user-meta">
       <div class="sidebar-user-name-row">
         <span class="sidebar-user-id" id="sidebarUserId">#----</span>
-        <span class="sidebar-user-name" id="sidebarUserName">زائر</span>
+        <span class="sidebar-user-name" id="sidebarUserName">ط²ط§ط¦ط±</span>
       </div>
     </div>
   </div>
-  <div class="sidebar-quick-row" role="group" aria-label="اختصارات سريعة">
-    <button type="button" class="sidebar-quick-btn sidebar-quick-btn--heart" id="sidebarQuickFav" aria-label="المفضلة">
+  <div class="sidebar-quick-row" role="group" aria-label="ط§ط®طھطµط§ط±ط§طھ ط³ط±ظٹط¹ط©">
+    <button type="button" class="sidebar-quick-btn sidebar-quick-btn--heart" id="sidebarQuickFav" aria-label="ط§ظ„ظ…ظپط¶ظ„ط©">
       <i class="fa-solid fa-heart"></i>
     </button>
-    <button type="button" class="sidebar-quick-btn sidebar-quick-btn--account" id="sidebarQuickAccount" aria-label="الإعدادات">
+    <button type="button" class="sidebar-quick-btn sidebar-quick-btn--account" id="sidebarQuickAccount" aria-label="ط§ظ„ط¥ط¹ط¯ط§ط¯ط§طھ">
       <i class="fa-solid fa-gear"></i>
     </button>
-    <button type="button" class="sidebar-quick-btn sidebar-quick-btn--auth" id="sidebarQuickAuth" aria-label="الدخول أو الخروج">
+    <button type="button" class="sidebar-quick-btn sidebar-quick-btn--auth" id="sidebarQuickAuth" aria-label="ط§ظ„ط¯ط®ظˆظ„ ط£ظˆ ط§ظ„ط®ط±ظˆط¬">
       <i class="fa-solid fa-right-to-bracket"></i>
     </button>
   </div>
@@ -8736,7 +8745,7 @@ function normalizeSidebarUserName(user){
     const fromCache = safe(cached && (cached.displayName || cached.name || cached.username || cached.email));
     if (fromCache) return fromCache;
   } catch {}
-  return 'زائر';
+  return 'ط²ط§ط¦ط±';
 }
 
 function normalizeSidebarUserId(user){
@@ -8814,23 +8823,23 @@ function isSidebarLoggedIn(user){
 
 const HEADER_SIDEBAR_THEME_DEFAULTS = Object.freeze({
   quickButtons: Object.freeze({
-    favorites: Object.freeze({ label: 'المفضلة', iconClass: 'fa-solid fa-heart', activeIconClass: 'fa-solid fa-heart', lightColor: '#ff4d5a', darkColor: '#fb7185', lightBackground: '#fff1f2', darkBackground: '#4c0519' }),
-    account: Object.freeze({ label: 'الإعدادات', iconClass: 'fa-solid fa-gear', activeIconClass: 'fa-solid fa-gear', lightColor: '#60a5fa', darkColor: '#93c5fd', lightBackground: '#eff6ff', darkBackground: '#082f49' }),
-    auth: Object.freeze({ label: 'الدخول أو الخروج', iconClass: 'fa-solid fa-right-to-bracket', activeIconClass: 'fa-solid fa-right-from-bracket', lightColor: '#34d399', darkColor: '#6ee7b7', lightBackground: '#ecfdf5', darkBackground: '#052e2b' })
+    favorites: Object.freeze({ label: 'ط§ظ„ظ…ظپط¶ظ„ط©', iconClass: 'fa-solid fa-heart', activeIconClass: 'fa-solid fa-heart', lightColor: '#ff4d5a', darkColor: '#fb7185', lightBackground: '#fff1f2', darkBackground: '#4c0519' }),
+    account: Object.freeze({ label: 'ط§ظ„ط¥ط¹ط¯ط§ط¯ط§طھ', iconClass: 'fa-solid fa-gear', activeIconClass: 'fa-solid fa-gear', lightColor: '#60a5fa', darkColor: '#93c5fd', lightBackground: '#eff6ff', darkBackground: '#082f49' }),
+    auth: Object.freeze({ label: 'ط§ظ„ط¯ط®ظˆظ„ ط£ظˆ ط§ظ„ط®ط±ظˆط¬', iconClass: 'fa-solid fa-right-to-bracket', activeIconClass: 'fa-solid fa-right-from-bracket', lightColor: '#34d399', darkColor: '#6ee7b7', lightBackground: '#ecfdf5', darkBackground: '#052e2b' })
   }),
   navItems: Object.freeze({
-    home: Object.freeze({ label: 'الرئيسية', iconClass: 'fa-solid fa-house', lightColor: '#22c55e', darkColor: '#4ade80' }),
-    deposit: Object.freeze({ label: 'الإيداع', iconClass: 'fa-solid fa-circle-dollar-to-slot', lightColor: '#0ea5e9', darkColor: '#38bdf8' }),
-    payments: Object.freeze({ label: 'دفعاتي', iconClass: 'fa-solid fa-receipt', lightColor: '#f59e0b', darkColor: '#fbbf24' }),
-    orders: Object.freeze({ label: 'طلباتي', iconClass: 'fa-solid fa-cart-shopping', lightColor: '#ef4444', darkColor: '#f87171' }),
-    wallet: Object.freeze({ label: 'المحفظة', iconClass: 'fa-solid fa-wallet', lightColor: '#facc15', darkColor: '#fde047' }),
-    transfer: Object.freeze({ label: 'تحويل الرصيد', iconClass: 'fa-solid fa-right-left', lightColor: '#3b82f6', darkColor: '#60a5fa' }),
-    reviews: Object.freeze({ label: 'التقييمات', iconClass: 'fa-solid fa-star', lightColor: '#f43f5e', darkColor: '#fb7185' }),
-    agents: Object.freeze({ label: 'وكلاؤنا', iconClass: 'fa-solid fa-user-tie', lightColor: '#10b981', darkColor: '#34d399' }),
-    security: Object.freeze({ label: 'حماية الحساب', iconClass: 'fa-solid fa-shield-halved', lightColor: '#8b5cf6', darkColor: '#a78bfa' }),
-    telegram: Object.freeze({ label: 'ربط تيليغرام', iconClass: 'fa-brands fa-telegram', lightColor: '#38bdf8', darkColor: '#7dd3fc' }),
+    home: Object.freeze({ label: 'ط§ظ„ط±ط¦ظٹط³ظٹط©', iconClass: 'fa-solid fa-house', lightColor: '#22c55e', darkColor: '#4ade80' }),
+    deposit: Object.freeze({ label: 'ط§ظ„ط¥ظٹط¯ط§ط¹', iconClass: 'fa-solid fa-circle-dollar-to-slot', lightColor: '#0ea5e9', darkColor: '#38bdf8' }),
+    payments: Object.freeze({ label: 'ط¯ظپط¹ط§طھظٹ', iconClass: 'fa-solid fa-receipt', lightColor: '#f59e0b', darkColor: '#fbbf24' }),
+    orders: Object.freeze({ label: 'ط·ظ„ط¨ط§طھظٹ', iconClass: 'fa-solid fa-cart-shopping', lightColor: '#ef4444', darkColor: '#f87171' }),
+    wallet: Object.freeze({ label: 'ط§ظ„ظ…ط­ظپط¸ط©', iconClass: 'fa-solid fa-wallet', lightColor: '#facc15', darkColor: '#fde047' }),
+    transfer: Object.freeze({ label: 'طھط­ظˆظٹظ„ ط§ظ„ط±طµظٹط¯', iconClass: 'fa-solid fa-right-left', lightColor: '#3b82f6', darkColor: '#60a5fa' }),
+    reviews: Object.freeze({ label: 'ط§ظ„طھظ‚ظٹظٹظ…ط§طھ', iconClass: 'fa-solid fa-star', lightColor: '#f43f5e', darkColor: '#fb7185' }),
+    agents: Object.freeze({ label: 'ظˆظƒظ„ط§ط¤ظ†ط§', iconClass: 'fa-solid fa-user-tie', lightColor: '#10b981', darkColor: '#34d399' }),
+    security: Object.freeze({ label: 'ط­ظ…ط§ظٹط© ط§ظ„ط­ط³ط§ط¨', iconClass: 'fa-solid fa-shield-halved', lightColor: '#8b5cf6', darkColor: '#a78bfa' }),
+    telegram: Object.freeze({ label: 'ط±ط¨ط· طھظٹظ„ظٹط؛ط±ط§ظ…', iconClass: 'fa-brands fa-telegram', lightColor: '#38bdf8', darkColor: '#7dd3fc' }),
     api: Object.freeze({ label: 'API', iconClass: 'fa-solid fa-code', lightColor: '#f97316', darkColor: '#fb923c' }),
-    login: Object.freeze({ label: 'تسجيل الدخول', iconClass: 'fa-solid fa-right-to-bracket', lightColor: '#34d399', darkColor: '#6ee7b7' })
+    login: Object.freeze({ label: 'طھط³ط¬ظٹظ„ ط§ظ„ط¯ط®ظˆظ„', iconClass: 'fa-solid fa-right-to-bracket', lightColor: '#34d399', darkColor: '#6ee7b7' })
   })
 });
 
@@ -9021,9 +9030,9 @@ function applyHeaderSidebarTheme(user){
     const sidebarTheme = readHeaderSidebarTheme();
     const logged = isSidebarLoggedIn(user);
     const quickMap = [
-      { key: 'favorites', id: 'sidebarQuickFav', label: 'المفضلة' },
-      { key: 'account', id: 'sidebarQuickAccount', label: 'الإعدادات' },
-      { key: 'auth', id: 'sidebarQuickAuth', label: 'الدخول أو الخروج' }
+      { key: 'favorites', id: 'sidebarQuickFav', label: 'ط§ظ„ظ…ظپط¶ظ„ط©' },
+      { key: 'account', id: 'sidebarQuickAccount', label: 'ط§ظ„ط¥ط¹ط¯ط§ط¯ط§طھ' },
+      { key: 'auth', id: 'sidebarQuickAuth', label: 'ط§ظ„ط¯ط®ظˆظ„ ط£ظˆ ط§ظ„ط®ط±ظˆط¬' }
     ];
     quickMap.forEach((entry) => {
       const state = sidebarTheme.quickButtons[entry.key] || HEADER_SIDEBAR_THEME_DEFAULTS.quickButtons[entry.key];
@@ -9040,18 +9049,18 @@ function applyHeaderSidebarTheme(user){
       }
     });
     const navMap = [
-      { key: 'home', id: 'homeBtn', i18nKey: 'nav.home', label: 'الرئيسية' },
-      { key: 'deposit', id: 'depositBtn', i18nKey: 'nav.deposit', label: 'الإيداع' },
-      { key: 'payments', id: 'paymentsBtn', i18nKey: 'nav.payments', label: 'دفعاتي' },
-      { key: 'orders', id: 'ordersBtn', i18nKey: 'nav.orders', label: 'طلباتي' },
-      { key: 'wallet', id: 'walletBtn', i18nKey: 'nav.wallet', label: 'المحفظة' },
-      { key: 'transfer', id: 'transferBtn', i18nKey: 'nav.transfer', label: 'تحويل الرصيد' },
-      { key: 'reviews', id: 'reviewsBtn', i18nKey: 'nav.reviews', label: 'التقييمات' },
-      { key: 'agents', id: 'agentsBtn', i18nKey: 'nav.agents', label: 'وكلاؤنا' },
-      { key: 'security', id: 'securityBtn', i18nKey: 'nav.security', label: 'حماية الحساب' },
-      { key: 'telegram', id: 'telegramBtn', i18nKey: 'nav.telegram', label: 'ربط تيليغرام' },
+      { key: 'home', id: 'homeBtn', i18nKey: 'nav.home', label: 'ط§ظ„ط±ط¦ظٹط³ظٹط©' },
+      { key: 'deposit', id: 'depositBtn', i18nKey: 'nav.deposit', label: 'ط§ظ„ط¥ظٹط¯ط§ط¹' },
+      { key: 'payments', id: 'paymentsBtn', i18nKey: 'nav.payments', label: 'ط¯ظپط¹ط§طھظٹ' },
+      { key: 'orders', id: 'ordersBtn', i18nKey: 'nav.orders', label: 'ط·ظ„ط¨ط§طھظٹ' },
+      { key: 'wallet', id: 'walletBtn', i18nKey: 'nav.wallet', label: 'ط§ظ„ظ…ط­ظپط¸ط©' },
+      { key: 'transfer', id: 'transferBtn', i18nKey: 'nav.transfer', label: 'طھط­ظˆظٹظ„ ط§ظ„ط±طµظٹط¯' },
+      { key: 'reviews', id: 'reviewsBtn', i18nKey: 'nav.reviews', label: 'ط§ظ„طھظ‚ظٹظٹظ…ط§طھ' },
+      { key: 'agents', id: 'agentsBtn', i18nKey: 'nav.agents', label: 'ظˆظƒظ„ط§ط¤ظ†ط§' },
+      { key: 'security', id: 'securityBtn', i18nKey: 'nav.security', label: 'ط­ظ…ط§ظٹط© ط§ظ„ط­ط³ط§ط¨' },
+      { key: 'telegram', id: 'telegramBtn', i18nKey: 'nav.telegram', label: 'ط±ط¨ط· طھظٹظ„ظٹط؛ط±ط§ظ…' },
       { key: 'api', id: 'apiBtn', i18nKey: 'nav.api', label: 'API' },
-      { key: 'login', id: 'loginSidebarBtn', i18nKey: 'nav.login', label: 'تسجيل الدخول' }
+      { key: 'login', id: 'loginSidebarBtn', i18nKey: 'nav.login', label: 'طھط³ط¬ظٹظ„ ط§ظ„ط¯ط®ظˆظ„' }
     ];
     navMap.forEach((entry) => {
       const state = sidebarTheme.navItems[entry.key] || HEADER_SIDEBAR_THEME_DEFAULTS.navItems[entry.key];
@@ -9090,7 +9099,7 @@ function setSidebarQuickAuthIcon(user){
     );
     const color = resolveHeaderSidebarColor(state, '');
     if (color) btn.style.color = color;
-    btn.setAttribute('aria-label', logged ? 'تسجيل الخروج' : 'تسجيل الدخول');
+    btn.setAttribute('aria-label', logged ? 'طھط³ط¬ظٹظ„ ط§ظ„ط®ط±ظˆط¬' : 'طھط³ط¬ظٹظ„ ط§ظ„ط¯ط®ظˆظ„');
   } catch {}
 }
 
@@ -9135,7 +9144,7 @@ function syncSidebarBalanceFromHeader(){
     const val = node ? String(node.textContent || '').trim() : '';
     const cur = curNode ? String(curNode.textContent || '').trim() : '';
     if (!val && !cur) return;
-    setSidebarBalanceText(cur && cur !== '—' ? `${val} ${cur}` : val);
+    setSidebarBalanceText(cur && cur !== 'â€”' ? `${val} ${cur}` : val);
   } catch {}
 }
 
@@ -9283,7 +9292,7 @@ function bindSidebarActionItem(li, handler){
     if (link) link.addEventListener('click', run);
   } catch {}
 }
-// الرئيسية
+// ط§ظ„ط±ط¦ظٹط³ظٹط©
 const homeLi = document.createElement('li');
 homeLi.id = 'homeBtn';
 homeLi.className = 'sidebar-nav-item';
@@ -9291,7 +9300,7 @@ homeLi.style.setProperty('--sidebar-item-icon', '#22c55e');
 homeLi.innerHTML = '<i class="fas fa-home"></i><a href="#" data-i18n="nav.home">\u0627\u0644\u0631\u0626\u064A\u0633\u064A\u0629</a>';
 bindSidebarNavItem(homeLi, '#/');
 ul.appendChild(homeLi);
-// الرئيسية
+// ط§ظ„ط±ط¦ظٹط³ظٹط©
 const depositLi = document.createElement('li');
 depositLi.id = 'depositBtn';
 depositLi.className = 'sidebar-nav-item';
@@ -9300,7 +9309,7 @@ depositLi.innerHTML = '<i class="fa-solid fa-circle-dollar-to-slot"></i><a href=
 bindSidebarNavItem(depositLi, '#/deposit', 'deposit');
 depositLi.style.display = 'none';
 ul.appendChild(depositLi);
-// الرئيسية
+// ط§ظ„ط±ط¦ظٹط³ظٹط©
 const paymentsLi = document.createElement('li');
 paymentsLi.id = 'paymentsBtn';
 paymentsLi.className = 'sidebar-nav-item';
@@ -9309,7 +9318,7 @@ paymentsLi.innerHTML = '<i class="fa-solid fa-receipt"></i><a href="#" data-i18n
 bindSidebarNavItem(paymentsLi, '#/dafaati', 'dafaati');
 paymentsLi.style.display = 'none';
 ul.appendChild(paymentsLi);
-// الرئيسية
+// ط§ظ„ط±ط¦ظٹط³ظٹط©
 const ordersLi = document.createElement('li');
 ordersLi.id = 'ordersBtn';
 ordersLi.className = 'sidebar-nav-item';
@@ -9318,7 +9327,7 @@ ordersLi.innerHTML = '<i class="fa-solid fa-cart-shopping"></i><a href="#" data-
 bindSidebarNavItem(ordersLi, '#/orders', 'orders');
 ordersLi.style.display = 'none';
 ul.appendChild(ordersLi);
-// الرئيسية
+// ط§ظ„ط±ط¦ظٹط³ظٹط©
 const walletLi = document.createElement('li');
 walletLi.id = 'walletBtn';
 walletLi.className = 'sidebar-nav-item';
@@ -9327,7 +9336,7 @@ walletLi.innerHTML = '<i class="fas fa-wallet"></i><a href="#" data-i18n="nav.wa
 bindSidebarNavItem(walletLi, '#/wallet', 'wallet');
 walletLi.style.display = 'none';
 ul.appendChild(walletLi);
-// تحويل الرصيد
+// طھط­ظˆظٹظ„ ط§ظ„ط±طµظٹط¯
 const transferLi = document.createElement('li');
 transferLi.id = 'transferBtn';
 transferLi.className = 'sidebar-nav-item';
@@ -9336,7 +9345,7 @@ transferLi.innerHTML = '<i class="fa-solid fa-right-left"></i><a href="#" data-i
 bindSidebarNavItem(transferLi, '#/transfer', 'transfer');
 transferLi.style.display = 'none';
 ul.appendChild(transferLi);
-// الرئيسية
+// ط§ظ„ط±ط¦ظٹط³ظٹط©
 const reviewsLi = document.createElement('li');
 reviewsLi.id = 'reviewsBtn';
 reviewsLi.className = 'sidebar-nav-item';
@@ -9345,7 +9354,7 @@ reviewsLi.innerHTML = '<i class="fa-solid fa-star"></i><a href="#" data-i18n="na
 bindSidebarNavItem(reviewsLi, '#/reviews', 'reviews');
 ul.appendChild(reviewsLi);
 try { syncReviewsSidebarVisibility(); } catch {}
-// الوكلاء
+// ط§ظ„ظˆظƒظ„ط§ط،
 const agentsLi = document.createElement('li');
 agentsLi.id = 'agentsBtn';
 agentsLi.className = 'sidebar-nav-item';
@@ -9354,7 +9363,7 @@ agentsLi.innerHTML = '<i class="fa-solid fa-user-tie"></i><a href="#" data-i18n=
 bindSidebarNavItem(agentsLi, '#/agents', 'agents');
 ul.appendChild(agentsLi);
 try { syncAgentsSidebarVisibility(); } catch {}
-// حماية الحساب
+// ط­ظ…ط§ظٹط© ط§ظ„ط­ط³ط§ط¨
 const securityLi = document.createElement('li');
 securityLi.id = 'securityBtn';
 securityLi.className = 'sidebar-nav-item';
@@ -9363,7 +9372,7 @@ securityLi.innerHTML = '<i class="fa-solid fa-shield-halved"></i><a href="#" dat
 bindSidebarNavItem(securityLi, '#/security', 'security');
 securityLi.style.display = 'none';
 ul.appendChild(securityLi);
-// ربط تيليغرام
+// ط±ط¨ط· طھظٹظ„ظٹط؛ط±ط§ظ…
 const telegramLi = document.createElement('li');
 telegramLi.id = 'telegramBtn';
 telegramLi.className = 'sidebar-nav-item has-sidebar-telegram-svg';
@@ -9372,7 +9381,7 @@ telegramLi.innerHTML = '<i class="sidebarTelegramSvgIcon" aria-hidden="true">' +
 bindSidebarNavItem(telegramLi, '#/telegram', 'telegram');
 telegramLi.style.display = 'none';
 ul.appendChild(telegramLi);
-// تنزيل التطبيق
+// طھظ†ط²ظٹظ„ ط§ظ„طھط·ط¨ظٹظ‚
 const installAppLi = document.createElement('li');
 installAppLi.id = 'installAppBtn';
 installAppLi.className = 'sidebar-nav-item';
@@ -9392,7 +9401,7 @@ apiLi.innerHTML = '<i class="fa-solid fa-code"></i><a href="#" data-i18n="nav.ap
 bindSidebarNavItem(apiLi, '#/api', 'api');
 apiLi.style.display = 'none';
 ul.appendChild(apiLi);
-// تسجيل الدخول / الخروج
+// طھط³ط¬ظٹظ„ ط§ظ„ط¯ط®ظˆظ„ / ط§ظ„ط®ط±ظˆط¬
 const loginLi = document.createElement('li');
 loginLi.id = 'loginSidebarBtn';
 loginLi.className = 'sidebar-nav-item';
@@ -9579,7 +9588,7 @@ try { window.addEventListener('resize', syncAppHeaderOffset); } catch {}
 try { window.addEventListener('pageshow', syncAppHeaderOffset); } catch {}
 try { window.__syncAppHeaderOffset = syncAppHeaderOffset; } catch {}
 
-// محاولة استعادة جلسة Firebase من بيانات مخزنة (postLoginPayload)
+// ظ…ط­ط§ظˆظ„ط© ط§ط³طھط¹ط§ط¯ط© ط¬ظ„ط³ط© Firebase ظ…ظ† ط¨ظٹط§ظ†ط§طھ ظ…ط®ط²ظ†ط© (postLoginPayload)
 const POST_LOGIN_STORAGE_KEY = 'postLoginPayload';
 const TRANSIENT_AUTH_PREFIX = '__SITE_AUTH__:';
 const CATALOG_ROUTER_DEFAULT = (function(){
@@ -10018,12 +10027,12 @@ try {
       if (shouldEnableRealtime('balance')) {
         unsubscribeBalance = docRef.onSnapshot(handleBalanceSnap, err => {
           console.error('Balance listener error:', err);
-          setHeaderBalance('تعذر التحميل');
+          setHeaderBalance('طھط¹ط°ط± ط§ظ„طھط­ظ…ظٹظ„');
         });
       } else {
         docRef.get().then(handleBalanceSnap).catch(err => {
           console.error('Balance fetch error:', err);
-          setHeaderBalance('تعذر التحميل');
+          setHeaderBalance('طھط¹ط°ط± ط§ظ„طھط­ظ…ظٹظ„');
         });
       }
     } else {
@@ -10075,25 +10084,25 @@ function initMobileDock(){
       }
     } catch {}
     const definitions = {
-      home: { iconClass: 'fa-solid fa-house', label: 'الرئيسية', href: 'index.html#/', route: '#/', public: true },
-      deposit: { iconClass: 'fa-solid fa-circle-dollar-to-slot', label: 'شحن الرصيد', href: 'index.html#/deposit', route: '#/deposit' },
-      payments: { iconClass: 'fa-solid fa-receipt', label: 'دفعاتي', href: 'index.html#/dafaati', route: '#/dafaati' },
-      orders: { iconClass: 'fa-solid fa-cart-shopping', label: 'طلباتي', href: 'index.html#/orders', route: '#/orders' },
-      wallet: { iconClass: 'fa-solid fa-wallet', label: 'محفظتي', href: 'index.html#/wallet', route: '#/wallet' },
-      transfer: { iconClass: 'fa-solid fa-right-left', label: 'تحويل الرصيد', href: 'index.html#/transfer', route: '#/transfer' },
-      reviews: { iconClass: 'fa-solid fa-star', label: 'التقييمات', href: 'index.html#/reviews', route: '#/reviews', public: true },
-      agents: { iconClass: 'fa-solid fa-user-tie', label: 'وكلاؤنا', href: 'index.html#/agents', route: '#/agents', public: true },
-      security: { iconClass: 'fa-solid fa-shield-halved', label: 'حماية الحساب', href: 'index.html#/security', route: '#/security' },
-      telegram: { iconClass: 'fa-brands fa-telegram', label: 'ربط تيليغرام', href: 'index.html#/telegram', route: '#/telegram' },
+      home: { iconClass: 'fa-solid fa-house', label: 'ط§ظ„ط±ط¦ظٹط³ظٹط©', href: 'index.html#/', route: '#/', public: true },
+      deposit: { iconClass: 'fa-solid fa-circle-dollar-to-slot', label: 'ط´ط­ظ† ط§ظ„ط±طµظٹط¯', href: 'index.html#/deposit', route: '#/deposit' },
+      payments: { iconClass: 'fa-solid fa-receipt', label: 'ط¯ظپط¹ط§طھظٹ', href: 'index.html#/dafaati', route: '#/dafaati' },
+      orders: { iconClass: 'fa-solid fa-cart-shopping', label: 'ط·ظ„ط¨ط§طھظٹ', href: 'index.html#/orders', route: '#/orders' },
+      wallet: { iconClass: 'fa-solid fa-wallet', label: 'ظ…ط­ظپط¸طھظٹ', href: 'index.html#/wallet', route: '#/wallet' },
+      transfer: { iconClass: 'fa-solid fa-right-left', label: 'طھط­ظˆظٹظ„ ط§ظ„ط±طµظٹط¯', href: 'index.html#/transfer', route: '#/transfer' },
+      reviews: { iconClass: 'fa-solid fa-star', label: 'ط§ظ„طھظ‚ظٹظٹظ…ط§طھ', href: 'index.html#/reviews', route: '#/reviews', public: true },
+      agents: { iconClass: 'fa-solid fa-user-tie', label: 'ظˆظƒظ„ط§ط¤ظ†ط§', href: 'index.html#/agents', route: '#/agents', public: true },
+      security: { iconClass: 'fa-solid fa-shield-halved', label: 'ط­ظ…ط§ظٹط© ط§ظ„ط­ط³ط§ط¨', href: 'index.html#/security', route: '#/security' },
+      telegram: { iconClass: 'fa-brands fa-telegram', label: 'ط±ط¨ط· طھظٹظ„ظٹط؛ط±ط§ظ…', href: 'index.html#/telegram', route: '#/telegram' },
       api: { iconClass: 'fa-solid fa-code', label: 'API', href: 'index.html#/api', route: '#/api' },
-      login: { iconClass: 'fa-solid fa-right-to-bracket', label: 'تسجيل الدخول', href: 'index.html#/login', route: '#/login', guest: true }
+      login: { iconClass: 'fa-solid fa-right-to-bracket', label: 'طھط³ط¬ظٹظ„ ط§ظ„ط¯ط®ظˆظ„', href: 'index.html#/login', route: '#/login', guest: true }
     };
     const defaultItems = [
-      { key: 'security', label: 'حماية الحساب', href: '#/security', iconClass: 'fa-solid fa-shield-halved', lightColor: '#16a34a', darkColor: '#4ade80' },
-      { key: 'wallet', label: 'محفظتي', href: '#/wallet', iconClass: 'fa-solid fa-wallet', lightColor: '#facc15', darkColor: '#fde047' },
-      { key: 'home', label: 'الرئيسية', href: '#/', iconClass: 'fa-solid fa-house', lightColor: '#3498db', darkColor: '#60a5fa' },
-      { key: 'transfer', label: 'تحويل الرصيد', href: '#/transfer', iconClass: 'fa-solid fa-right-left', lightColor: '#2563eb', darkColor: '#60a5fa' },
-      { key: 'orders', label: 'طلباتي', href: '#/orders', iconClass: 'fa-solid fa-cart-shopping', lightColor: '#ef4444', darkColor: '#f87171' }
+      { key: 'security', label: 'ط­ظ…ط§ظٹط© ط§ظ„ط­ط³ط§ط¨', href: '#/security', iconClass: 'fa-solid fa-shield-halved', lightColor: '#16a34a', darkColor: '#4ade80' },
+      { key: 'wallet', label: 'ظ…ط­ظپط¸طھظٹ', href: '#/wallet', iconClass: 'fa-solid fa-wallet', lightColor: '#facc15', darkColor: '#fde047' },
+      { key: 'home', label: 'ط§ظ„ط±ط¦ظٹط³ظٹط©', href: '#/', iconClass: 'fa-solid fa-house', lightColor: '#3498db', darkColor: '#60a5fa' },
+      { key: 'transfer', label: 'طھط­ظˆظٹظ„ ط§ظ„ط±طµظٹط¯', href: '#/transfer', iconClass: 'fa-solid fa-right-left', lightColor: '#2563eb', darkColor: '#60a5fa' },
+      { key: 'orders', label: 'ط·ظ„ط¨ط§طھظٹ', href: '#/orders', iconClass: 'fa-solid fa-cart-shopping', lightColor: '#ef4444', darkColor: '#f87171' }
     ];
     const normalizeKey = (value, fallback) => {
       const key = String(value || '').trim().toLowerCase();
@@ -10244,7 +10253,7 @@ function initMobileDock(){
     if (!dock) {
       dock = document.createElement('nav');
       dock.className = 'mobile-dock';
-      dock.setAttribute('aria-label','الشريط السفلي للجوال');
+      dock.setAttribute('aria-label','ط§ظ„ط´ط±ظٹط· ط§ظ„ط³ظپظ„ظٹ ظ„ظ„ط¬ظˆط§ظ„');
     }
     try {
       if (!document.getElementById('mobileDockRuntimeClickStyle')) {
@@ -10515,7 +10524,7 @@ function wirePageBalanceBox(){
       const el = document.getElementById('balanceAmount');
       if (!el) return;
       if (val == null || !Number.isFinite(Number(val))) {
-        el.textContent = 'يجب تسجيل الدخول اولا';
+        el.textContent = 'ظٹط¬ط¨ طھط³ط¬ظٹظ„ ط§ظ„ط¯ط®ظˆظ„ ط§ظˆظ„ط§';
       } else {
         if (typeof window.formatCurrencyFromJOD === 'function') el.textContent = window.formatCurrencyFromJOD(val);
         else el.textContent = Number(val).toFixed(3) + ' $';
@@ -10728,7 +10737,7 @@ function wirePageBalanceBox(){
         id="supportFloatingWidgetToggle"
         aria-controls="supportFloatingWidgetItems"
         aria-expanded="false"
-        aria-label="فتح طرق التواصل مع الدعم"
+        aria-label="ظپطھط­ ط·ط±ظ‚ ط§ظ„طھظˆط§طµظ„ ظ…ط¹ ط§ظ„ط¯ط¹ظ…"
       >
         <span class="support-dock__mark support-dock__mark--menu" aria-hidden="true">
           <span></span>
@@ -10749,7 +10758,7 @@ function wirePageBalanceBox(){
     const waJoinShortcutState = {
       enabled: false,
       displayMode: 'modal',
-      label: 'انضم لقروب واتساب',
+      label: 'ط§ظ†ط¶ظ… ظ„ظ‚ط±ظˆط¨ ظˆط§طھط³ط§ط¨',
       href: ''
     };
     let waJoinSeparateButton = null;
@@ -10809,8 +10818,8 @@ function wirePageBalanceBox(){
         src.joinText ??
         src.join_text ??
         src.label ??
-        'انضم لقروب واتساب'
-      ).trim().slice(0, 120) || 'انضم لقروب واتساب';
+        'ط§ظ†ط¶ظ… ظ„ظ‚ط±ظˆط¨ ظˆط§طھط³ط§ط¨'
+      ).trim().slice(0, 120) || 'ط§ظ†ط¶ظ… ظ„ظ‚ط±ظˆط¨ ظˆط§طھط³ط§ط¨';
       return {
         enabled: !!href && (enabledRaw === true || String(enabledRaw || '').toLowerCase() === 'true' || String(enabledRaw || '') === '1'),
         displayMode: normalizeWaJoinShortcutDisplayMode(
@@ -10976,7 +10985,7 @@ function wirePageBalanceBox(){
         floatingToggle.setAttribute('aria-expanded', floatingOpen ? 'true' : 'false');
         floatingToggle.setAttribute(
           'aria-label',
-          floatingOpen ? 'إغلاق طرق التواصل مع الدعم' : 'فتح طرق التواصل مع الدعم'
+          floatingOpen ? 'ط¥ط؛ظ„ط§ظ‚ ط·ط±ظ‚ ط§ظ„طھظˆط§طµظ„ ظ…ط¹ ط§ظ„ط¯ط¹ظ…' : 'ظپطھط­ ط·ط±ظ‚ ط§ظ„طھظˆط§طµظ„ ظ…ط¹ ط§ظ„ط¯ط¹ظ…'
         );
       } catch(_){}
       updateFloatingSupportTabState();
@@ -12042,6 +12051,7 @@ function wirePageBalanceBox(){
       realtimeUnsubscribe: null,
       realtimeStarting: false,
       realtimeReady: false,
+      realtimeDisabled: false,
       realtimeError: '',
       realtimeRunId: 0,
       markReadInFlight: false,
@@ -12327,10 +12337,22 @@ function wirePageBalanceBox(){
       } catch (_) {}
       try {
         if (panel && !allowed) {
+          try {
+            var active = document.activeElement;
+            if (active && panel.contains(active)) {
+              if (fab && !fab.hidden && typeof fab.focus === 'function') fab.focus({ preventScroll: true });
+              else if (typeof active.blur === 'function') active.blur();
+            }
+          } catch (_) {}
           panel.hidden = true;
           panel.setAttribute('aria-hidden', 'true');
+          try { panel.setAttribute('inert', ''); } catch (_) {}
         } else if (panel) {
           panel.setAttribute('aria-hidden', supportChatState.open ? 'false' : 'true');
+          try {
+            if (supportChatState.open) panel.removeAttribute('inert');
+            else panel.setAttribute('inert', '');
+          } catch (_) {}
         }
       } catch (_) {}
       try {
@@ -12442,14 +12464,14 @@ function wirePageBalanceBox(){
       var sessionInfo = readSupportSessionInfo();
       var uid = String((user && user.uid) || sessionInfo.uid || sessionInfo.useruid || '').trim();
       var sessionKey = String(sessionInfo.sessionKey || sessionInfo.session_key || '').trim();
-      if (!user || !uid) throw new Error('يرجى تسجيل الدخول لفتح الدعم الفني.');
-      if (!sessionKey) throw new Error('انتهت الجلسة، يرجى تسجيل الدخول من جديد.');
+      if (!user || !uid) throw new Error('ظٹط±ط¬ظ‰ طھط³ط¬ظٹظ„ ط§ظ„ط¯ط®ظˆظ„ ظ„ظپطھط­ ط§ظ„ط¯ط¹ظ… ط§ظ„ظپظ†ظٹ.');
+      if (!sessionKey) throw new Error('ط§ظ†طھظ‡طھ ط§ظ„ط¬ظ„ط³ط©طŒ ظٹط±ط¬ظ‰ طھط³ط¬ظٹظ„ ط§ظ„ط¯ط®ظˆظ„ ظ…ظ† ط¬ط¯ظٹط¯.');
       var idToken = '';
       if (typeof user.getIdToken === 'function') {
         try { idToken = String(await user.getIdToken(false) || '').trim(); }
         catch (_) { idToken = String(await user.getIdToken(true) || '').trim(); }
       }
-      if (!idToken) throw new Error('تعذر التحقق من تسجيل الدخول.');
+      if (!idToken) throw new Error('طھط¹ط°ط± ط§ظ„طھط­ظ‚ظ‚ ظ…ظ† طھط³ط¬ظٹظ„ ط§ظ„ط¯ط®ظˆظ„.');
       return { user: user, uid: uid, sessionKey: sessionKey, idToken: idToken };
     }
 
@@ -12460,7 +12482,7 @@ function wirePageBalanceBox(){
       ).trim().toLowerCase();
       if (code === 'session_expired') return true;
       var text = String((payload && (payload.error || payload.message)) || '').trim();
-      return Number(response && response.status) === 401 && /session_expired|انتهت صلاحية رمز الجلسة|انتهت صلاحية الجلسة/i.test(text);
+      return Number(response && response.status) === 401 && /session_expired|ط§ظ†طھظ‡طھ طµظ„ط§ط­ظٹط© ط±ظ…ط² ط§ظ„ط¬ظ„ط³ط©|ط§ظ†طھظ‡طھ طµظ„ط§ط­ظٹط© ط§ظ„ط¬ظ„ط³ط©/i.test(text);
     }
 
     async function refreshSupportSessionOnce(auth){
@@ -12556,7 +12578,7 @@ function wirePageBalanceBox(){
           resolve(comma >= 0 ? raw.slice(comma + 1) : raw);
         };
         reader.onerror = function(){
-          reject(new Error('تعذر قراءة الصورة.'));
+          reject(new Error('طھط¹ط°ط± ظ‚ط±ط§ط،ط© ط§ظ„طµظˆط±ط©.'));
         };
         reader.readAsDataURL(file);
       });
@@ -12565,11 +12587,11 @@ function wirePageBalanceBox(){
     async function uploadSupportImageFile(file){
       if (!file) return '';
       var type = String(file.type || '').toLowerCase();
-      if (!type.startsWith('image/')) throw new Error('اختر ملف صورة فقط.');
-      if (Number(file.size || 0) > (5 * 1024 * 1024)) throw new Error('حجم الصورة يتجاوز 5MB.');
+      if (!type.startsWith('image/')) throw new Error('ط§ط®طھط± ظ…ظ„ظپ طµظˆط±ط© ظپظ‚ط·.');
+      if (Number(file.size || 0) > (5 * 1024 * 1024)) throw new Error('ط­ط¬ظ… ط§ظ„طµظˆط±ط© ظٹطھط¬ط§ظˆط² 5MB.');
       var auth = await buildSupportAuthPayload();
       var data = await supportFileToBase64(file);
-      if (!data) throw new Error('تعذر قراءة الصورة.');
+      if (!data) throw new Error('طھط¹ط°ط± ظ‚ط±ط§ط،ط© ط§ظ„طµظˆط±ط©.');
       var send = async function(nextAuth){
         var requestUrl = getSupportEndpoint('user-upload-image');
         var response = await fetch(requestUrl, {
@@ -12610,20 +12632,111 @@ function wirePageBalanceBox(){
         throw new Error(String(payload.error || payload.message || payload.hint || payload.code || ('HTTP ' + response.status)));
       }
       var imageUrl = String(payload.imageUrl || payload.url || '').trim();
-      if (!imageUrl) throw new Error('تم رفع الصورة لكن لم يصل رابط صالح.');
+      if (!imageUrl) throw new Error('طھظ… ط±ظپط¹ ط§ظ„طµظˆط±ط© ظ„ظƒظ† ظ„ظ… ظٹطµظ„ ط±ط§ط¨ط· طµط§ظ„ط­.');
       return imageUrl;
     }
 
     function normalizeSupportMessage(raw){
       var source = raw && typeof raw === 'object' ? raw : {};
+      var senderRaw = String(source.sender || source.from || '').trim().toLowerCase();
+      var sender = senderRaw === 'admin' || senderRaw === 'support'
+        ? 'admin'
+        : (senderRaw === 'system' || senderRaw === 'notice' || senderRaw === 'event' ? 'system' : 'user');
       return {
         id: String(source.id || source.messageId || ''),
-        sender: String(source.sender || source.from || '').trim().toLowerCase() === 'admin' ? 'admin' : 'user',
+        sender: sender,
         text: String(source.text || source.message || source.body || '').trim(),
         imageUrl: String(source.imageUrl || source.image_url || '').trim(),
+        cards: normalizeSupportCards(source.cards || source.supportCards || source.cardList || []),
         authorName: String(source.authorName || source.author || source.name || '').trim(),
         createdAt: String(source.createdAt || source.created_at || '').trim()
       };
+    }
+
+    function normalizeSupportCard(raw){
+      var source = raw && typeof raw === 'object' ? raw : {};
+      var type = String(source.type || source.kind || '').trim().toLowerCase();
+      var action = String(source.action || source.actionCode || source.code || '').trim().toLowerCase();
+      if (['product', 'deposit', 'order', 'support'].indexOf(type) < 0) return null;
+      if (['open_product', 'open_deposit', 'start_objection', 'open_ticket'].indexOf(action) < 0) return null;
+      var title = String(source.title || source.name || source.label || '').trim();
+      var id = String(source.id || source.cardId || source.productId || source.methodId || source.orderCode || (action === 'open_ticket' ? 'open_ticket' : '') || title || '').trim();
+      if (!id && !title) return null;
+      return {
+        id: id,
+        type: type,
+        action: action,
+        title: title || id,
+        subtitle: String(source.subtitle || source.description || source.meta || '').trim(),
+        priceText: String(source.priceText || source.price_text || '').trim(),
+        statusText: String(source.statusText || source.statusLabel || source.status || '').trim(),
+        imageUrl: String(source.imageUrl || source.image_url || source.image || '').trim(),
+        productId: String(source.productId || source.product_id || '').trim(),
+        gameSlug: String(source.gameSlug || source.game_slug || source.catalogSlug || source.slug || '').trim(),
+        methodId: String(source.methodId || source.method_id || '').trim(),
+        country: String(source.country || source.countryName || '').trim(),
+        orderCode: String(source.orderCode || source.order_code || '').trim(),
+        available: source.available === false ? false : true
+      };
+    }
+
+    function normalizeSupportCards(rawCards){
+      var seen = {};
+      return (Array.isArray(rawCards) ? rawCards : []).map(normalizeSupportCard).filter(function(card){
+        if (!card) return false;
+        var key = [card.type, card.action, card.productId, card.gameSlug, card.methodId, card.orderCode, card.id, card.title].join('|').toLowerCase();
+        if (seen[key]) return false;
+        seen[key] = true;
+        return true;
+      }).slice(0, 12);
+    }
+
+    function getSupportCardsSignature(cards){
+      return normalizeSupportCards(cards).map(function(card){
+        return [card.type, card.action, card.id, card.productId, card.gameSlug, card.methodId, card.orderCode, card.title, card.priceText].join(':');
+      }).join(',');
+    }
+
+    function renderSupportCards(cards){
+      var list = normalizeSupportCards(cards);
+      if (!list.length) return '';
+      var ticketOnly = list.length === 1 && list[0].type === 'support' && list[0].action === 'open_ticket';
+      return '<div class="site-support-chat__cards' + (ticketOnly ? ' is-ticket-prompt' : '') + '" role="list">' + list.map(function(card){
+        if (card.type === 'support' && card.action === 'open_ticket') {
+          var ticketData = [
+            'data-support-card-action="' + escapeSupport(card.action) + '"',
+            'data-card-type="' + escapeSupport(card.type) + '"',
+            'data-card-id="' + escapeSupport(card.id || 'open_ticket') + '"'
+          ].join(' ');
+          return '<button class="site-support-chat__ticket-btn" type="button" role="listitem" ' + ticketData + '>ظپطھط­ طھط°ظƒط±ط©</button>';
+        }
+        var icon = card.type === 'deposit' ? 'fa-wallet' : (card.type === 'order' ? 'fa-receipt' : 'fa-bag-shopping');
+        var cta = card.action === 'open_deposit' ? 'ط¥ظٹط¯ط§ط¹' : (card.action === 'start_objection' ? 'ط§ط¹طھط±ط§ط¶' : 'ط´ط±ط§ط،');
+        var media = card.imageUrl
+          ? '<span class="site-support-chat__card-media"><img src="' + escapeSupport(card.imageUrl) + '" alt=""></span>'
+          : '<span class="site-support-chat__card-media is-empty"><i class="fa-solid ' + icon + '" aria-hidden="true"></i></span>';
+        var data = [
+          'data-support-card-action="' + escapeSupport(card.action) + '"',
+          'data-card-type="' + escapeSupport(card.type) + '"',
+          'data-card-id="' + escapeSupport(card.id) + '"',
+          'data-product-id="' + escapeSupport(card.productId || card.id) + '"',
+          'data-game-slug="' + escapeSupport(card.gameSlug) + '"',
+          'data-method-id="' + escapeSupport(card.methodId || card.id) + '"',
+          'data-country="' + escapeSupport(card.country) + '"',
+          'data-order-code="' + escapeSupport(card.orderCode || card.id) + '"'
+        ].join(' ');
+        return [
+          '<button class="site-support-chat__card" type="button" role="listitem" ' + data + '>',
+            media,
+            '<span class="site-support-chat__card-body">',
+              '<strong>' + escapeSupport(card.title) + '</strong>',
+              card.subtitle ? '<small>' + escapeSupport(card.subtitle) + '</small>' : '',
+              (card.priceText || card.statusText) ? '<em>' + escapeSupport(card.priceText || card.statusText) + '</em>' : '',
+            '</span>',
+            '<span class="site-support-chat__card-cta">' + escapeSupport(cta) + '</span>',
+          '</button>'
+        ].join('');
+      }).join('') + '</div>';
     }
 
     function formatSupportTime(value){
@@ -12655,6 +12768,7 @@ function wirePageBalanceBox(){
     }
 
     function playSupportIncomingTone(){
+      if (window.__ENABLE_SUPPORT_CHAT_TONE__ !== true) return;
       try {
         var audio = new Audio('https://image2url.com/r2/default/audio/1775222006071-0c6196c2-357e-4a1c-9499-a3ada1f41078.mp3');
         audio.volume = 0.36;
@@ -12688,8 +12802,8 @@ function wirePageBalanceBox(){
       }
       var body = latest && latest.text
         ? latest.text
-        : (latest && latest.imageUrl ? 'وصلت صورة جديدة من الدعم.' : 'وصلت رسالة جديدة من الدعم.');
-      setSupportChatStatus('وصلت رسالة جديدة من الدعم.');
+        : (latest && latest.imageUrl ? 'ظˆطµظ„طھ طµظˆط±ط© ط¬ط¯ظٹط¯ط© ظ…ظ† ط§ظ„ط¯ط¹ظ….' : 'ظˆطµظ„طھ ط±ط³ط§ظ„ط© ط¬ط¯ظٹط¯ط© ظ…ظ† ط§ظ„ط¯ط¹ظ….');
+      setSupportChatStatus('ظˆطµظ„طھ ط±ط³ط§ظ„ط© ط¬ط¯ظٹط¯ط© ظ…ظ† ط§ظ„ط¯ط¹ظ….');
       window.setTimeout(function(){
         if (supportChatState.open) setSupportChatStatus('');
       }, 2600);
@@ -12697,7 +12811,7 @@ function wirePageBalanceBox(){
       try {
         if (supportChatState.titleBase === '') supportChatState.titleBase = document.title || '';
         if (document && !supportChatState.open) {
-          document.title = 'رسالة دعم جديدة - ' + supportChatState.titleBase;
+          document.title = 'ط±ط³ط§ظ„ط© ط¯ط¹ظ… ط¬ط¯ظٹط¯ط© - ' + supportChatState.titleBase;
           window.setTimeout(function(){
             if (!supportChatState.open && supportChatState.titleBase) document.title = supportChatState.titleBase;
           }, 4500);
@@ -12705,7 +12819,7 @@ function wirePageBalanceBox(){
       } catch (_) {}
       try {
         if ('Notification' in window && Notification.permission === 'granted' && !supportChatState.open) {
-          new Notification('الدعم الفني', {
+          new Notification('ط§ظ„ط¯ط¹ظ… ط§ظ„ظپظ†ظٹ', {
             body: body.slice(0, 180),
             tag: 'support-chat-message'
           });
@@ -12742,7 +12856,7 @@ function wirePageBalanceBox(){
     function getSupportMessageKey(thread, message){
       var m = normalizeSupportMessage(message);
       var uid = String(thread && thread.userUid || '').trim();
-      return [uid, m.id, m.sender, m.createdAt, m.text, m.imageUrl].join('|');
+      return [uid, m.id, m.sender, m.createdAt, m.text, m.imageUrl, getSupportCardsSignature(m.cards)].join('|');
     }
 
     function getSupportSelectedMessageKeys(){
@@ -12831,11 +12945,11 @@ function wirePageBalanceBox(){
     function formatSupportSelectedMessagesForCopy(thread){
       return getSupportSelectedMessageEntries(thread || {}).map(function(entry){
         var message = normalizeSupportMessage(entry.message);
-        var author = message.sender === 'user' ? 'أنت' : 'الدعم الفني';
+        var author = message.sender === 'user' ? 'ط£ظ†طھ' : 'ط§ظ„ط¯ط¹ظ… ط§ظ„ظپظ†ظٹ';
         var time = formatSupportTime(message.createdAt);
         var parts = [(time ? '[' + time + '] ' : '') + author + ':'];
         if (message.text) parts.push(message.text);
-        if (message.imageUrl) parts.push('[صورة] ' + message.imageUrl);
+        if (message.imageUrl) parts.push('[طµظˆط±ط©] ' + message.imageUrl);
         return parts.join('\n');
       }).join('\n\n');
     }
@@ -12843,7 +12957,7 @@ function wirePageBalanceBox(){
     async function copySupportSelectedMessages(){
       var text = formatSupportSelectedMessagesForCopy(supportChatState.thread || {});
       if (!text) {
-        setSupportChatStatus('حدد رسالة واحدة على الأقل للنسخ.');
+        setSupportChatStatus('ط­ط¯ط¯ ط±ط³ط§ظ„ط© ظˆط§ط­ط¯ط© ط¹ظ„ظ‰ ط§ظ„ط£ظ‚ظ„ ظ„ظ„ظ†ط³ط®.');
         return;
       }
       var ok = false;
@@ -12869,7 +12983,7 @@ function wirePageBalanceBox(){
       if (ok) {
         clearSupportMessageSelection();
       }
-      setSupportChatStatus(ok ? 'تم نسخ الرسائل المحددة.' : 'تعذر النسخ تلقائياً.');
+      setSupportChatStatus(ok ? 'طھظ… ظ†ط³ط® ط§ظ„ط±ط³ط§ط¦ظ„ ط§ظ„ظ…ط­ط¯ط¯ط©.' : 'طھط¹ط°ط± ط§ظ„ظ†ط³ط® طھظ„ظ‚ط§ط¦ظٹط§ظ‹.');
     }
 
     function renderSupportMessagesLoading(){
@@ -12894,22 +13008,33 @@ function wirePageBalanceBox(){
         return;
       }
       if (!messages.length) {
-        list.innerHTML = '<div class="site-support-chat__empty">لا توجد رسائل بعد.</div>';
+        list.innerHTML = '<div class="site-support-chat__empty">ظ„ط§ طھظˆط¬ط¯ ط±ط³ط§ط¦ظ„ ط¨ط¹ط¯.</div>';
         updateSupportSelectionBar();
         scrollSupportMessagesToBottom();
         return;
       }
       list.innerHTML = messages.map(function(message){
+        var system = message.sender === 'system';
         var own = message.sender === 'user';
         var messageKey = getSupportMessageKey(thread || {}, message);
         var selectedClass = isSupportMessageSelected(messageKey) ? ' is-selected' : '';
+        if (system) {
+          return [
+            '<div class="site-support-chat__system" aria-live="polite">',
+              message.text ? '<div>' + escapeSupport(message.text).replace(/\n/g, '<br>') + '</div>' : '',
+              '<span>' + escapeSupport(formatSupportTime(message.createdAt)) + '</span>',
+            '</div>'
+          ].join('');
+        }
         var imageHtml = message.imageUrl
-          ? '<button class="site-support-chat__image-btn" type="button" data-support-image="' + escapeSupport(message.imageUrl) + '" aria-label="عرض الصورة"><img src="' + escapeSupport(message.imageUrl) + '" alt=""></button>'
+          ? '<button class="site-support-chat__image-btn" type="button" data-support-image="' + escapeSupport(message.imageUrl) + '" aria-label="ط¹ط±ط¶ ط§ظ„طµظˆط±ط©"><img src="' + escapeSupport(message.imageUrl) + '" alt=""></button>'
           : '';
+        var cardsHtml = renderSupportCards(message.cards);
         return [
           '<div class="site-support-chat__bubble ' + (own ? 'is-user' : 'is-admin') + selectedClass + '" data-support-message-key="' + escapeSupport(messageKey) + '" role="button" tabindex="0" aria-selected="' + (selectedClass ? 'true' : 'false') + '">',
             '<span class="site-support-chat__select-mark" aria-hidden="true"><i class="fa-solid fa-check"></i></span>',
             message.text ? '<div>' + escapeSupport(message.text).replace(/\n/g, '<br>') + '</div>' : '',
+            cardsHtml,
             imageHtml,
             '<span>' + escapeSupport(formatSupportTime(message.createdAt)) + '</span>',
           '</div>'
@@ -12981,7 +13106,8 @@ function wirePageBalanceBox(){
         last && last.id,
         last && last.createdAt,
         last && last.text,
-        last && last.imageUrl
+        last && last.imageUrl,
+        last && getSupportCardsSignature(last.cards)
       ].join('|');
     }
 
@@ -13001,7 +13127,37 @@ function wirePageBalanceBox(){
         supportChatState.lastIncomingMessageKey = incomingKey;
       }
       supportChatState.lastThreadVersion = nextThreadVersion;
+      if (isSupportChatActive()) {
+        if (isSupportThreadTicketOpen(supportChatState.thread)) {
+          if (supportChatState.realtimeDisabled) startSupportPolling();
+          else startSupportRealtime().catch(function(){});
+        } else {
+          stopSupportPolling();
+          stopSupportRealtime();
+        }
+      }
       return !!(previousThreadVersion && nextThreadVersion && previousThreadVersion !== nextThreadVersion);
+    }
+
+    function mergeSupportThreadMessages(threadMeta, messages){
+      var base = supportChatState.thread && typeof supportChatState.thread === 'object' ? supportChatState.thread : {};
+      var meta = threadMeta && typeof threadMeta === 'object' ? threadMeta : {};
+      var currentMessages = Array.isArray(base.messages) ? base.messages.map(normalizeSupportMessage) : [];
+      var nextMessages = currentMessages.slice();
+      var seen = {};
+      nextMessages.forEach(function(message){
+        if (message && message.id) seen[String(message.id)] = true;
+      });
+      (Array.isArray(messages) ? messages : []).forEach(function(raw){
+        var message = normalizeSupportMessage(raw);
+        if (!message.id || seen[String(message.id)]) return;
+        seen[String(message.id)] = true;
+        nextMessages.push(message);
+      });
+      nextMessages.sort(function(a, b){
+        return (Date.parse(a.createdAt || '') || 0) - (Date.parse(b.createdAt || '') || 0);
+      });
+      return Object.assign({}, base, meta, { messages: nextMessages });
     }
 
     function supportRealtimeDocId(uid){
@@ -13025,7 +13181,7 @@ function wirePageBalanceBox(){
         }
       } catch (_) {}
       if (typeof firebase === 'undefined' || !firebase || typeof firebase.firestore !== 'function') {
-        throw new Error('تعذر تشغيل التحديث الفوري للدعم.');
+        throw new Error('طھط¹ط°ط± طھط´ط؛ظٹظ„ ط§ظ„طھط­ط¯ظٹط« ط§ظ„ظپظˆط±ظٹ ظ„ظ„ط¯ط¹ظ….');
       }
       try {
         if ((!firebase.apps || !firebase.apps.length)) {
@@ -13036,9 +13192,17 @@ function wirePageBalanceBox(){
         }
       } catch (_) {}
       if (!firebase.apps || !firebase.apps.length) {
-        throw new Error('إعدادات Firebase غير جاهزة للتحديث الفوري.');
+        throw new Error('ط¥ط¹ط¯ط§ط¯ط§طھ Firebase ط؛ظٹط± ط¬ط§ظ‡ط²ط© ظ„ظ„طھط­ط¯ظٹط« ط§ظ„ظپظˆط±ظٹ.');
       }
       return firebase.firestore();
+    }
+
+    function supportIsRealtimePermissionError(err){
+      var text = err && err.message ? String(err.message) : '';
+      var code = String(err && err.code ? err.code : '').trim().toLowerCase();
+      return code === 'permission-denied' ||
+        code === 'permission_denied' ||
+        /missing or insufficient permissions|permission denied|insufficient permissions/i.test(text);
     }
 
     function markSupportThreadReadFromRealtime(){
@@ -13069,9 +13233,66 @@ function wirePageBalanceBox(){
       supportChatState.realtimeReady = false;
     }
 
+    function supportShouldPollFallback(){
+      return supportChatState.realtimeDisabled === true && isSupportThreadTicketOpen(supportChatState.thread);
+    }
+
+    function stopSupportPolling(){
+      if (!supportChatState.pollTimer) return;
+      clearTimeout(supportChatState.pollTimer);
+      supportChatState.pollTimer = 0;
+    }
+
+    function scheduleSupportPolling(delayMs){
+      stopSupportPolling();
+      if (!isSupportChatActive() || !supportShouldPollFallback()) return;
+      var delay = Number(delayMs);
+      if (!Number.isFinite(delay) || delay < 0) delay = Number(supportChatState.pollDelayMs || 0);
+      delay = Math.max(2500, delay || 4000);
+      supportChatState.pollTimer = setTimeout(function(){
+        supportRunPollingCycle();
+      }, delay);
+    }
+
+    function supportRunPollingCycle(){
+      if (!isSupportChatActive() || !supportShouldPollFallback()) {
+        stopSupportPolling();
+        return;
+      }
+      supportChatState.pollTimer = 0;
+      Promise.resolve(loadSupportThread(true, { markRead: true, notify: false, force: true }))
+        .catch(function(){})
+        .finally(function(){
+          if (!isSupportChatActive()) {
+            stopSupportPolling();
+            return;
+          }
+          if (supportShouldPollFallback()) scheduleSupportPolling();
+          else stopSupportPolling();
+        });
+    }
+
+    function startSupportPolling(){
+      if (!isSupportChatActive()) {
+        stopSupportPolling();
+        return false;
+      }
+      if (!supportShouldPollFallback()) {
+        stopSupportPolling();
+        return false;
+      }
+      if (supportChatState.pollTimer) return true;
+      supportRunPollingCycle();
+      return true;
+    }
+
     async function startSupportRealtime(){
       if (!isSupportChatActive()) {
         stopSupportRealtime();
+        return false;
+      }
+      if (supportChatState.realtimeDisabled) {
+        if (supportShouldPollFallback()) startSupportPolling();
         return false;
       }
       if (supportChatState.realtimeUnsubscribe || supportChatState.realtimeStarting) return true;
@@ -13104,24 +13325,26 @@ function wirePageBalanceBox(){
           }, function(err){
             if (supportChatState.realtimeRunId !== runId) return;
             supportChatState.realtimeError = err && err.message ? err.message : 'realtime_failed';
-            try { console.warn('support_realtime_failed', supportChatState.realtimeError); } catch (_) {}
-            if (isSupportChatActive()) {
-              setSupportChatStatus('تعذر تشغيل التحديث الفوري. افتح المحادثة مجددًا أو حدّث الصفحة.');
+            if (!supportIsRealtimePermissionError(err)) {
+              try { console.warn('support_realtime_failed', supportChatState.realtimeError); } catch (_) {}
             }
             stopSupportRealtime();
+            if (supportShouldPollFallback()) startSupportPolling();
           });
         if (!isSupportChatActive() || supportChatState.realtimeRunId !== runId) {
           try { if (typeof unsubscribe === 'function') unsubscribe(); } catch (_) {}
           return false;
         }
+        supportChatState.realtimeDisabled = false;
         supportChatState.realtimeUnsubscribe = unsubscribe;
         return true;
       } catch (err) {
         supportChatState.realtimeError = err && err.message ? err.message : 'realtime_failed';
-        try { console.warn('support_realtime_start_failed', supportChatState.realtimeError); } catch (_) {}
-        if (isSupportChatActive()) {
-          setSupportChatStatus('تعذر تشغيل التحديث الفوري. افتح المحادثة مجددًا أو حدّث الصفحة.');
+        supportChatState.realtimeDisabled = true;
+        if (!supportIsRealtimePermissionError(err)) {
+          try { console.warn('support_realtime_start_failed', supportChatState.realtimeError); } catch (_) {}
         }
+        if (supportShouldPollFallback()) startSupportPolling();
         return false;
       } finally {
         if (supportChatState.realtimeRunId === runId) {
@@ -13137,7 +13360,7 @@ function wirePageBalanceBox(){
       }
       if (supportChatState.loading) return;
       supportChatState.loading = true;
-      if (!silent) setSupportChatStatus('جاري تحميل المحادثة...');
+      if (!silent) setSupportChatStatus('ط¬ط§ط±ظٹ طھط­ظ…ظٹظ„ ط§ظ„ظ…ط­ط§ط¯ط«ط©...');
       var usePageLoader = !silent && isSupportChatActive();
       if (usePageLoader) {
         showSupportChatPageLoader();
@@ -13161,30 +13384,12 @@ function wirePageBalanceBox(){
         payload.__changed = changed;
         return payload;
       } catch (err) {
-        if (!silent) setSupportChatStatus(err && err.message ? err.message : 'تعذر تحميل الدعم الفني.');
+        if (!silent) setSupportChatStatus(err && err.message ? err.message : 'طھط¹ط°ط± طھط­ظ…ظٹظ„ ط§ظ„ط¯ط¹ظ… ط§ظ„ظپظ†ظٹ.');
         throw err;
       } finally {
         supportChatState.loading = false;
         if (usePageLoader) hideSupportChatPageLoader();
       }
-    }
-
-    function stopSupportPolling(){
-      if (!supportChatState.pollTimer) return;
-      clearTimeout(supportChatState.pollTimer);
-      supportChatState.pollTimer = 0;
-    }
-
-    function scheduleSupportPolling(delayMs){
-      stopSupportPolling();
-      if (!isSupportChatActive()) return;
-      startSupportRealtime().catch(function(){});
-    }
-
-    function startSupportPolling(){
-      stopSupportPolling();
-      if (!isSupportChatActive()) return;
-      startSupportRealtime().catch(function(){});
     }
 
     function stopSupportBadgePolling(){
@@ -13284,15 +13489,15 @@ function wirePageBalanceBox(){
       viewer.hidden = true;
       viewer.setAttribute('role', 'dialog');
       viewer.setAttribute('aria-modal', 'true');
-      viewer.setAttribute('aria-label', 'عارض الصورة');
+      viewer.setAttribute('aria-label', 'ط¹ط§ط±ط¶ ط§ظ„طµظˆط±ط©');
       viewer.innerHTML = [
         '<div class="site-support-image-viewer__bar">',
-          '<button type="button" data-support-viewer-close aria-label="إغلاق"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>',
+          '<button type="button" data-support-viewer-close aria-label="ط¥ط؛ظ„ط§ظ‚"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>',
           '<div class="site-support-image-viewer__actions">',
-            '<button type="button" data-support-viewer-zoom-out aria-label="تصغير"><i class="fa-solid fa-magnifying-glass-minus" aria-hidden="true"></i></button>',
+            '<button type="button" data-support-viewer-zoom-out aria-label="طھطµط؛ظٹط±"><i class="fa-solid fa-magnifying-glass-minus" aria-hidden="true"></i></button>',
             '<span data-support-viewer-scale>100%</span>',
-            '<button type="button" data-support-viewer-zoom-in aria-label="تكبير"><i class="fa-solid fa-magnifying-glass-plus" aria-hidden="true"></i></button>',
-            '<button type="button" data-support-viewer-download aria-label="تنزيل"><i class="fa-solid fa-download" aria-hidden="true"></i></button>',
+            '<button type="button" data-support-viewer-zoom-in aria-label="طھظƒط¨ظٹط±"><i class="fa-solid fa-magnifying-glass-plus" aria-hidden="true"></i></button>',
+            '<button type="button" data-support-viewer-download aria-label="طھظ†ط²ظٹظ„"><i class="fa-solid fa-download" aria-hidden="true"></i></button>',
           '</div>',
         '</div>',
         '<div class="site-support-image-viewer__stage" data-support-viewer-stage>',
@@ -13352,8 +13557,23 @@ function wirePageBalanceBox(){
       }
       syncSupportChatViewportHeight();
       supportChatState.open = !!open;
+      if (!supportChatState.open) {
+        try {
+          var focused = document.activeElement;
+          if (focused && panel.contains(focused)) {
+            if (!fab.hidden && typeof fab.focus === 'function') fab.focus({ preventScroll: true });
+            else if (typeof focused.blur === 'function') focused.blur();
+          }
+        } catch (_) {}
+      } else {
+        try { panel.removeAttribute('inert'); } catch (_) {}
+      }
       panel.hidden = !supportChatState.open;
       panel.setAttribute('aria-hidden', supportChatState.open ? 'false' : 'true');
+      try {
+        if (supportChatState.open) panel.removeAttribute('inert');
+        else panel.setAttribute('inert', '');
+      } catch (_) {}
       fab.setAttribute('aria-expanded', supportChatState.open ? 'true' : 'false');
       try {
         document.documentElement.classList.toggle('site-support-page-open', supportChatState.open);
@@ -13371,7 +13591,6 @@ function wirePageBalanceBox(){
           if (supportChatState.titleBase) document.title = supportChatState.titleBase;
         } catch (_) {}
         ensureSupportNotificationPermission();
-        startSupportRealtime().catch(function(){});
         loadSupportThread(false, { markRead: true, notify: false, force: true }).catch(function(){});
         startSupportPolling();
         setTimeout(function(){
@@ -13407,7 +13626,7 @@ function wirePageBalanceBox(){
       if (preview) {
         if (supportChatState.imageFile) {
           preview.hidden = false;
-          preview.textContent = 'تم اختيار صورة: ' + String(supportChatState.imageFile.name || 'صورة');
+          preview.textContent = 'طھظ… ط§ط®طھظٹط§ط± طµظˆط±ط©: ' + String(supportChatState.imageFile.name || 'طµظˆط±ط©');
         } else {
           preview.hidden = true;
           preview.textContent = '';
@@ -13422,40 +13641,253 @@ function wirePageBalanceBox(){
       setSupportSelectedImage(null);
     }
 
+    function setSupportSendButtonBusy(busy){
+      var sendBtn = document.getElementById('siteSupportChatSend');
+      if (!sendBtn) return;
+      sendBtn.disabled = !!busy;
+      sendBtn.classList.toggle('is-sending', !!busy);
+      sendBtn.setAttribute('aria-busy', busy ? 'true' : 'false');
+      sendBtn.setAttribute('aria-label', busy ? 'ط¬ط§ط±ظٹ ط§ظ„ط¥ط±ط³ط§ظ„' : 'ط¥ط±ط³ط§ظ„');
+      sendBtn.innerHTML = busy
+        ? '<i class="fa-solid fa-circle-notch" aria-hidden="true"></i>'
+        : '<i class="fa-solid fa-paper-plane" aria-hidden="true"></i>';
+    }
+
     async function submitSupportMessage(){
       if (supportChatState.sending) return;
       var input = document.getElementById('siteSupportChatInput');
-      var sendBtn = document.getElementById('siteSupportChatSend');
       var text = input ? String(input.value || '').trim() : '';
       var imageFile = supportChatState.imageFile || null;
       if (!text && !imageFile) {
-        setSupportChatStatus('اكتب رسالتك أو أرفق صورة أولاً.');
+        setSupportChatStatus('ط§ظƒطھط¨ ط±ط³ط§ظ„طھظƒ ط£ظˆ ط£ط±ظپظ‚ طµظˆط±ط© ط£ظˆظ„ط§ظ‹.');
         return;
       }
       supportChatState.sending = true;
-      if (sendBtn) sendBtn.disabled = true;
+      setSupportSendButtonBusy(true);
       try {
-        setSupportChatStatus(imageFile ? 'جاري رفع الصورة...' : 'جاري الإرسال...');
+        setSupportChatStatus(imageFile ? 'ط¬ط§ط±ظٹ ط±ظپط¹ ط§ظ„طµظˆط±ط©...' : 'ط¬ط§ط±ظٹ ط§ظ„ط¥ط±ط³ط§ظ„...');
         var imageUrl = imageFile ? await uploadSupportImageFile(imageFile) : '';
-        if (imageUrl) setSupportChatStatus('جاري إرسال الرسالة...');
+        if (imageUrl) setSupportChatStatus('ط¬ط§ط±ظٹ ط¥ط±ط³ط§ظ„ ط§ظ„ط±ط³ط§ظ„ط©...');
         var payload = await callSupportApi('support-message', {
           method: 'POST',
-          body: { text: text, imageUrl: imageUrl }
+          body: {
+            text: text,
+            message: text,
+            chatId: String((supportChatAuthUser && supportChatAuthUser.uid) || (supportChatState.thread && supportChatState.thread.userUid) || ''),
+            imageUrl: imageUrl
+          }
         });
         if (input) input.value = '';
         clearSupportSelectedImage();
         clearSupportMessageSelection({ render: false });
-        renderSupportThread(payload.thread || null, { notify: false });
+        if (payload && Array.isArray(payload.messages)) {
+          renderSupportThread(mergeSupportThreadMessages(payload.thread || null, payload.messages), { notify: false });
+        } else {
+          renderSupportThread(payload.thread || null, { notify: false });
+        }
         if (payload && payload.realtime === false) {
-          setSupportChatStatus('تم الإرسال، لكن التحديث الفوري غير جاهز للطرف الآخر.');
+          setSupportChatStatus('طھظ… ط§ظ„ط¥ط±ط³ط§ظ„طŒ ظ„ظƒظ† ط§ظ„طھط­ط¯ظٹط« ط§ظ„ظپظˆط±ظٹ ط؛ظٹط± ط¬ط§ظ‡ط² ظ„ظ„ط·ط±ظپ ط§ظ„ط¢ط®ط±.');
         } else {
           setSupportChatStatus('');
         }
       } catch (err) {
-        setSupportChatStatus(err && err.message ? err.message : 'تعذر إرسال الرسالة.');
+        setSupportChatStatus(err && err.message ? err.message : 'طھط¹ط°ط± ط¥ط±ط³ط§ظ„ ط§ظ„ط±ط³ط§ظ„ط©.');
       } finally {
         supportChatState.sending = false;
-        if (sendBtn) sendBtn.disabled = false;
+        setSupportSendButtonBusy(false);
+      }
+    }
+
+    function navigateSupportRoute(routeKey, hashValue){
+      var route = String(routeKey || '').trim();
+      var hash = String(hashValue || (route ? '#/' + route : '')).trim();
+      try {
+        if (route && typeof navigate === 'function') {
+          navigate(route);
+          return true;
+        }
+      } catch (_) {}
+      try {
+        if (hash && typeof window.navigateHomeHash === 'function') {
+          window.navigateHomeHash(hash, route || hash.replace(/^#\/?/, ''));
+          return true;
+        }
+      } catch (_) {}
+      try {
+        if (hash) {
+          if (String(location.hash || '') !== hash) location.hash = hash;
+          else if (route && typeof window.__reloadInlineRoute === 'function') window.__reloadInlineRoute(route);
+          return true;
+        }
+      } catch (_) {}
+      return false;
+    }
+
+    function openSupportProductCard(button){
+      var productId = String(button && (button.getAttribute('data-product-id') || button.getAttribute('data-card-id')) || '').trim();
+      var gameSlug = String(button && button.getAttribute('data-game-slug') || '').trim();
+      if (!productId && !gameSlug) {
+        setSupportChatStatus('طھط¹ط°ط± ظپطھط­ ط§ظ„ظ…ظ†طھط¬ ظ…ظ† ط§ظ„ظƒط±طھ.');
+        return;
+      }
+      try { if (button && typeof button.blur === 'function') button.blur(); } catch (_) {}
+      try { setSupportChatOpen(false); } catch (_) {}
+      try {
+        window.__CATALOG_INLINE_ITEM_ID__ = productId || '';
+        window.__CATALOG_INLINE_ITEM_SLUG__ = gameSlug || productId || '';
+        window.__CATALOG_INLINE_FORCE_MODAL__ = productId ? '1' : '';
+        window.__CATALOG_INLINE_MODAL_ONLY__ = '';
+        window.__CATALOG_INLINE_MODAL_ONLY_SOURCE__ = 'support';
+        window.__CATALOG_INLINE_KEEP_PAGE_FOR_FORCE_MODAL__ = productId ? '1' : '';
+        window.__CATALOG_SUPPRESS_CATEGORY_FETCH_UNTIL__ = Date.now() + 20000;
+        window.__CATALOG_PRODUCT_CLICK_LOCK_UNTIL__ = Date.now() + 30000;
+        window.__CATALOG_PRODUCT_CLICK_LOCK_SLUG__ = gameSlug || productId || '';
+      } catch (_) {}
+      try {
+        if (gameSlug && typeof window.__openCatalogInline === 'function') {
+          window.__openCatalogInline(gameSlug, 'games');
+          return;
+        }
+      } catch (_) {}
+      if (gameSlug) {
+        navigateSupportRoute('games', '#/games/' + encodeURIComponent(gameSlug));
+      } else {
+        navigateSupportRoute('games', '#/games');
+      }
+    }
+
+    function tryOpenSupportDepositMethod(methodId, country, attempt){
+      var id = String(methodId || '').trim();
+      var tries = Number(attempt || 0);
+      if (!id) return;
+      try {
+        if (typeof window.__depositInlineOpenMethodById === 'function') {
+          Promise.resolve(window.__depositInlineOpenMethodById(id, { country: country || '', source: 'support_chat' }))
+            .then(function(ok){
+              if (ok) return;
+              if (tries < 18) setTimeout(function(){ tryOpenSupportDepositMethod(id, country, tries + 1); }, 350);
+            })
+            .catch(function(){
+              if (tries < 18) setTimeout(function(){ tryOpenSupportDepositMethod(id, country, tries + 1); }, 350);
+            });
+          return;
+        }
+      } catch (_) {}
+      try {
+        var escaped = (window.CSS && CSS.escape) ? CSS.escape(id) : id.replace(/"/g, '\\"');
+        var card = document.querySelector('#depositInlineApp [data-method-id="' + escaped + '"]');
+        if (card && typeof card.click === 'function') {
+          card.click();
+          return;
+        }
+      } catch (_) {}
+      if (tries < 18) setTimeout(function(){ tryOpenSupportDepositMethod(id, country, tries + 1); }, 350);
+    }
+
+    function openSupportDepositCard(button){
+      var methodId = String(button && (button.getAttribute('data-method-id') || button.getAttribute('data-card-id')) || '').trim();
+      var country = String(button && button.getAttribute('data-country') || '').trim();
+      try {
+        window.__SUPPORT_PENDING_DEPOSIT_METHOD__ = { methodId: methodId, country: country, ts: Date.now() };
+        sessionStorage.setItem('support:pendingDepositMethod', JSON.stringify(window.__SUPPORT_PENDING_DEPOSIT_METHOD__));
+      } catch (_) {}
+      try { setSupportChatOpen(false); } catch (_) {}
+      navigateSupportRoute('deposit', '#/deposit');
+      if (methodId) setTimeout(function(){ tryOpenSupportDepositMethod(methodId, country, 0); }, 450);
+    }
+
+    async function submitSupportObjection(orderCode, reason){
+      if (supportChatState.sending) return;
+      var code = String(orderCode || '').trim();
+      var cleanReason = String(reason || '').trim();
+      if (!cleanReason) return;
+      supportChatState.sending = true;
+      try {
+        setSupportChatStatus('ط¬ط§ط±ظٹ ط±ظپط¹ ط§ظ„ط§ط¹طھط±ط§ط¶...');
+        var text = (code ? ('ط§ط¹طھط±ط§ط¶ ط¹ظ„ظ‰ ط§ظ„ط·ظ„ط¨ ' + code) : 'ط§ط¹طھط±ط§ط¶ ط¹ظ„ظ‰ ط·ظ„ط¨') + '\nط§ظ„ط³ط¨ط¨: ' + cleanReason;
+        var payload = await callSupportApi('support-message', {
+          method: 'POST',
+          body: {
+            action: 'order_objection',
+            text: text,
+            message: text,
+            chatId: String((supportChatAuthUser && supportChatAuthUser.uid) || (supportChatState.thread && supportChatState.thread.userUid) || ''),
+            objection: {
+              orderCode: code,
+              reason: cleanReason
+            }
+          }
+        });
+        clearSupportMessageSelection({ render: false });
+        if (payload && Array.isArray(payload.messages)) {
+          renderSupportThread(mergeSupportThreadMessages(payload.thread || null, payload.messages), { notify: false });
+        } else {
+          renderSupportThread(payload.thread || null, { notify: false });
+        }
+        setSupportChatStatus('طھظ… ط±ظپط¹ ط§ظ„ط§ط¹طھط±ط§ط¶ ظ„ظ„ط¥ط¯ط§ط±ط©.');
+      } catch (err) {
+        setSupportChatStatus(err && err.message ? err.message : 'طھط¹ط°ط± ط±ظپط¹ ط§ظ„ط§ط¹طھط±ط§ط¶.');
+      } finally {
+        supportChatState.sending = false;
+      }
+    }
+
+    async function submitSupportOpenTicket(){
+      if (supportChatState.sending) return;
+      supportChatState.sending = true;
+      setSupportSendButtonBusy(true);
+      try {
+        setSupportChatStatus('ط¬ط§ط±ظٹ ظپطھط­ طھط°ظƒط±ط© ط§ظ„ط¯ط¹ظ…...');
+        var payload = await callSupportApi('support-message', {
+          method: 'POST',
+          body: {
+            action: 'open_ticket',
+            type: 'open_ticket',
+            chatId: String((supportChatAuthUser && supportChatAuthUser.uid) || (supportChatState.thread && supportChatState.thread.userUid) || '')
+          }
+        });
+        clearSupportMessageSelection({ render: false });
+        if (payload && Array.isArray(payload.messages)) {
+          renderSupportThread(mergeSupportThreadMessages(payload.thread || null, payload.messages), { notify: false });
+        } else {
+          renderSupportThread(payload.thread || null, { notify: false });
+        }
+        setSupportChatStatus(payload && payload.message ? payload.message : 'طھظ… ظپطھط­ طھط°ظƒط±ط© ط§ظ„ط¯ط¹ظ….');
+      } catch (err) {
+        setSupportChatStatus(err && err.message ? err.message : 'طھط¹ط°ط± ظپطھط­ طھط°ظƒط±ط© ط§ظ„ط¯ط¹ظ….');
+      } finally {
+        supportChatState.sending = false;
+        setSupportSendButtonBusy(false);
+      }
+    }
+
+    function handleSupportCardAction(button){
+      var action = String(button && button.getAttribute('data-support-card-action') || '').trim();
+      if (action === 'open_ticket') {
+        submitSupportOpenTicket().catch(function(){});
+        return;
+      }
+      if (action === 'open_product') {
+        openSupportProductCard(button);
+        return;
+      }
+      if (action === 'open_deposit') {
+        openSupportDepositCard(button);
+        return;
+      }
+      if (action === 'start_objection') {
+        var orderCode = String(button && button.getAttribute('data-order-code') || '').trim();
+        var promptText = orderCode
+          ? 'ط§ظƒطھط¨ ط³ط¨ط¨ ط§ظ„ط§ط¹طھط±ط§ط¶ ط¹ظ„ظ‰ ط§ظ„ط·ظ„ط¨ ' + orderCode + ':'
+          : 'ط§ظƒطھط¨ ط³ط¨ط¨ ط§ظ„ط§ط¹طھط±ط§ط¶ ظ„ظˆ ط³ظ…ط­طھ:';
+        var reason = '';
+        try { reason = window.prompt(promptText) || ''; } catch (_) { reason = ''; }
+        reason = String(reason || '').trim();
+        if (!reason) {
+          setSupportChatStatus('ط§ظƒطھط¨ ط³ط¨ط¨ ط§ظ„ط§ط¹طھط±ط§ط¶ ط­طھظ‰ ظ†ظ‚ط¯ط± ظ†ط±ظپط¹ظ‡ ظ„ظ„ط¥ط¯ط§ط±ط©.');
+          return;
+        }
+        submitSupportObjection(orderCode, reason).catch(function(){});
       }
     }
 
@@ -13801,6 +14233,25 @@ function wirePageBalanceBox(){
           color:#eef2f7;
           border-bottom-right-radius:6px;
         }
+        .site-support-chat__system{
+          align-self:center;
+          max-width:min(86%,520px);
+          padding:6px 12px;
+          border-radius:999px;
+          background:rgba(148,163,184,.12);
+          color:#94a3b8;
+          font-size:.78rem;
+          line-height:1.65;
+          text-align:center;
+          box-shadow:none;
+        }
+        .site-support-chat__system span{
+          display:block;
+          margin-top:2px;
+          color:rgba(148,163,184,.78);
+          font-size:.66rem;
+          direction:ltr;
+        }
         .site-support-chat__bubble span{
           color:rgba(255,255,255,.72);
           font-size:.7rem;
@@ -13810,6 +14261,165 @@ function wirePageBalanceBox(){
           max-width:210px;
           border-radius:14px;
           display:block;
+        }
+        .site-support-chat__cards{
+          width:min(620px,100%);
+          max-width:100%;
+          display:flex;
+          gap:14px;
+          overflow-x:auto;
+          overflow-y:hidden;
+          padding:6px 2px 12px;
+          margin-top:4px;
+          scroll-snap-type:x proximity;
+          scrollbar-width:thin;
+        }
+        .site-support-chat__cards.is-ticket-prompt{
+          width:100%;
+          display:block;
+          overflow:visible;
+          padding:8px 0 0;
+          margin-top:6px;
+          scroll-snap-type:none;
+        }
+        .site-support-chat__bubble:has(.site-support-chat__cards){
+          max-width:min(96%,680px);
+        }
+        .site-support-chat__bubble:has(.site-support-chat__cards.is-ticket-prompt){
+          max-width:min(88%,360px);
+        }
+        .site-support-chat__ticket-btn{
+          width:100%;
+          min-height:38px;
+          border:0;
+          border-radius:12px;
+          display:grid;
+          place-items:center;
+          padding:0 14px;
+          background:#229ed9;
+          color:#fff;
+          font-size:.86rem;
+          font-weight:900;
+          line-height:1.2;
+          box-shadow:none;
+          cursor:pointer;
+          direction:rtl;
+          text-align:center;
+        }
+        .site-support-chat__ticket-btn:hover{
+          transform:none;
+          filter:brightness(1.05);
+        }
+        .site-support-chat__card{
+          flex:0 0 clamp(132px,28vw,174px);
+          width:clamp(132px,28vw,174px);
+          min-height:0;
+          border:0;
+          border-radius:0;
+          background:transparent;
+          color:#f8fafc;
+          display:flex;
+          flex-direction:column;
+          align-items:stretch;
+          gap:8px;
+          padding:0;
+          text-align:center;
+          direction:rtl;
+          line-height:1.45;
+          cursor:pointer;
+          box-shadow:none;
+          scroll-snap-align:start;
+        }
+        .site-support-chat__card:hover{
+          transform:translateY(-2px);
+        }
+        .site-support-chat__card-media{
+          width:100%;
+          aspect-ratio:1 / 1;
+          height:auto;
+          border-radius:14px;
+          overflow:hidden;
+          display:grid;
+          place-items:center;
+          background:linear-gradient(135deg,rgba(34,197,94,.14),rgba(15,23,42,.94));
+          color:#86efac;
+          border:1px solid rgba(148,163,184,.18);
+          box-shadow:0 14px 28px rgba(0,0,0,.22);
+        }
+        .site-support-chat__bubble .site-support-chat__card-media,
+        .site-support-chat__bubble .site-support-chat__card-body,
+        .site-support-chat__bubble .site-support-chat__card-cta{
+          direction:rtl;
+          font-size:inherit;
+        }
+        .site-support-chat__card-media img{
+          width:100%;
+          height:100%;
+          max-width:none;
+          border-radius:0;
+          object-fit:cover;
+        }
+        .site-support-chat__card-body{
+          min-width:0;
+          display:grid;
+          align-content:center;
+          gap:2px;
+          direction:rtl;
+          padding:0 2px;
+        }
+        .site-support-chat__card-body strong,
+        .site-support-chat__card-body small,
+        .site-support-chat__card-body em{
+          display:block;
+          min-width:0;
+          overflow:hidden;
+          text-overflow:ellipsis;
+          white-space:nowrap;
+        }
+        .site-support-chat__card-body strong{
+          color:#fff;
+          font-size:.84rem;
+          line-height:1.45;
+        }
+        .site-support-chat__card-body small{
+          color:#cbd5e1;
+          font-size:.72rem;
+          line-height:1.45;
+        }
+        .site-support-chat__card-body em{
+          color:#bbf7d0;
+          font-size:.74rem;
+          font-style:normal;
+          font-weight:900;
+        }
+        .site-support-chat__card-cta{
+          align-self:center;
+          min-width:62px;
+          min-height:30px;
+          padding:0 14px;
+          border-radius:999px;
+          display:grid;
+          place-items:center;
+          background:#22c55e;
+          color:#052e16;
+          font-size:.74rem;
+          font-weight:900;
+          white-space:nowrap;
+        }
+        .site-support-chat__bubble .site-support-chat__card-cta{
+          color:#052e16;
+          font-size:.78rem;
+        }
+        @media (max-width:520px){
+          .site-support-chat__cards{
+            width:100%;
+            gap:12px;
+            padding-bottom:10px;
+          }
+          .site-support-chat__card{
+            flex-basis:136px;
+            width:136px;
+          }
         }
         .site-support-chat__image-btn{
           padding:0;
@@ -13956,8 +14566,22 @@ function wirePageBalanceBox(){
           color:#fff;
           background:#22c55e;
           cursor:pointer;
+          transition:transform .16s ease,filter .16s ease,background .16s ease;
         }
-        .site-support-chat__form button:disabled{opacity:.6;cursor:not-allowed}
+        .site-support-chat__form button:not(.site-support-chat__attach):not(:disabled):hover{
+          transform:translateY(-1px);
+          filter:brightness(1.05);
+        }
+        .site-support-chat__form button:disabled{opacity:.72;cursor:not-allowed}
+        .site-support-chat__form button.is-sending{
+          background:#16a34a;
+        }
+        .site-support-chat__form button.is-sending i{
+          animation:siteSupportSendSpin .8s linear infinite;
+        }
+        @keyframes siteSupportSendSpin{
+          to{transform:rotate(360deg)}
+        }
         #siteSupportChatStatus{
           min-height:18px;
           padding:0 max(16px,calc((100vw - 820px)/2)) max(10px,env(safe-area-inset-bottom,0px));
@@ -14020,38 +14644,39 @@ function wirePageBalanceBox(){
       var fab = document.createElement('button');
       fab.id = 'siteSupportChatFab';
       fab.type = 'button';
-      fab.setAttribute('aria-label', 'الدعم الفني');
+      fab.setAttribute('aria-label', 'ط§ظ„ط¯ط¹ظ… ط§ظ„ظپظ†ظٹ');
       fab.setAttribute('aria-expanded', 'false');
       fab.innerHTML = '<i class="fa-solid fa-headset" aria-hidden="true"></i><span id="siteSupportChatBadge" hidden></span>';
 
       var panel = document.createElement('section');
       panel.id = 'siteSupportChatPanel';
       panel.hidden = true;
-      panel.setAttribute('aria-label', 'محادثة الدعم الفني');
+      panel.setAttribute('inert', '');
+      panel.setAttribute('aria-label', 'ظ…ط­ط§ط¯ط«ط© ط§ظ„ط¯ط¹ظ… ط§ظ„ظپظ†ظٹ');
       panel.setAttribute('role', 'main');
       panel.innerHTML = [
         '<header class="site-support-chat__head">',
           '<div class="site-support-chat__title">',
             '<span class="site-support-chat__icon"><img id="siteSupportChatSiteImage" class="site-support-chat__site-image" alt="" hidden><i class="fa-solid fa-headset site-support-chat__support-mark" aria-hidden="true"></i></span>',
-          '<div><strong>الدعم الفني</strong><span>فريق الدعم</span></div>',
+          '<div><strong>ط§ظ„ط¯ط¹ظ… ط§ظ„ظپظ†ظٹ</strong><span>ظپط±ظٹظ‚ ط§ظ„ط¯ط¹ظ…</span></div>',
           '</div>',
-          '<button class="site-support-chat__close" id="siteSupportChatClose" type="button" aria-label="رجوع"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>',
+          '<button class="site-support-chat__close" id="siteSupportChatClose" type="button" aria-label="ط±ط¬ظˆط¹"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>',
         '</header>',
         '<div id="siteSupportChatSelectionBar" class="site-support-chat__selection-bar" hidden>',
-          '<button class="site-support-chat__selection-clear" type="button" data-support-clear-selection aria-label="إلغاء التحديد"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>',
-          '<div class="site-support-chat__selection-title"><div><span><span data-support-selection-count>0</span> محددة</span><small>يمكنك نسخ الرسائل المحددة</small></div></div>',
-          '<button class="site-support-chat__selection-copy" type="button" data-support-copy-selection aria-label="نسخ"><i class="fa-solid fa-copy" aria-hidden="true"></i></button>',
+          '<button class="site-support-chat__selection-clear" type="button" data-support-clear-selection aria-label="ط¥ظ„ط؛ط§ط، ط§ظ„طھط­ط¯ظٹط¯"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>',
+          '<div class="site-support-chat__selection-title"><div><span><span data-support-selection-count>0</span> ظ…ط­ط¯ط¯ط©</span><small>ظٹظ…ظƒظ†ظƒ ظ†ط³ط® ط§ظ„ط±ط³ط§ط¦ظ„ ط§ظ„ظ…ط­ط¯ط¯ط©</small></div></div>',
+          '<button class="site-support-chat__selection-copy" type="button" data-support-copy-selection aria-label="ظ†ط³ط®"><i class="fa-solid fa-copy" aria-hidden="true"></i></button>',
         '</div>',
         '<div id="siteSupportChatMessages" class="site-support-chat__messages">',
-          '<div class="site-support-chat__empty">لا توجد رسائل بعد.</div>',
+          '<div class="site-support-chat__empty">ظ„ط§ طھظˆط¬ط¯ ط±ط³ط§ط¦ظ„ ط¨ط¹ط¯.</div>',
         '</div>',
         '<div class="site-support-chat__composer">',
           '<div id="siteSupportChatPreview" class="site-support-chat__preview" hidden></div>',
           '<form id="siteSupportChatForm" class="site-support-chat__form">',
-            '<button id="siteSupportChatAttach" class="site-support-chat__attach" type="button" aria-label="إرفاق صورة"><i class="fa-solid fa-paperclip" aria-hidden="true"></i></button>',
+            '<button id="siteSupportChatAttach" class="site-support-chat__attach" type="button" aria-label="ط¥ط±ظپط§ظ‚ طµظˆط±ط©"><i class="fa-solid fa-paperclip" aria-hidden="true"></i></button>',
             '<input id="siteSupportChatImage" class="site-support-chat__file" type="file" accept="image/*" />',
-            '<input id="siteSupportChatInput" type="text" autocomplete="off" placeholder="اكتب رسالتك هنا..." />',
-            '<button id="siteSupportChatSend" type="submit" aria-label="إرسال"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i></button>',
+            '<input id="siteSupportChatInput" type="text" autocomplete="off" placeholder="ط§ظƒطھط¨ ط±ط³ط§ظ„طھظƒ ظ‡ظ†ط§..." />',
+            '<button id="siteSupportChatSend" type="submit" aria-label="ط¥ط±ط³ط§ظ„"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i></button>',
           '</form>',
           '<div id="siteSupportChatStatus"></div>',
         '</div>'
@@ -14089,6 +14714,15 @@ function wirePageBalanceBox(){
         setSupportChatOpen(false);
       });
       panel.addEventListener('click', function(ev){
+        var supportCard = ev && ev.target && ev.target.closest
+          ? ev.target.closest('[data-support-card-action]')
+          : null;
+        if (supportCard) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          handleSupportCardAction(supportCard);
+          return;
+        }
         var clearSelection = ev && ev.target && ev.target.closest
           ? ev.target.closest('[data-support-clear-selection]')
           : null;
@@ -14125,6 +14759,7 @@ function wirePageBalanceBox(){
       });
       panel.addEventListener('keydown', function(ev){
         if (!ev || (ev.key !== 'Enter' && ev.key !== ' ')) return;
+        if (ev.target && ev.target.closest && ev.target.closest('[data-support-card-action]')) return;
         var row = ev.target && ev.target.closest
           ? ev.target.closest('[data-support-message-key]')
           : null;
@@ -14144,12 +14779,12 @@ function wirePageBalanceBox(){
         }
         if (!String(file.type || '').toLowerCase().startsWith('image/')) {
           clearSupportSelectedImage();
-          setSupportChatStatus('اختر ملف صورة فقط.');
+          setSupportChatStatus('ط§ط®طھط± ظ…ظ„ظپ طµظˆط±ط© ظپظ‚ط·.');
           return;
         }
         if (Number(file.size || 0) > (5 * 1024 * 1024)) {
           clearSupportSelectedImage();
-          setSupportChatStatus('حجم الصورة يتجاوز 5MB.');
+          setSupportChatStatus('ط­ط¬ظ… ط§ظ„طµظˆط±ط© ظٹطھط¬ط§ظˆط² 5MB.');
           return;
         }
         setSupportSelectedImage(file);
@@ -14187,7 +14822,10 @@ function wirePageBalanceBox(){
           return;
         }
         if (supportChatState.open) {
-          startSupportRealtime().catch(function(){});
+          if (isSupportThreadTicketOpen(supportChatState.thread)) {
+            if (supportChatState.realtimeDisabled) startSupportPolling();
+            else startSupportRealtime().catch(function(){});
+          }
           loadSupportThread(true, { markRead: true, notify: false, force: true }).catch(function(){});
         }
       });
@@ -15009,7 +15647,7 @@ function wirePageBalanceBox(){
       #sidebar .support-section .support-icon .support-badge[data-badge-mode="icon"] i.fa-headset {
         font-size: 8px;
       }
-        /* المسافه بين الدعم و الثيم --ليث--*/
+        /* ط§ظ„ظ…ط³ط§ظپظ‡ ط¨ظٹظ† ط§ظ„ط¯ط¹ظ… ظˆ ط§ظ„ط«ظٹظ… --ظ„ظٹط«--*/
       #sidebar .support-theme-toggle {
         margin: 5px 10px 10px;
         display: flex;
@@ -15218,7 +15856,7 @@ function wirePageBalanceBox(){
           toggleHost.innerHTML = `
             <div class="support-theme-switch">
               <input class="support-theme-switch__input" type="checkbox" aria-hidden="true" tabindex="-1" />
-              <label class="support-theme-switch__track" role="switch" aria-checked="false" tabindex="0" aria-label="تبديل الثيم">
+              <label class="support-theme-switch__track" role="switch" aria-checked="false" tabindex="0" aria-label="طھط¨ط¯ظٹظ„ ط§ظ„ط«ظٹظ…">
                 <span class="support-theme-switch__handler">
                   <span class="support-theme-switch__crater support-theme-switch__crater--1"></span>
                   <span class="support-theme-switch__crater support-theme-switch__crater--2"></span>
@@ -16524,9 +17162,9 @@ function wirePageBalanceBox(){
             <div class="notice-actions">
               <label class="notice-mute">
                 <input id="siteNoticeMute" type="checkbox" />
-                <span>لا تعرض هذه الرسالة مرة أخرى</span>
+                <span>ظ„ط§ طھط¹ط±ط¶ ظ‡ط°ظ‡ ط§ظ„ط±ط³ط§ظ„ط© ظ…ط±ط© ط£ط®ط±ظ‰</span>
               </label>
-              <button id="siteNoticeOk" class="notice-ok" type="button">حسنًا</button>
+              <button id="siteNoticeOk" class="notice-ok" type="button">ط­ط³ظ†ظ‹ط§</button>
             </div>
           </div>
         `;
@@ -16668,7 +17306,7 @@ function wirePageBalanceBox(){
     function resolveMaintenanceLogoUrl(){
       try {
         if (typeof window.__resolveSiteMediaFallbackUrl === "function") {
-          const resolved = String(window.__resolveSiteMediaFallbackUrl("icon", "شعار")).trim();
+          const resolved = String(window.__resolveSiteMediaFallbackUrl("icon", "ط´ط¹ط§ط±")).trim();
           if (resolved) return resolved;
         }
       } catch {}
@@ -16714,10 +17352,10 @@ function wirePageBalanceBox(){
     function normalizeMaintenanceThemeName(value){
       const raw = String(value || "").trim().toLowerCase();
       if (!raw) return "";
-      if (["snow", "winter", "ثلج"].includes(raw)) return "snow";
-      if (["ramadan", "رمضان"].includes(raw)) return "ramadan";
-      if (["eid", "عيد"].includes(raw)) return "eid";
-      if (["fall", "autumn", "خريف"].includes(raw)) return "fall";
+      if (["snow", "winter", "ط«ظ„ط¬"].includes(raw)) return "snow";
+      if (["ramadan", "ط±ظ…ط¶ط§ظ†"].includes(raw)) return "ramadan";
+      if (["eid", "ط¹ظٹط¯"].includes(raw)) return "eid";
+      if (["fall", "autumn", "ط®ط±ظٹظپ"].includes(raw)) return "fall";
       return raw;
     }
 
@@ -17068,11 +17706,11 @@ function wirePageBalanceBox(){
           </div>
           <div class="maintenance-shell">
             <div class="maintenance-logo">
-              <img class="maintenance-logo-image" alt="شعار المتجر" hidden>
-              <span class="maintenance-logo-fallback">شعار المتجر</span>
+              <img class="maintenance-logo-image" alt="ط´ط¹ط§ط± ط§ظ„ظ…طھط¬ط±" hidden>
+              <span class="maintenance-logo-fallback">ط´ط¹ط§ط± ط§ظ„ظ…طھط¬ط±</span>
             </div>
-            <h2 class="maintenance-title">مغلق للصيانة</h2>
-            <p class="maintenance-copy">الرجاء العودة لاحقاً.</p>
+            <h2 class="maintenance-title">ظ…ط؛ظ„ظ‚ ظ„ظ„طµظٹط§ظ†ط©</h2>
+            <p class="maintenance-copy">ط§ظ„ط±ط¬ط§ط، ط§ظ„ط¹ظˆط¯ط© ظ„ط§ط­ظ‚ط§ظ‹.</p>
             <div class="maintenance-status">
               <p class="countdown"></p>
             </div>
@@ -17106,7 +17744,7 @@ function wirePageBalanceBox(){
           status.hidden = false;
           const diff = Math.max(0, untilMs - Date.now());
           const m = Math.floor(diff/60000), s = Math.floor((diff%60000)/1000);
-          cd.textContent = `الوقت المتبقي: ${m} دقيقة ${s} ثانية`;
+          cd.textContent = `ط§ظ„ظˆظ‚طھ ط§ظ„ظ…طھط¨ظ‚ظٹ: ${m} ط¯ظ‚ظٹظ‚ط© ${s} ط«ط§ظ†ظٹط©`;
         } else {
           status.hidden = true;
           cd.textContent = "";
@@ -17294,7 +17932,7 @@ function wirePageBalanceBox(){
         const el=document.createElement("div");
         if(kind==="leaf"){
           el.className="leaf";
-          el.textContent="🍁";
+          el.textContent="ًںچپ";
           el.style.top=`-${5+Math.random()*15}%`;
           el.style.left=`${Math.random()*100}vw`;
           el.style.animationDelay=`${Math.random()*1.2}s`;
@@ -17303,7 +17941,7 @@ function wirePageBalanceBox(){
           el.style.transform=`rotate(${Math.random()*40-20}deg)`;
         } else if(kind==="snow"){
           el.className="snowflake";
-          el.textContent="❄";
+          el.textContent="â‌„";
           const durationSec = 14 + Math.random() * 9;
           el.style.top=`-${5+Math.random()*15}%`;
           el.style.left=`${Math.random()*100}vw`;
@@ -17439,14 +18077,14 @@ function wirePageBalanceBox(){
     const SITE_THEME_PRESET_COLORS = Object.freeze({
       snow: "#5c5ebf",
       winter: "#5c5ebf",
-      "ثلج": "#5c5ebf",
+      "ط«ظ„ط¬": "#5c5ebf",
       ramadan: "#3a936f",
-      "رمضان": "#3a936f",
+      "ط±ظ…ط¶ط§ظ†": "#3a936f",
       eid: "#f59e0b",
-      "عيد": "#f59e0b",
+      "ط¹ظٹط¯": "#f59e0b",
       fall: "#c97a22",
       autumn: "#c97a22",
-      "خريف": "#c97a22"
+      "ط®ط±ظٹظپ": "#c97a22"
     });
 
     function resolveSiteThemePresetColor(name){
@@ -18480,11 +19118,11 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
       ].join(" ");
     }
     const SITE_BOTTOM_DOCK_DEFAULT_ITEMS_RUNTIME = [
-      { key: "security", label: "حماية الحساب", href: "#/security", iconClass: "fa-solid fa-shield-halved", lightColor: "#16a34a", darkColor: "#4ade80" },
-      { key: "wallet", label: "محفظتي", href: "#/wallet", iconClass: "fa-solid fa-wallet", lightColor: "#facc15", darkColor: "#fde047" },
-      { key: "home", label: "الرئيسية", href: "#/", iconClass: "fa-solid fa-house", lightColor: "#3498db", darkColor: "#60a5fa" },
-      { key: "transfer", label: "تحويل الرصيد", href: "#/transfer", iconClass: "fa-solid fa-right-left", lightColor: "#2563eb", darkColor: "#60a5fa" },
-      { key: "orders", label: "طلباتي", href: "#/orders", iconClass: "fa-solid fa-cart-shopping", lightColor: "#ef4444", darkColor: "#f87171" }
+      { key: "security", label: "ط­ظ…ط§ظٹط© ط§ظ„ط­ط³ط§ط¨", href: "#/security", iconClass: "fa-solid fa-shield-halved", lightColor: "#16a34a", darkColor: "#4ade80" },
+      { key: "wallet", label: "ظ…ط­ظپط¸طھظٹ", href: "#/wallet", iconClass: "fa-solid fa-wallet", lightColor: "#facc15", darkColor: "#fde047" },
+      { key: "home", label: "ط§ظ„ط±ط¦ظٹط³ظٹط©", href: "#/", iconClass: "fa-solid fa-house", lightColor: "#3498db", darkColor: "#60a5fa" },
+      { key: "transfer", label: "طھط­ظˆظٹظ„ ط§ظ„ط±طµظٹط¯", href: "#/transfer", iconClass: "fa-solid fa-right-left", lightColor: "#2563eb", darkColor: "#60a5fa" },
+      { key: "orders", label: "ط·ظ„ط¨ط§طھظٹ", href: "#/orders", iconClass: "fa-solid fa-cart-shopping", lightColor: "#ef4444", darkColor: "#f87171" }
     ];
     function normalizeSiteBottomDockStateRuntime(value, sidebarTheme = {}){
       const source = value && typeof value === "object" && !Array.isArray(value) ? value : { enabled: value };
@@ -18977,10 +19615,10 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
 
     function resolveSiteThemeClassName(name){
       const normalized = String(name || "").trim().toLowerCase();
-      if (["fall","autumn","خريف"].includes(normalized)) return "theme-fall";
-      if (["snow","winter","ثلج"].includes(normalized)) return "theme-snow";
-      if (["ramadan","رمضان"].includes(normalized)) return "theme-ramadan";
-      if (["eid","عيد"].includes(normalized)) return "theme-eid";
+      if (["fall","autumn","ط®ط±ظٹظپ"].includes(normalized)) return "theme-fall";
+      if (["snow","winter","ط«ظ„ط¬"].includes(normalized)) return "theme-snow";
+      if (["ramadan","ط±ظ…ط¶ط§ظ†"].includes(normalized)) return "theme-ramadan";
+      if (["eid","ط¹ظٹط¯"].includes(normalized)) return "theme-eid";
       return "";
     }
 
@@ -19132,10 +19770,10 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
       }
       body.classList.remove(...Array.from(body.classList).filter((cls) => cls.startsWith("theme-")));
       clearSpecialEffects(); clearThemeParticles();
-      if (["fall","autumn","خريف"].includes(name)) { body.classList.add("theme-fall"); spawnThemeParticles("leaf",6); }
-      else if (["snow","winter","ثلج"].includes(name)) { body.classList.add("theme-snow"); spawnThemeParticles("snow",5); }
-      else if (["ramadan","رمضان"].includes(name)) { body.classList.add("theme-ramadan"); spawnRamadan(); }
-      else if (["eid","عيد"].includes(name)) { body.classList.add("theme-eid"); spawnEid(); }
+      if (["fall","autumn","ط®ط±ظٹظپ"].includes(name)) { body.classList.add("theme-fall"); spawnThemeParticles("leaf",6); }
+      else if (["snow","winter","ط«ظ„ط¬"].includes(name)) { body.classList.add("theme-snow"); spawnThemeParticles("snow",5); }
+      else if (["ramadan","ط±ظ…ط¶ط§ظ†"].includes(name)) { body.classList.add("theme-ramadan"); spawnRamadan(); }
+      else if (["eid","ط¹ظٹط¯"].includes(name)) { body.classList.add("theme-eid"); spawnEid(); }
       activeSiteThemeSignature = nextThemeSignature;
       try { syncMaintenanceTheme(document.getElementById("maintenance-overlay")); } catch {}
       try { window.__PENDING_SITE_THEME__ = null; } catch {}
@@ -19542,7 +20180,7 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
             src.deposit_item ??
             src.depositCategory ??
             src.deposit_category,
-          "الإيداع"
+          "ط§ظ„ط¥ظٹط¯ط§ط¹"
         ),
         updatedAt: String(src.updatedAt ?? src.updated_at ?? "").trim().slice(0, 120)
       };
@@ -20758,6 +21396,8 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
     log("siteState listener failed", err?.message||err);
   }
 })();
+
+
 
 
 

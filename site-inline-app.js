@@ -1541,7 +1541,7 @@
     lastRouteFlow: '',
     lastInlineAppClickAt: 0,
     suppressInlineMethodModalUntil: 0,
-    recoveryPromiseByFlow: { deposit: null },
+    recoveryPromiseByFlow: { deposit: null, withdraw: null },
   };
 
   document.addEventListener('click', function (event) {
@@ -1555,7 +1555,8 @@
   }, true);
 
   function normalizeInlineFlow(value) {
-    return 'deposit';
+    var raw = String(value || '').trim().toLowerCase();
+    return (raw === 'withdraw' || raw === 'sahb' || raw === 'سحب') ? 'withdraw' : 'deposit';
   }
   function getInlineFlowFromHash(hashValue) {
     try {
@@ -1567,7 +1568,7 @@
     }
   }
   function getInlineFlowPath(flow) {
-    return 'deposit';
+    return normalizeInlineFlow(flow) === 'withdraw' ? 'withdraw' : 'deposit';
   }
   function isLocalLikeInlineHost(hostname) {
     const host = String(hostname || '').trim().toLowerCase();
@@ -3230,7 +3231,7 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
     return list.length > 0;
     })();
     if (!state.recoveryPromiseByFlow || typeof state.recoveryPromiseByFlow !== 'object') {
-      state.recoveryPromiseByFlow = { deposit: null };
+      state.recoveryPromiseByFlow = { deposit: null, withdraw: null };
     }
     state.recoveryPromiseByFlow[scopedFlow] = task;
     try {
@@ -4287,7 +4288,8 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
   }
 
   function normalizeInlineFlow(value){
-    return 'deposit';
+    var raw = String(value || '').trim().toLowerCase();
+    return (raw === 'withdraw' || raw === 'sahb' || raw === 'سحب') ? 'withdraw' : 'deposit';
   }
 
   function getCurrentInlineHashPath(){
@@ -4304,26 +4306,28 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
   function getCurrentInlineFlowKind(){
     if (typeof getEmbeddedInlineFlowKind === 'function') return getEmbeddedInlineFlowKind();
     try {
-      return 'deposit';
+      const raw = getCurrentInlineHashPath();
+      const first = raw.split('/').filter(Boolean)[0] || '';
+      return normalizeInlineFlow(first);
     } catch (_) {
       return 'deposit';
     }
   }
 
   function getCurrentInlineFlowPath(){
-    return 'deposit';
+    return normalizeInlineFlow(getCurrentInlineFlowKind()) === 'withdraw' ? 'withdraw' : 'deposit';
   }
 
   function getInlineFlowPathFor(flow){
-    return 'deposit';
+    return normalizeInlineFlow(flow) === 'withdraw' ? 'withdraw' : 'deposit';
   }
 
   function getCurrentInlineRootHeading(){
-    return 'خيارات الإيداع المتاحة';
+    return getCurrentInlineFlowKind() === 'withdraw' ? 'خيارات السحب المتاحة' : 'خيارات الإيداع المتاحة';
   }
 
   function getCurrentInlineCountriesHeading(){
-    return 'الدول المتاحة للإيداع';
+    return getCurrentInlineFlowKind() === 'withdraw' ? 'الدول المتاحة للسحب' : 'الدول المتاحة للإيداع';
   }
 
   function buildInlineCountryHash(countryId){
@@ -6478,6 +6482,95 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       return __originalInlineEnterCountry(countryEntry, true);
     };
   }
+
+  function normalizeSupportDepositLookupValue(value){
+    return String(value == null ? '' : value).trim().toLowerCase();
+  }
+
+  function supportDepositMethodMatches(entry, methodId){
+    const target = normalizeSupportDepositLookupValue(methodId);
+    if (!target || !entry) return false;
+    const data = entry && entry.data && typeof entry.data === 'object' ? entry.data : {};
+    return [
+      entry.id,
+      entry.methodId,
+      data.id,
+      data.methodId,
+      data.method_id,
+      data.name,
+      data.title
+    ].some(function(candidate){
+      return normalizeSupportDepositLookupValue(candidate) === target;
+    });
+  }
+
+  function supportDepositCountryMatches(entry, country){
+    const target = normalizeSupportDepositLookupValue(country);
+    if (!target || !entry) return true;
+    const data = entry && entry.data && typeof entry.data === 'object' ? entry.data : {};
+    return [
+      entry.id,
+      data.id,
+      data.countryId,
+      data.countryCode,
+      data.name,
+      data.title
+    ].some(function(candidate){
+      return normalizeSupportDepositLookupValue(candidate) === target;
+    });
+  }
+
+  async function openInlineDepositMethodById(methodId, options){
+    const safeMethodId = String(methodId || '').trim();
+    if (!safeMethodId) return false;
+    const opts = options && typeof options === 'object' ? options : {};
+    const countryHint = String(opts.country || opts.countryName || '').trim();
+    for (let pass = 0; pass < 2; pass += 1) {
+      try {
+        const rootMatch = (Array.isArray(directRootMethods) ? directRootMethods : []).find(function(entry){
+          return supportDepositMethodMatches(entry, safeMethodId);
+        });
+        if (rootMatch) {
+          openRootMethod(rootMatch);
+          return true;
+        }
+      } catch (_) {}
+
+      const countryList = Array.isArray(countries) ? countries.slice() : [];
+      for (let i = 0; i < countryList.length; i += 1) {
+        const countryEntry = countryList[i];
+        if (!supportDepositCountryMatches(countryEntry, countryHint)) continue;
+        let resolvedMethods = [];
+        try {
+          resolvedMethods = await resolveInlineCountryMethods(countryEntry);
+        } catch (_) {
+          resolvedMethods = normalizeInlineCountryMethodsList(countryEntry);
+        }
+        const methodEntry = (Array.isArray(resolvedMethods) ? resolvedMethods : []).find(function(entry){
+          return supportDepositMethodMatches(entry, safeMethodId);
+        });
+        if (!methodEntry) continue;
+        try { currentCountry = countryEntry; } catch (_) {}
+        try { methods = resolvedMethods.slice(); } catch (_) {}
+        try { renderMethods(methods); } catch (_) {}
+        openInlineMethodPage(methodEntry, 'support_chat_card');
+        return true;
+      }
+
+      if (pass === 0 && typeof window.__depositInlineRefreshCountries === 'function') {
+        try {
+          await window.__depositInlineRefreshCountries({
+            forceRefresh: true,
+            reason: 'support_chat_method',
+            flow: getCurrentInlineFlowKind()
+          });
+        } catch (_) {}
+      }
+    }
+    return false;
+  }
+
+  try { window.__depositInlineOpenMethodById = openInlineDepositMethodById; } catch (_) {}
 
   function formatInlineMethodInfoAmountWithCurrency(value, currencyCode){
     const resolvedCurrency = normalizeInlineCurrencyCode(currencyCode || '') || 'USD';
@@ -9823,14 +9916,14 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
           "  try {",
           "    const raw = getEmbeddedInlineHashPath();",
           "    const first = raw.split('/').filter(Boolean)[0] || '';",
-          "    return 'deposit';",
+          "    return (first === 'withdraw' || first === 'sahb') ? 'withdraw' : 'deposit';",
           "  } catch (_) {",
           "    return 'deposit';",
           "  }",
           "}",
           "",
           "function getEmbeddedInlineFlowPath(){",
-          "  return 'deposit';",
+          "  return getEmbeddedInlineFlowKind() === 'withdraw' ? 'withdraw' : 'deposit';",
           "}",
           "",
           "function getEmbeddedCountriesCacheViewerKey(){",
@@ -11821,7 +11914,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
         dom.toast.style.removeProperty("color");
       }
 
-      if (variant === "error") {
+      if (variant === "error" && options.sound === true) {
         try {
           if (typeof window.__playErrorToastSound === "function") {
             window.__playErrorToastSound();
@@ -21587,7 +21680,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
             toast.appendChild(textNode);
             document.body.appendChild(toast);
 
-            if (isError) {
+            if (isError && window.__ENABLE_ERROR_TOAST_SOUND__ === true) {
               try {
                 if (typeof window.__playErrorToastSound === 'function') {
                   window.__playErrorToastSound();
@@ -37888,6 +37981,7 @@ function normalizeCategory(value){
                 window.__CATALOG_INLINE_FORCE_MODAL__ = '';
                 window.__CATALOG_INLINE_MODAL_ONLY__ = '';
                 window.__CATALOG_INLINE_MODAL_ONLY_SOURCE__ = '';
+                window.__CATALOG_INLINE_KEEP_PAGE_FOR_FORCE_MODAL__ = '';
                 window.__CATALOG_PRODUCT_CLICK_LOCK_UNTIL__ = 0;
                 window.__CATALOG_PRODUCT_CLICK_LOCK_SLUG__ = '';
               } catch(_){ }
@@ -37908,7 +38002,10 @@ function normalizeCategory(value){
             var forceModalRaw = String(window.__CATALOG_INLINE_FORCE_MODAL__ || '').trim().toLowerCase();
             var pendingInlineItemId = String(window.__CATALOG_INLINE_ITEM_ID__ || '').trim();
             var forceModalOpen = !!pendingInlineItemId && (forceModalRaw === '1' || forceModalRaw === 'true');
-            if (forceModalOpen && !modalOnly) {
+            var keepPageForForceModalRaw = String(window.__CATALOG_INLINE_KEEP_PAGE_FOR_FORCE_MODAL__ || '').trim().toLowerCase();
+            var modalOnlySourceRaw = String(window.__CATALOG_INLINE_MODAL_ONLY_SOURCE__ || '').trim().toLowerCase();
+            var keepPageForForceModal = keepPageForForceModalRaw === '1' || keepPageForForceModalRaw === 'true' || modalOnlySourceRaw === 'support';
+            if (forceModalOpen && !modalOnly && !keepPageForForceModal) {
               modalOnly = true;
               window.__CATALOG_INLINE_MODAL_ONLY__ = '1';
               if (!String(window.__CATALOG_INLINE_MODAL_ONLY_SOURCE__ || '').trim()) {
@@ -37990,7 +38087,7 @@ function normalizeCategory(value){
           } catch(_){ modalOnlyFlow = false; }
           if (host) host.style.display = 'none';
           setModalOnlyClassSafe(false);
-          try { window.__CATALOG_INLINE_MODAL_ONLY__ = ''; window.__CATALOG_INLINE_MODAL_ONLY_SOURCE__ = ''; } catch(_){ }
+          try { window.__CATALOG_INLINE_MODAL_ONLY__ = ''; window.__CATALOG_INLINE_MODAL_ONLY_SOURCE__ = ''; window.__CATALOG_INLINE_KEEP_PAGE_FOR_FORCE_MODAL__ = ''; } catch(_){ }
           try { document.body.classList.remove('catalog-inline-active'); } catch(_){ }
           if (!modalOnlyFlow) {
             try { document.body.classList.remove('inline-view'); } catch(_){ }
@@ -38154,7 +38251,9 @@ function normalizeCategory(value){
         } catch(_){ }
         try { renderHomeGames(true); homeCardsBooted = true; } catch(_){ }
         try { clearInlineShellRecoveryState(); } catch(_){ }
-        try { console.warn('[inline-shell] restored home shell from blank state', { reason: reason || 'unknown' }); } catch(_){ }
+        try {
+          if (window.__INLINE_SHELL_DEBUG__ === true) console.debug('[inline-shell] restored home shell from blank state', { reason: reason || 'unknown' });
+        } catch(_){ }
       }
       function routeHashLooksInline(raw, key){
         try {
@@ -38189,6 +38288,15 @@ function normalizeCategory(value){
           } catch(_){ routePending = false; }
           var loaderVisible = false;
           try { loaderVisible = isPageLoaderActuallyVisible(); } catch(_){ loaderVisible = false; }
+          try {
+            var supportForceModal = String(window.__CATALOG_INLINE_KEEP_PAGE_FOR_FORCE_MODAL__ || '').trim() === '1' ||
+              String(window.__CATALOG_INLINE_MODAL_ONLY_SOURCE__ || '').trim().toLowerCase() === 'support' ||
+              String(window.__CATALOG_INLINE_FORCE_MODAL__ || '').trim() === '1';
+            if (supportForceModal && /^catalog_/i.test(String(reason || ''))) {
+              clearInlineShellRecoveryState();
+              return;
+            }
+          } catch(_){ }
           if (walletPending) {
             if (!loaderVisible) {
               try {

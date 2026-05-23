@@ -262,7 +262,7 @@ a img {
 .app-touch-selection {
   position: fixed;
   inset: 0;
-  z-index: 5200;
+  z-index: 2147483647;
   display: none;
   pointer-events: none;
 }
@@ -346,7 +346,7 @@ body.light-mode .app-touch-selection__toolbar {
   position: fixed;
   top: 0;
   left: 0;
-  z-index: 5000;
+  z-index: 2147483647;
   display: none;
   min-width: 220px;
   max-width: min(320px, calc(100vw - 20px));
