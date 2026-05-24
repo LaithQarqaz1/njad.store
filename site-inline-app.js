@@ -10538,6 +10538,8 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
   const FALLBACK_IMAGE = resolveSiteCatalogFallbackImage("Catalog");
   try { window.__resolveSiteCatalogFallbackImage = resolveSiteCatalogFallbackImage; } catch(_){}
   try { window.__siteCatalogFallbackImage = FALLBACK_IMAGE; } catch(_){}
+  const NAME_VALIDATION_RATE_LIMIT_MAX = 6;
+  const NAME_VALIDATION_RATE_LIMIT_WINDOW_MS = 60 * 1000;
 
   const state = {
     slug: "",
@@ -10561,6 +10563,13 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     modalPriceAnimTimer: null,
     modalPriceDisplayText: "",
     modalPriceAnimatingTarget: "",
+    nameValidation: {
+      productId: "",
+      inputKey: "",
+      status: "idle",
+      result: null,
+      attempts: []
+    },
     modalCloseTimer: null,
     loadSeq: 0,
     serverClockOffsetMs: 0,
@@ -10840,6 +10849,9 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     modalPlayerLabel: document.getElementById("modal-player-label"),
     modalPlayerId: document.getElementById("modal-player-id"),
     modalExtraFields: document.getElementById("modalExtraFields"),
+    modalNameValidation: document.getElementById("modal-name-validation"),
+    modalNameValidationBtn: document.getElementById("modal-name-validation-btn"),
+    modalNameValidationResult: document.getElementById("modal-name-validation-result"),
     modalQtyRow: document.getElementById("modal-qty-row"),
     modalQty: document.getElementById("modal-qty"),
     modalQtySelect: document.getElementById("modal-qty-select"),
@@ -16265,6 +16277,250 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     return out;
   }
 
+  function getItemNameValidationConfig(item) {
+    const src = item && typeof item === "object"
+      ? (item.nameValidation || item.name_validation || {})
+      : {};
+    if (!src || typeof src !== "object" || src.enabled !== true) return null;
+    const apiFile = String(src.apiFile || src.api_file || "").trim();
+    const userIdFieldId = String(src.userIdFieldId || src.user_id_field_id || "").trim();
+    if (!apiFile || !userIdFieldId) return null;
+    return {
+      enabled: true,
+      gameLabel: String(src.gameLabel || src.game_label || "").trim(),
+      apiFile,
+      requiresZoneId: src.requiresZoneId === true || src.requires_zone_id === true,
+      userIdFieldId,
+      zoneIdFieldId: String(src.zoneIdFieldId || src.zone_id_field_id || "").trim()
+    };
+  }
+
+  function readModalNameValidationInputSet(item, root) {
+    const config = getItemNameValidationConfig(item);
+    if (!config) return null;
+    const userId = readFieldValue(root, config.userIdFieldId);
+    const zoneId = config.requiresZoneId ? readFieldValue(root, config.zoneIdFieldId) : "";
+    return {
+      config,
+      productId: String(item?.id ?? "").trim(),
+      userId,
+      zoneId,
+      inputKey: [String(item?.id ?? "").trim(), config.apiFile, userId, zoneId].join("|")
+    };
+  }
+
+  function clearNameValidationResult() {
+    state.nameValidation = {
+      productId: "",
+      inputKey: "",
+      status: "idle",
+      result: null,
+      attempts: Array.isArray(state.nameValidation?.attempts) ? state.nameValidation.attempts : []
+    };
+    if (dom.modalNameValidationResult) {
+      dom.modalNameValidationResult.textContent = "";
+      dom.modalNameValidationResult.classList.remove("ok", "err");
+    }
+    if (dom.modalNameValidationBtn) {
+      dom.modalNameValidationBtn.classList.remove("ok", "err");
+    }
+  }
+
+  function getNameValidationDisplayName(result) {
+    const username = String(result?.username || "").trim();
+    return username;
+  }
+
+  function pruneNameValidationAttempts() {
+    const cutoff = Date.now() - NAME_VALIDATION_RATE_LIMIT_WINDOW_MS;
+    const attempts = (Array.isArray(state.nameValidation?.attempts) ? state.nameValidation.attempts : [])
+      .map((ts) => Number(ts))
+      .filter((ts) => Number.isFinite(ts) && ts > cutoff);
+    state.nameValidation.attempts = attempts;
+    return attempts;
+  }
+
+  function canStartNameValidationRequest() {
+    return pruneNameValidationAttempts().length < NAME_VALIDATION_RATE_LIMIT_MAX;
+  }
+
+  function recordNameValidationRequestAttempt() {
+    const attempts = pruneNameValidationAttempts();
+    attempts.push(Date.now());
+    state.nameValidation.attempts = attempts;
+  }
+
+  function ensureModalNameValidationElements() {
+    if (!dom.modalNameValidation) {
+      const wrap = document.createElement("div");
+      wrap.className = "pm-input pm-name-validation";
+      wrap.id = "modal-name-validation";
+      wrap.style.display = "none";
+
+      const label = document.createElement("label");
+      label.setAttribute("for", "modal-name-validation-btn");
+      label.textContent = "التحقق من الاسم";
+
+      const btn = document.createElement("button");
+      btn.id = "modal-name-validation-btn";
+      btn.className = "pm-name-validation-field";
+      btn.type = "button";
+      btn.textContent = "انقر هنا للتحقق من الاسم";
+
+      const result = document.createElement("div");
+      result.id = "modal-name-validation-result";
+      result.className = "pm-hint";
+      result.setAttribute("aria-live", "polite");
+
+      wrap.append(label, btn, result);
+      const anchor = dom.modalQtyRow || dom.modalDescWrap || dom.modalActions || null;
+      if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(wrap, anchor);
+      else if (dom.modalPlayerRow && dom.modalPlayerRow.parentNode) dom.modalPlayerRow.parentNode.appendChild(wrap);
+      else if (dom.modal) dom.modal.appendChild(wrap);
+    }
+
+    dom.modalNameValidation = document.getElementById("modal-name-validation");
+    dom.modalNameValidationBtn = document.getElementById("modal-name-validation-btn");
+    dom.modalNameValidationResult = document.getElementById("modal-name-validation-result");
+    if (dom.modalNameValidationBtn) {
+      dom.modalNameValidationBtn.classList.add("pm-name-validation-field");
+      if (dom.modalNameValidationBtn.dataset.nameValidationBound !== "1") {
+        dom.modalNameValidationBtn.dataset.nameValidationBound = "1";
+        dom.modalNameValidationBtn.addEventListener("click", () => validateModalGameUser());
+      }
+    }
+    return !!dom.modalNameValidation;
+  }
+
+  function syncNameValidationUI(item) {
+    const config = getItemNameValidationConfig(item);
+    if (!ensureModalNameValidationElements()) return;
+    dom.modalNameValidation.style.display = config ? "" : "none";
+    if (!config) {
+      clearNameValidationResult();
+      return;
+    }
+    const label = dom.modalNameValidation.querySelector("label");
+    if (label) label.textContent = "التحقق من الاسم";
+    if (dom.modalNameValidationBtn) {
+      const approvedName = state.nameValidation.status === "approved"
+        ? getNameValidationDisplayName(state.nameValidation.result)
+        : "";
+      dom.modalNameValidationBtn.disabled = state.nameValidation.status === "loading";
+      dom.modalNameValidationBtn.textContent = state.nameValidation.status === "loading" ? "جاري التحقق..." : (approvedName || "انقر هنا للتحقق من الاسم");
+      dom.modalNameValidationBtn.classList.toggle("ok", !!approvedName);
+      dom.modalNameValidationBtn.classList.toggle("err", state.nameValidation.status === "failed");
+    }
+  }
+
+  function renderNameValidationSuccess(result) {
+    const displayName = getNameValidationDisplayName(result);
+    if (dom.modalNameValidationBtn && displayName) {
+      dom.modalNameValidationBtn.textContent = displayName;
+      dom.modalNameValidationBtn.classList.remove("err");
+      dom.modalNameValidationBtn.classList.add("ok");
+    }
+    if (!dom.modalNameValidationResult) return;
+    dom.modalNameValidationResult.classList.remove("ok", "err");
+    dom.modalNameValidationResult.textContent = "";
+  }
+
+  function renderNameValidationError(message) {
+    if (!dom.modalNameValidationResult) return;
+    dom.modalNameValidationResult.classList.remove("ok");
+    dom.modalNameValidationResult.classList.add("err");
+    dom.modalNameValidationResult.textContent = "❌ " + (message || "بيانات اللاعب غير صحيحة، تأكد من الآيدي والمنطقة.");
+  }
+
+  async function validateModalGameUser() {
+    if (!state.selected) return;
+    const item = state.selected.item || {};
+    const modalRoot = dom.modalPlayerRow || dom.modal;
+    const inputSet = readModalNameValidationInputSet(item, modalRoot);
+    if (!inputSet) return;
+    if (!inputSet.userId) {
+      showToast("يرجى إدخال UserID قبل التحقق.", "warning");
+      const target = findFieldInput(modalRoot, inputSet.config.userIdFieldId);
+      if (target && typeof target.focus === "function") target.focus();
+      return;
+    }
+    if (inputSet.config.requiresZoneId && !inputSet.zoneId) {
+      showToast("يرجى إدخال ZoneID قبل التحقق.", "warning");
+      const target = findFieldInput(modalRoot, inputSet.config.zoneIdFieldId);
+      if (target && typeof target.focus === "function") target.focus();
+      return;
+    }
+    if (!canStartNameValidationRequest()) {
+      renderNameValidationError("وصلت للحد الأقصى للتحقق، حاول بعد دقيقة.");
+      showToast("وصلت للحد الأقصى للتحقق، حاول بعد دقيقة.", "warning");
+      return;
+    }
+    const currentUser = await requireCatalogPurchaseLogin();
+    if (!currentUser) return;
+    let idToken = "";
+    try {
+      idToken = await currentUser.getIdToken(false);
+    } catch (_) {}
+    clearNameValidationResult();
+    state.nameValidation = {
+      productId: inputSet.productId,
+      inputKey: inputSet.inputKey,
+      status: "loading",
+      result: null,
+      attempts: Array.isArray(state.nameValidation?.attempts) ? state.nameValidation.attempts : []
+    };
+    recordNameValidationRequestAttempt();
+    syncNameValidationUI(item);
+    try {
+      const url = buildCatalogActionUrl(getCatalogBase(), state.slug);
+      url.searchParams.set("mode", "validate-game-user");
+      const response = await fetch(url.toString(), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(idToken ? { "Authorization": `Bearer ${idToken}` } : {})
+        },
+        body: JSON.stringify({
+          productId: inputSet.productId,
+          userId: inputSet.userId,
+          zoneId: inputSet.zoneId
+        })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data?.ok !== true) {
+        const message = String(data?.message || data?.error || "بيانات اللاعب غير صحيحة، تأكد من الآيدي والمنطقة.").trim();
+        state.nameValidation = {
+          productId: inputSet.productId,
+          inputKey: inputSet.inputKey,
+          status: "failed",
+          result: data || null,
+          attempts: Array.isArray(state.nameValidation?.attempts) ? state.nameValidation.attempts : []
+        };
+        renderNameValidationError(message);
+        return;
+      }
+      state.nameValidation = {
+        productId: inputSet.productId,
+        inputKey: inputSet.inputKey,
+        status: "approved",
+        result: data,
+        attempts: Array.isArray(state.nameValidation?.attempts) ? state.nameValidation.attempts : []
+      };
+      renderNameValidationSuccess(data);
+    } catch (_) {
+      state.nameValidation = {
+        productId: inputSet.productId,
+        inputKey: inputSet.inputKey,
+        status: "failed",
+        result: null,
+        attempts: Array.isArray(state.nameValidation?.attempts) ? state.nameValidation.attempts : []
+      };
+      renderNameValidationError("تعذر التحقق حالياً، حاول مرة أخرى بعد قليل.");
+    } finally {
+      syncNameValidationUI(item);
+    }
+  }
+
   function resolvePrimaryPlayerId(fields, values) {
     if (!Array.isArray(fields) || fields.length === 0) return "";
     const explicit = fields.find((field) => field.isPlayerId);
@@ -16425,6 +16681,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
       if (dom.playerExtraFields) dom.playerExtraFields.innerHTML = "";
       if (dom.modalExtraFields) dom.modalExtraFields.innerHTML = "";
       if (dom.pasteBtn) dom.pasteBtn.style.display = "none";
+      syncNameValidationUI(currentItem);
       if (dom.modalBuy) dom.modalBuy.textContent = translateCatalogActionLabel("catalog.buy", "شراء");
       if (dom.purchaseBtn) dom.purchaseBtn.textContent = translateCatalogActionLabel("catalog.buy", "شراء");
       return;
@@ -16477,6 +16734,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     renderExtraFields(dom.modalExtraFields, extraFields, "modal", mergedValues);
 
     if (dom.pasteBtn) dom.pasteBtn.style.display = showInline && usePrimaryInput && fields.length === 1 ? "" : "none";
+    syncNameValidationUI(currentItem);
 
     if (dom.modalBuy) dom.modalBuy.textContent = translateCatalogActionLabel("catalog.buy", "شراء");
     if (dom.purchaseBtn) dom.purchaseBtn.textContent = translateCatalogActionLabel("catalog.buy", "شراء");
@@ -17271,6 +17529,8 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           if (productRequirements !== null) meta.requirements = productRequirements;
           var productInputFields = pickExplicitInputSource(product, ITEM_INPUT_FIELD_SOURCE_KEYS);
           if (productInputFields !== null) meta.inputFields = productInputFields;
+          if (product.nameValidation && typeof product.nameValidation === "object") meta.nameValidation = product.nameValidation;
+          else if (product.name_validation && typeof product.name_validation === "object") meta.nameValidation = product.name_validation;
           catalog.items[gameKey][itemKey] = meta;
         });
     }
@@ -17525,6 +17785,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           inputFields: inputFieldsRaw,
           inputKey: inputKeyRaw || "",
           showInlinePlayerId: inlinePlayerId,
+          nameValidation: meta.nameValidation || meta.name_validation || null,
           currency: meta.currency || gameMeta.currency || "USD"
         };
         if (qtyPriceMap) itemPayload.qtyPriceMap = qtyPriceMap;
@@ -18148,6 +18409,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     state.selected = null;
     state.selectedCard = null;
     state.modalLock = null;
+    clearNameValidationResult();
     writeModalQtyValue("");
     syncPlayerIdUI(null);
     syncQtyUI(null);
@@ -18470,6 +18732,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
       fields: resolveItemInputFields(item),
       qtyMeta: getItemQtyMeta(item)
     };
+    clearNameValidationResult();
     state.modalPriceValue = null;
     state.modalPriceDisplayText = "";
     state.modalPriceAnimatingTarget = "";
@@ -18507,6 +18770,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     const inlineBox = dom.playerInput ? dom.playerInput.closest(".player-id-box") : null;
     const inlineValues = collectFieldValues(inlineBox);
     applyFieldValues(dom.modalPlayerRow || dom.modal, inlineValues, { onlyEmpty: true });
+    syncNameValidationUI(item);
     updateModalPrice();
     updateModalFavoriteButton(item);
     resetTurnstileWidget({ remove: true });
@@ -18557,6 +18821,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     try { document.body.classList.remove("modal-open"); } catch (_) {}
     resetTurnstileWidget({ remove: true });
     state.modalLock = null;
+    clearNameValidationResult();
     state.modalPriceValue = null;
     state.modalPriceDisplayText = "";
     state.modalPriceAnimatingTarget = "";
@@ -19191,7 +19456,6 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     }
     const playerId = resolvePrimaryPlayerId(fieldDefs, playerFields);
     const requiresPlayerId = fieldDefs.some((field) => field.required !== false && isPlayerIdFieldDef(field));
-
     const qtyMeta = (lockActive && lock.qtyMeta) ? lock.qtyMeta : getItemQtyMeta(selectedItem);
     let quantity = 1;
     if (shouldShowQtyInput(selectedItem)) {
@@ -19489,6 +19753,20 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     dom.purchaseBtn?.addEventListener("click", () => openModal());
     dom.modalCancel?.addEventListener("click", () => closeModal());
     dom.modalBuy?.addEventListener("click", () => submitOrder());
+    if (dom.modalNameValidationBtn && dom.modalNameValidationBtn.dataset.nameValidationBound !== "1") {
+      dom.modalNameValidationBtn.dataset.nameValidationBound = "1";
+      dom.modalNameValidationBtn.addEventListener("click", () => validateModalGameUser());
+    }
+    if (dom.modalPlayerRow) {
+      dom.modalPlayerRow.addEventListener("input", () => {
+        clearNameValidationResult();
+        syncNameValidationUI(state.selected ? state.selected.item : null);
+      });
+      dom.modalPlayerRow.addEventListener("change", () => {
+        clearNameValidationResult();
+        syncNameValidationUI(state.selected ? state.selected.item : null);
+      });
+    }
     dom.modalFavToggle?.addEventListener("click", () => {
       if (!state.selected || !state.selected.item) return;
       const active = toggleFavoriteItem(state.selected.item);
