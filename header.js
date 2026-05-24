@@ -20672,19 +20672,7 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
         siteLockRedirected = false;
         return;
       }
-      if (is404RouteActive() || siteLockRedirected) return;
-      siteLockRedirected = true;
-      try {
-        const targetUrl = new URL(window.location.href);
-        targetUrl.pathname = "/404.html";
-        targetUrl.search = "";
-        targetUrl.hash = "";
-        window.location.replace(targetUrl.toString());
-        return;
-      } catch (_) {}
-      try {
-        window.location.replace("/404.html");
-      } catch (_) {}
+      siteLockRedirected = false;
     }
 
     function decodeFirestoreValue(val){
@@ -21234,22 +21222,23 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
         const pid = window.__getSiteFirebaseProjectId
           ? String(window.__getSiteFirebaseProjectId() || "").trim()
           : String(opts.projectId || "").trim();
-        if (!pid) {
-          devCreditLog('warn', 'REST siteState fetch skipped because projectId is missing.');
-          return fetchSiteStateViaFirestoreClient({
-            projectId: opts.projectId || ''
-          }).then((ok) => {
-            if (!ok && !opts.hasUsableCache) applySiteWaJoin({ enabled: false });
-            return ok;
-          });
+        let requestUrl;
+        try {
+          const workerBase = window.__getSiteWorkerBaseDefault
+            ? String(window.__getSiteWorkerBaseDefault({ trailingSlash: true }) || "").trim()
+            : "";
+          requestUrl = new URL("site-state.json", workerBase || window.location.href);
+        } catch (_) {
+          requestUrl = new URL("/site-state.json", window.location.href);
         }
-        const requestUrl = `https://firestore.googleapis.com/v1/projects/${pid}/databases/(default)/documents/config/siteState`;
-        return fetch(requestUrl, {
-          cache: "no-store"
+        requestUrl.searchParams.set("_", String(Date.now()));
+        return fetch(requestUrl.toString(), {
+          cache: "no-store",
+          headers: { "accept": "application/json" }
         })
           .then(r => {
             if (!r.ok) {
-              devCreditLog('error', 'REST siteState fetch failed.', {
+              devCreditLog('error', 'Server siteState fetch failed.', {
                 projectId: pid,
                 status: r.status || 0
               });
@@ -21257,19 +21246,25 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
             }
             return r.json();
           })
-          .then(doc => {
-            if (!doc || doc.error || !doc.fields || typeof doc.fields !== 'object') {
-              devCreditLog('warn', 'REST siteState payload was invalid.', {
+          .then(payload => {
+            let data = null;
+            if (payload && payload.siteState && typeof payload.siteState === 'object') data = payload.siteState;
+            else if (payload && payload.data && typeof payload.data === 'object') data = payload.data;
+            else if (payload && payload.fields && typeof payload.fields === 'object') {
+              data = decodeFirestoreValue({ mapValue: { fields: payload.fields } }) || {};
+            } else if (payload && typeof payload === 'object' && !payload.error) {
+              data = payload;
+            }
+            if (!data || typeof data !== 'object' || (payload && payload.error)) {
+              devCreditLog('warn', 'Server siteState payload was invalid.', {
                 projectId: pid,
-                hasError: !!(doc && doc.error),
-                hasFields: !!(doc && doc.fields)
+                hasError: !!(payload && payload.error),
+                hasSiteState: !!(payload && payload.siteState)
               });
               if (!opts.hasUsableCache) applySiteWaJoin({ enabled: false });
               return false;
             }
-            const fields = (doc && doc.fields) ? doc.fields : {};
-            const data = decodeFirestoreValue({ mapValue: { fields } }) || {};
-            devCreditLog('info', 'REST siteState payload fetched successfully.', {
+            devCreditLog('info', 'Server siteState payload fetched successfully.', {
               projectId: pid,
               hasDeveloperCredit: hasDeveloperCreditPayload(data),
               developerCredit: readDeveloperCreditPreview(data)
@@ -21278,7 +21273,7 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
             return applyResolvedSiteStateData(data);
           })
           .catch((err) => {
-            devCreditLog('error', 'REST siteState fetch crashed.', {
+            devCreditLog('error', 'Server siteState fetch crashed.', {
               projectId: pid,
               error: err && err.message ? err.message : String(err || '')
             });
@@ -21456,7 +21451,4 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
     log("siteState listener failed", err?.message||err);
   }
 })();
-
-
-
 
