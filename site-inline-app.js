@@ -16324,6 +16324,9 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     if (dom.modalNameValidationBtn) {
       dom.modalNameValidationBtn.classList.remove("ok", "err");
     }
+    if (dom.modalPlayerRow) {
+      dom.modalPlayerRow.classList.remove("is-name-validated");
+    }
   }
 
   function getNameValidationDisplayName(result) {
@@ -16357,22 +16360,18 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
       wrap.id = "modal-name-validation";
       wrap.style.display = "none";
 
-      const label = document.createElement("label");
-      label.setAttribute("for", "modal-name-validation-btn");
-      label.textContent = "التحقق من الاسم";
-
       const btn = document.createElement("button");
       btn.id = "modal-name-validation-btn";
       btn.className = "pm-name-validation-field";
       btn.type = "button";
-      btn.textContent = "انقر هنا للتحقق من الاسم";
+      btn.textContent = "انقر للتحقق من الاسم";
 
       const result = document.createElement("div");
       result.id = "modal-name-validation-result";
       result.className = "pm-hint";
       result.setAttribute("aria-live", "polite");
 
-      wrap.append(label, btn, result);
+      wrap.append(btn, result);
       const anchor = dom.modalQtyRow || dom.modalDescWrap || dom.modalActions || null;
       if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(wrap, anchor);
       else if (dom.modalPlayerRow && dom.modalPlayerRow.parentNode) dom.modalPlayerRow.parentNode.appendChild(wrap);
@@ -16401,35 +16400,59 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
       return;
     }
     const label = dom.modalNameValidation.querySelector("label");
-    if (label) label.textContent = "التحقق من الاسم";
+    if (label && label.parentNode) label.parentNode.removeChild(label);
     if (dom.modalNameValidationBtn) {
       const approvedName = state.nameValidation.status === "approved"
         ? getNameValidationDisplayName(state.nameValidation.result)
         : "";
+      const failedMessage = state.nameValidation.status === "failed"
+        ? (state.nameValidation.errorMessage || getNameValidationErrorText(state.nameValidation.result && (state.nameValidation.result.message || state.nameValidation.result.error) || ""))
+        : "";
       dom.modalNameValidationBtn.disabled = state.nameValidation.status === "loading";
-      dom.modalNameValidationBtn.textContent = state.nameValidation.status === "loading" ? "جاري التحقق..." : (approvedName || "انقر هنا للتحقق من الاسم");
-      dom.modalNameValidationBtn.classList.toggle("ok", !!approvedName);
+      dom.modalNameValidationBtn.textContent = state.nameValidation.status === "loading" ? "جاري التحقق..." : (approvedName || failedMessage || "انقر للتحقق من الاسم");
+      dom.modalNameValidationBtn.classList.toggle("ok", state.nameValidation.status === "approved");
       dom.modalNameValidationBtn.classList.toggle("err", state.nameValidation.status === "failed");
+    }
+    if (dom.modalPlayerRow) {
+      dom.modalPlayerRow.classList.toggle("is-name-validated", state.nameValidation.status === "approved");
     }
   }
 
   function renderNameValidationSuccess(result) {
     const displayName = getNameValidationDisplayName(result);
-    if (dom.modalNameValidationBtn && displayName) {
-      dom.modalNameValidationBtn.textContent = displayName;
+    if (dom.modalNameValidationBtn) {
+      dom.modalNameValidationBtn.textContent = displayName || "انقر للتحقق من الاسم";
       dom.modalNameValidationBtn.classList.remove("err");
       dom.modalNameValidationBtn.classList.add("ok");
+    }
+    if (dom.modalPlayerRow) {
+      dom.modalPlayerRow.classList.add("is-name-validated");
     }
     if (!dom.modalNameValidationResult) return;
     dom.modalNameValidationResult.classList.remove("ok", "err");
     dom.modalNameValidationResult.textContent = "";
   }
 
+  function getNameValidationErrorText(message) {
+    const rawMessage = String(message || "").trim();
+    return /userid|user id|invalid|wrong/i.test(rawMessage)
+      ? "الايدي خاطئ"
+      : (rawMessage || "الايدي خاطئ");
+  }
+
   function renderNameValidationError(message) {
+    const displayMessage = getNameValidationErrorText(message);
+    if (state.nameValidation && typeof state.nameValidation === "object") {
+      state.nameValidation.errorMessage = displayMessage;
+    }
+    if (dom.modalNameValidationBtn) {
+      dom.modalNameValidationBtn.textContent = displayMessage;
+      dom.modalNameValidationBtn.classList.remove("ok");
+      dom.modalNameValidationBtn.classList.add("err");
+    }
     if (!dom.modalNameValidationResult) return;
-    dom.modalNameValidationResult.classList.remove("ok");
-    dom.modalNameValidationResult.classList.add("err");
-    dom.modalNameValidationResult.textContent = "❌ " + (message || "بيانات اللاعب غير صحيحة، تأكد من الآيدي والمنطقة.");
+    dom.modalNameValidationResult.classList.remove("ok", "err");
+    dom.modalNameValidationResult.textContent = "";
   }
 
   async function validateModalGameUser() {
