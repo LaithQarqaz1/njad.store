@@ -15068,8 +15068,8 @@ body.dark-mode .transfer-modal-backdrop.transfer-receipt-backdrop{
 }
 @media (max-width:520px){
   body[data-inline-route="orders"] #ordersContainer .order-header{
-    grid-template-columns:minmax(76px,92px) minmax(0,1fr) 44px !important;
-    gap:10px !important;
+    grid-template-columns:minmax(58px,72px) minmax(0,1fr) 48px !important;
+    gap:8px !important;
   }
   body[data-inline-route="orders"] #ordersContainer .order-header .order-code-line,
   body[data-inline-route="orders"] #ordersContainer .order-header .order-code-line *,
@@ -16616,7 +16616,8 @@ body:not(.dark-mode)[data-inline-route="orders"] #ordersContainer .order-header 
 }
 @media (max-width:520px){
   body[data-inline-route="orders"] #ordersContainer .order-header{
-    grid-template-columns:minmax(82px,98px) minmax(0,1fr) 52px !important;
+    grid-template-columns:minmax(58px,72px) minmax(0,1fr) 48px !important;
+    gap:8px !important;
   }
 }
 html[data-theme="dark"] .wallet-page .txn-action,
