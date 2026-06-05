@@ -1,4 +1,4 @@
-const SITE_PWA_BUILD = "20260519-04";
+const SITE_PWA_BUILD = "20260605-support-scroll-anchor-01";
 try { importScripts("/site_settings.js?v=20260518-03"); } catch (_) {}
 const SITE_SETTINGS = (self.__getSiteSettings ? self.__getSiteSettings() : self.__SITE_SETTINGS__) || {};
 const SITE_FIREBASE_HELPER_ORIGIN = String(

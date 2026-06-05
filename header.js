@@ -6570,9 +6570,19 @@ function headerGetLevelEntries(){
   const levelsState = safeState && typeof safeState === 'object' && safeState.levels && typeof safeState.levels === 'object'
     ? safeState.levels
     : {};
-  const rawItems = Array.isArray(levelsState.items)
+  let rawItems = Array.isArray(levelsState.items)
     ? levelsState.items
     : (Array.isArray(levelsState.levels) ? levelsState.levels : (Array.isArray(levelsState.entries) ? levelsState.entries : []));
+  if (!rawItems.length && levelsState && typeof levelsState === 'object') {
+    const reservedLevelKeys = { items: true, levels: true, entries: true, enabled: true, title: true, subtitle: true, description: true };
+    rawItems = Object.keys(levelsState).map((key) => {
+      if (reservedLevelKeys[key]) return null;
+      const value = levelsState[key];
+      if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+      const entry = Object.assign({ key, levelKey: key }, value);
+      return (entry.id != null || entry.label || entry.name || entry.title || entry.order != null || entry.rank != null || entry.requiredSpent != null || entry.minSpent != null) ? entry : null;
+    }).filter(Boolean);
+  }
   const out = [];
   const seen = new Set();
   rawItems.forEach((rawEntry, index) => {
@@ -12046,7 +12056,8 @@ function wirePageBalanceBox(){
       sending: false,
       pollTimer: 0,
       badgePollTimer: 0,
-      pollDelayMs: 1800,
+      markReadTimer: 0,
+      pollDelayMs: 15000,
       badgePollDelayMs: 30000,
       realtimeUnsubscribe: null,
       realtimeStarting: false,
@@ -12057,9 +12068,12 @@ function wirePageBalanceBox(){
       markReadInFlight: false,
       thread: null,
       imageFile: null,
+      lastThreadFetchAt: 0,
       lastThreadVersion: '',
       lastIncomingMessageKey: '',
       lastNotifyAt: 0,
+      lastRenderedMessagesVersion: '',
+      hasRenderedMessages: false,
       titleBase: '',
       aiTypedMessageKeys: {},
       selectedMessageKeys: []
@@ -12090,6 +12104,25 @@ function wirePageBalanceBox(){
 
     function isSupportAiAuthorName(value){
       return /^(?:المساعد الذكي|ai|assistant|support ai)$/i.test(String(value || '').trim());
+    }
+
+    function supportThreadMessages(thread){
+      var source = thread && typeof thread === 'object' ? thread : {};
+      return Array.isArray(source.messages) ? source.messages.map(normalizeSupportMessage) : [];
+    }
+
+    function supportThreadHasHumanAdminReply(thread){
+      return supportThreadMessages(thread).some(function(message){
+        return message && message.sender === 'admin' && !isSupportAiAuthorName(message.authorName);
+      });
+    }
+
+    function isSupportThreadTicketOpen(thread){
+      var source = thread && typeof thread === 'object' ? thread : {};
+      var status = String(source.status || '').trim().toLowerCase();
+      if (status === 'closed' || status === 'resolved') return false;
+      if (source.humanTicketOpen === true) return true;
+      return supportThreadHasHumanAdminReply(source);
     }
 
     function normalizeSupportMediaUrl(value){
@@ -12463,6 +12496,56 @@ function wirePageBalanceBox(){
       }
     }
 
+    var SUPPORT_AI_GUARD_COOKIE_NAME = 'z3_support_ai_guard';
+
+    function readSupportCookie(name){
+      var target = String(name || '').trim();
+      if (!target) return '';
+      var parts = String(document.cookie || '').split(';');
+      for (var i = 0; i < parts.length; i += 1) {
+        var item = parts[i].trim();
+        var eq = item.indexOf('=');
+        var key = eq >= 0 ? item.slice(0, eq) : item;
+        if (key !== target) continue;
+        var raw = eq >= 0 ? item.slice(eq + 1) : '';
+        try { return decodeURIComponent(raw); } catch (_) { return raw; }
+      }
+      return '';
+    }
+
+    function writeSupportCookie(name, value, maxAgeSeconds){
+      var key = String(name || '').trim();
+      var text = String(value || '').trim();
+      if (!key || !text) return;
+      var cookie = key + '=' + encodeURIComponent(text) + '; Path=/; Max-Age=' + String(Math.max(60, Number(maxAgeSeconds) || 21600)) + '; SameSite=Lax';
+      if (String(location.protocol || '').toLowerCase() === 'https:') cookie += '; Secure';
+      document.cookie = cookie;
+    }
+
+    function createSupportAiGuardToken(){
+      var alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-';
+      var bytes = new Uint8Array(32);
+      try {
+        if (window.crypto && typeof window.crypto.getRandomValues === 'function') {
+          window.crypto.getRandomValues(bytes);
+        } else {
+          for (var i = 0; i < bytes.length; i += 1) bytes[i] = Math.floor(Math.random() * 256);
+        }
+      } catch (_) {
+        for (var j = 0; j < bytes.length; j += 1) bytes[j] = Math.floor(Math.random() * 256);
+      }
+      var out = '';
+      for (var k = 0; k < bytes.length; k += 1) out += alphabet[bytes[k] % alphabet.length];
+      return out;
+    }
+
+    function ensureSupportAiGuardToken(){
+      var token = readSupportCookie(SUPPORT_AI_GUARD_COOKIE_NAME);
+      if (!/^[A-Za-z0-9_-]{24,160}$/.test(token)) token = createSupportAiGuardToken();
+      writeSupportCookie(SUPPORT_AI_GUARD_COOKIE_NAME, token, 21600);
+      return token;
+    }
+
     async function buildSupportAuthPayload(){
       await ensureSupportAuthReady();
       var user = await waitForSupportUser();
@@ -12527,6 +12610,9 @@ function wirePageBalanceBox(){
         });
       }
       var body = opts.body && typeof opts.body === 'object' ? opts.body : {};
+      var supportAiGuardToken = method === 'POST' && String(mode || '').trim() === 'support-message'
+        ? ensureSupportAiGuardToken()
+        : '';
       var send = async function(nextAuth){
         var nextParams = Object.assign({}, params || {});
         if (method === 'GET') {
@@ -12534,19 +12620,23 @@ function wirePageBalanceBox(){
           nextParams.sessionKey = nextAuth.sessionKey;
         }
         var requestUrl = getSupportEndpoint(mode, nextParams);
+        var headers = {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + nextAuth.idToken,
+          'X-SessionKey': nextAuth.sessionKey
+        };
+        if (supportAiGuardToken) headers['X-Support-AI-Guard'] = supportAiGuardToken;
+        var requestBody = Object.assign({}, body, {
+          useruid: nextAuth.uid,
+          sessionKey: nextAuth.sessionKey
+        });
+        if (supportAiGuardToken) requestBody.supportAiGuard = supportAiGuardToken;
         var response = await fetch(requestUrl, {
           method: method,
           cache: 'no-store',
           credentials: getSupportFetchCredentials(requestUrl),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + nextAuth.idToken,
-            'X-SessionKey': nextAuth.sessionKey
-          },
-          body: method === 'GET' ? undefined : JSON.stringify(Object.assign({}, body, {
-            useruid: nextAuth.uid,
-            sessionKey: nextAuth.sessionKey
-          }))
+          headers: headers,
+          body: method === 'GET' ? undefined : JSON.stringify(requestBody)
         });
         var text = await response.text();
         var payload = {};
@@ -12744,6 +12834,107 @@ function wirePageBalanceBox(){
       }).join('') + '</div>';
     }
 
+    function getSupportContactKind(href){
+      var text = String(href || '').trim().toLowerCase();
+      if (!text) return '';
+      if (text.indexOf('wa.me/') >= 0 || text.indexOf('whatsapp.com/') >= 0 || text.indexOf('whatsapp:') === 0) return 'whatsapp';
+      if (text.indexOf('t.me/') >= 0 || text.indexOf('telegram.me/') >= 0 || text.indexOf('telegram:') === 0 || text.indexOf('tg:') === 0) return 'telegram';
+      if (text.indexOf('facebook.com/') >= 0 || text.indexOf('fb.com/') >= 0) return 'facebook';
+      if (text.indexOf('instagram.com/') >= 0) return 'instagram';
+      if (text.indexOf('mailto:') === 0) return 'email';
+      return '';
+    }
+
+    function getSupportContactIcon(kind){
+      if (kind === 'whatsapp') return 'fa-brands fa-whatsapp';
+      if (kind === 'telegram') return 'fa-brands fa-telegram';
+      if (kind === 'facebook') return 'fa-brands fa-facebook-f';
+      if (kind === 'instagram') return 'fa-brands fa-instagram';
+      if (kind === 'email') return 'fa-solid fa-envelope';
+      return 'fa-solid fa-link';
+    }
+
+    function getSupportContactFallbackLabel(kind, group){
+      if (kind === 'whatsapp') return group ? 'مجموعة واتساب' : 'واتساب';
+      if (kind === 'telegram') return 'تيليجرام';
+      if (kind === 'facebook') return 'فيسبوك';
+      if (kind === 'instagram') return 'إنستغرام';
+      if (kind === 'email') return 'البريد الإلكتروني';
+      return 'رابط التواصل';
+    }
+
+    function cleanSupportContactHref(value){
+      var text = String(value || '').trim().replace(/[)\].,،؛!?؟]+$/g, '');
+      if (/^(https?:|mailto:|tel:|tg:|telegram:|whatsapp:)/i.test(text)) return text;
+      return '';
+    }
+
+    function extractSupportContactLinksFromText(text){
+      var rawText = String(text || '');
+      if (!rawText.trim()) return { text: '', links: [] };
+      var seen = {};
+      var links = [];
+      var keptLines = [];
+      rawText.split(/\r?\n/).forEach(function(line){
+        var rawLine = String(line || '');
+        var urlMatch = rawLine.match(/(?:https?:\/\/|mailto:|tel:|tg:|telegram:|whatsapp:)[^\s<>"']+/i);
+        if (!urlMatch) {
+          keptLines.push(rawLine);
+          return;
+        }
+        var href = cleanSupportContactHref(urlMatch[0]);
+        var kind = getSupportContactKind(href);
+        if (!href || !kind) {
+          keptLines.push(rawLine);
+          return;
+        }
+        var label = rawLine
+          .replace(urlMatch[0], '')
+          .replace(/^[\s>*\-–—•]+/g, '')
+          .replace(/^\d+[\).\-]\s*/g, '')
+          .replace(/[:：\-\s]+$/g, '')
+          .trim();
+        var group = kind === 'whatsapp' && (/chat\.whatsapp\.com/i.test(href) || /(?:مجموعة|جروب|group|community)/i.test(label));
+        var key = href.toLowerCase();
+        if (!seen[key]) {
+          seen[key] = true;
+          links.push({
+            href: href,
+            kind: kind,
+            label: label || getSupportContactFallbackLabel(kind, group),
+            group: group
+          });
+        }
+      });
+      return {
+        text: keptLines.join('\n').replace(/\n{3,}/g, '\n\n').trim(),
+        links: links.slice(0, 8)
+      };
+    }
+
+    function renderSupportContactLinks(links){
+      var list = Array.isArray(links) ? links : [];
+      if (!list.length) return '';
+      return '<div class="site-support-chat__contact-links" role="list">' + list.map(function(link){
+        var kind = String(link && link.kind || 'link').trim().toLowerCase() || 'link';
+        var label = String(link && link.label || '').trim() || getSupportContactFallbackLabel(kind, link && link.group);
+        var href = String(link && link.href || '').trim();
+        if (!href) return '';
+        var icon = getSupportContactIcon(kind);
+        var groupBadge = link && link.group
+          ? '<span class="site-support-chat__contact-badge" aria-hidden="true"><i class="fa-solid fa-user-group"></i></span>'
+          : '';
+        return [
+          '<a class="site-support-chat__contact-btn is-' + escapeSupport(kind) + (link && link.group ? ' is-group' : '') + '"',
+            ' href="' + escapeSupport(href) + '" target="_blank" rel="noopener noreferrer"',
+            ' data-support-contact-link="1" role="listitem" aria-label="' + escapeSupport(label) + '">',
+            '<span class="site-support-chat__contact-icon" aria-hidden="true"><i class="' + escapeSupport(icon) + '"></i>' + groupBadge + '</span>',
+            '<span class="site-support-chat__contact-label">' + escapeSupport(label) + '</span>',
+          '</a>'
+        ].join('');
+      }).join('') + '</div>';
+    }
+
     function formatSupportTime(value){
       var ms = Date.parse(String(value || ''));
       if (!Number.isFinite(ms) || ms <= 0) return '';
@@ -12834,7 +13025,16 @@ function wirePageBalanceBox(){
 
     function setSupportChatStatus(text){
       var status = document.getElementById('siteSupportChatStatus');
-      if (status) status.textContent = String(text || '');
+      if (!status) return;
+      var value = String(text || '').trim();
+      if (!value) {
+        status.textContent = '';
+        return;
+      }
+      var loading = /(?:جاري|جارٍ|تحميل|رفع|إرسال|انتظار)/i.test(value);
+      status.innerHTML = (loading
+        ? '<span class="site-support-chat__status-loader" aria-hidden="true"><span></span><span></span><span></span></span>'
+        : '') + escapeSupport(value);
     }
 
     function renderSupportBadge(thread){
@@ -12845,13 +13045,71 @@ function wirePageBalanceBox(){
       badge.hidden = !unread;
     }
 
-    function scrollSupportMessagesToBottom(){
+    function syncSupportTicketCloseButton(thread){
+      var button = document.getElementById('siteSupportChatCloseTicket');
+      if (!button) return;
+      var open = isSupportThreadTicketOpen(thread || supportChatState.thread);
+      button.hidden = !open;
+      button.classList.toggle('is-visible', open);
+      button.disabled = !!supportChatState.sending;
+      button.setAttribute('aria-hidden', open ? 'false' : 'true');
+    }
+
+    function getSupportMessagesBelowViewportCount(list){
+      if (!list) return 0;
+      try {
+        var viewportBottom = list.getBoundingClientRect().bottom;
+        var rows = list.querySelectorAll('.site-support-chat__bubble, .site-support-chat__system');
+        var count = 0;
+        Array.prototype.forEach.call(rows, function(row){
+          if (!row || !row.getBoundingClientRect) return;
+          if (row.getBoundingClientRect().bottom > viewportBottom + 8) count += 1;
+        });
+        return count;
+      } catch (_) {
+        return 0;
+      }
+    }
+
+    function isSupportMessagesNearBottom(list){
+      if (!list) return true;
+      try {
+        return (Number(list.scrollHeight || 0) - Number(list.scrollTop || 0) - Number(list.clientHeight || 0)) <= 96;
+      } catch (_) {
+        return true;
+      }
+    }
+
+    function shouldSupportAutoScroll(list){
+      if (!list) return true;
+      return isSupportMessagesNearBottom(list) || getSupportMessagesBelowViewportCount(list) <= 4;
+    }
+
+    function updateSupportJumpButton(){
+      var button = document.getElementById('siteSupportChatJump');
+      var list = document.getElementById('siteSupportChatMessages');
+      if (!button || !list) return;
+      var count = getSupportMessagesBelowViewportCount(list);
+      var show = count > 4;
+      button.hidden = !show;
+      button.classList.toggle('is-visible', show);
+      button.setAttribute('aria-label', show ? 'النزول إلى آخر الرسائل' : 'أنت في آخر المحادثة');
+    }
+
+    function scrollSupportMessagesToBottom(options){
+      var opts = options || {};
       var list = document.getElementById('siteSupportChatMessages');
       if (!list) return;
       var run = function(){
+        if (opts.force !== true && !shouldSupportAutoScroll(list)) {
+          updateSupportJumpButton();
+          return;
+        }
         try { list.scrollTop = list.scrollHeight; } catch (_) {}
+        updateSupportJumpButton();
       };
       run();
+      if (opts.defer === false) return;
       try { window.requestAnimationFrame(run); } catch (_) {}
       setTimeout(run, 80);
       setTimeout(run, 260);
@@ -12998,9 +13256,10 @@ function wirePageBalanceBox(){
       updateSupportSelectionBar();
       list.setAttribute('aria-busy', 'true');
       if (!list.querySelector('.site-support-chat__bubble')) {
-        list.innerHTML = '';
+        list.innerHTML = '<div class="site-support-chat__loading"><span class="site-support-chat__spinner" aria-hidden="true"><span></span></span><div>جاري تحميل المحادثة...</div></div>';
       }
       try { list.scrollTop = 0; } catch (_) {}
+      updateSupportJumpButton();
     }
 
     function renderSupportMessages(thread){
@@ -13008,7 +13267,9 @@ function wirePageBalanceBox(){
       if (!list) return;
       list.removeAttribute('aria-busy');
       var messages = Array.isArray(thread && thread.messages) ? thread.messages.map(normalizeSupportMessage) : [];
-      var firstRender = supportChatState.lastThreadVersion === '';
+      var firstRender = !supportChatState.hasRenderedMessages;
+      var lastMessage = messages.length ? messages[messages.length - 1] : null;
+      var shouldStickToBottom = firstRender || (lastMessage && lastMessage.sender === 'user') || shouldSupportAutoScroll(list);
       if (!messages.length && supportChatState.loading) {
         renderSupportMessagesLoading();
         return;
@@ -13016,7 +13277,9 @@ function wirePageBalanceBox(){
       if (!messages.length) {
         list.innerHTML = '<div class="site-support-chat__empty">لا توجد رسائل بعد.</div>';
         updateSupportSelectionBar();
-        scrollSupportMessagesToBottom();
+        supportChatState.hasRenderedMessages = true;
+        if (shouldStickToBottom) scrollSupportMessagesToBottom({ force: firstRender, defer: !firstRender });
+        else updateSupportJumpButton();
         return;
       }
       list.innerHTML = messages.map(function(message){
@@ -13024,7 +13287,12 @@ function wirePageBalanceBox(){
         var own = message.sender === 'user';
         var messageKey = getSupportMessageKey(thread || {}, message);
         var isAi = !own && isSupportAiAuthorName(message.authorName);
-        var shouldTypeAi = isAi && !!message.text && !firstRender && !supportChatState.aiTypedMessageKeys[messageKey];
+        var contactPayload = !own
+          ? extractSupportContactLinksFromText(message.text)
+          : { text: message.text, links: [] };
+        var displayText = String(contactPayload.text || '');
+        var contactLinksHtml = renderSupportContactLinks(contactPayload.links);
+        var shouldTypeAi = isAi && !!displayText && !firstRender && !supportChatState.aiTypedMessageKeys[messageKey];
         if (isAi && firstRender) supportChatState.aiTypedMessageKeys[messageKey] = true;
         var selectedClass = isSupportMessageSelected(messageKey) ? ' is-selected' : '';
         if (system) {
@@ -13042,11 +13310,12 @@ function wirePageBalanceBox(){
         return [
           '<div class="site-support-chat__bubble ' + (own ? 'is-user' : 'is-admin') + (isAi ? ' is-ai' : '') + (shouldTypeAi ? ' is-typing' : '') + selectedClass + '" data-support-message-key="' + escapeSupport(messageKey) + '" role="button" tabindex="0" aria-selected="' + (selectedClass ? 'true' : 'false') + '">',
             '<span class="site-support-chat__select-mark" aria-hidden="true"><i class="fa-solid fa-check"></i></span>',
-            message.text
+            displayText
               ? (shouldTypeAi
-                ? '<div class="site-support-chat__text" data-support-ai-typing="1" data-support-ai-text="' + escapeSupport(message.text) + '"></div>'
-                : '<div class="site-support-chat__text">' + escapeSupport(message.text).replace(/\n/g, '<br>') + '</div>')
+                ? '<div class="site-support-chat__text" data-support-ai-typing="1" data-support-ai-text="' + escapeSupport(displayText) + '"></div>'
+                : '<div class="site-support-chat__text">' + escapeSupport(displayText).replace(/\n/g, '<br>') + '</div>')
               : '',
+            contactLinksHtml,
             cardsHtml,
             imageHtml,
             '<span>' + escapeSupport(formatSupportTime(message.createdAt)) + '</span>',
@@ -13056,16 +13325,20 @@ function wirePageBalanceBox(){
       try {
         list.querySelectorAll('img').forEach(function(img){
           if (!img || img.complete) return;
-          img.addEventListener('load', scrollSupportMessagesToBottom, { once: true });
-          img.addEventListener('error', scrollSupportMessagesToBottom, { once: true });
+          if (shouldStickToBottom) {
+            img.addEventListener('load', function(){ scrollSupportMessagesToBottom(); }, { once: true });
+            img.addEventListener('error', function(){ scrollSupportMessagesToBottom(); }, { once: true });
+          }
         });
       } catch (_) {}
       updateSupportSelectionBar();
-      animateSupportAiTyping(list);
-      scrollSupportMessagesToBottom();
+      supportChatState.hasRenderedMessages = true;
+      animateSupportAiTyping(list, shouldStickToBottom);
+      if (shouldStickToBottom) scrollSupportMessagesToBottom({ force: firstRender, defer: !firstRender });
+      else updateSupportJumpButton();
     }
 
-    function animateSupportAiTyping(list){
+    function animateSupportAiTyping(list, shouldStickToBottom){
       if (!list) return;
       try {
         Array.prototype.forEach.call(list.querySelectorAll('[data-support-ai-typing="1"]'), function(node){
@@ -13080,7 +13353,7 @@ function wirePageBalanceBox(){
           var step = function(){
             index = Math.min(fullText.length, index + chunkSize);
             node.textContent = fullText.slice(0, index);
-            scrollSupportMessagesToBottom();
+            if (shouldStickToBottom) scrollSupportMessagesToBottom({ defer: false });
             if (index < fullText.length) {
               setTimeout(step, 12);
               return;
@@ -13153,15 +13426,35 @@ function wirePageBalanceBox(){
       ].join('|');
     }
 
+    function getSupportMessagesVersion(thread){
+      var messages = Array.isArray(thread && thread.messages) ? thread.messages.map(normalizeSupportMessage) : [];
+      return messages.map(function(message){
+        return [
+          message.id,
+          message.sender,
+          message.authorName,
+          message.createdAt,
+          message.text,
+          message.imageUrl,
+          getSupportCardsSignature(message.cards)
+        ].join('|');
+      }).join('||');
+    }
+
     function renderSupportThread(thread, options){
       var opts = options || {};
       var incomingKey = getSupportIncomingMessageKey(thread || {});
       var previousIncomingKey = String(supportChatState.lastIncomingMessageKey || '');
       var previousThreadVersion = String(supportChatState.lastThreadVersion || '');
       var nextThreadVersion = getSupportThreadVersion(thread || {});
+      var nextMessagesVersion = getSupportMessagesVersion(thread || {});
       supportChatState.thread = thread || supportChatState.thread || null;
       renderSupportBadge(supportChatState.thread);
-      renderSupportMessages(supportChatState.thread);
+      syncSupportTicketCloseButton(supportChatState.thread);
+      if (!supportChatState.hasRenderedMessages || supportChatState.lastRenderedMessagesVersion !== nextMessagesVersion || opts.forceRender === true) {
+        renderSupportMessages(supportChatState.thread);
+        supportChatState.lastRenderedMessagesVersion = nextMessagesVersion;
+      }
       if (incomingKey) {
         if (previousIncomingKey && previousIncomingKey !== incomingKey && opts.notify !== false) {
           notifySupportIncomingMessage(supportChatState.thread);
@@ -13251,6 +13544,21 @@ function wirePageBalanceBox(){
       if (!isSupportChatActive() || supportChatState.markReadInFlight) return;
       var thread = supportChatState.thread || {};
       if (!(Number(thread.unreadUser || 0) > 0)) return;
+      var minThreadFetchMs = Math.max(15000, Number(supportChatState.pollDelayMs || 0) || 15000);
+      var nowMs = Date.now();
+      var remainingMs = supportChatState.lastThreadFetchAt
+        ? minThreadFetchMs - (nowMs - supportChatState.lastThreadFetchAt)
+        : 0;
+      if (remainingMs > 0) {
+        if (!supportChatState.markReadTimer) {
+          supportChatState.markReadTimer = setTimeout(function(){
+            supportChatState.markReadTimer = 0;
+            markSupportThreadReadFromRealtime();
+          }, remainingMs);
+        }
+        return;
+      }
+      supportChatState.lastThreadFetchAt = nowMs;
       supportChatState.markReadInFlight = true;
       callSupportApi('support-thread', {
         method: 'GET',
@@ -13290,7 +13598,7 @@ function wirePageBalanceBox(){
       if (!isSupportChatActive() || !supportShouldPollFallback()) return;
       var delay = Number(delayMs);
       if (!Number.isFinite(delay) || delay < 0) delay = Number(supportChatState.pollDelayMs || 0);
-      delay = Math.max(2500, delay || 4000);
+      delay = Math.max(15000, delay || 15000);
       supportChatState.pollTimer = setTimeout(function(){
         supportRunPollingCycle();
       }, delay);
@@ -13324,7 +13632,7 @@ function wirePageBalanceBox(){
         return false;
       }
       if (supportChatState.pollTimer) return true;
-      supportRunPollingCycle();
+      scheduleSupportPolling(supportChatState.pollDelayMs);
       return true;
     }
 
@@ -13401,6 +13709,12 @@ function wirePageBalanceBox(){
         return { success: true, ok: true, skipped: true, inactive: true };
       }
       if (supportChatState.loading) return;
+      var minThreadFetchMs = Math.max(15000, Number(supportChatState.pollDelayMs || 0) || 15000);
+      var nowMs = Date.now();
+      if (silent && supportChatState.lastThreadFetchAt && (nowMs - supportChatState.lastThreadFetchAt) < minThreadFetchMs) {
+        return { success: true, ok: true, skipped: true, throttled: true };
+      }
+      supportChatState.lastThreadFetchAt = nowMs;
       supportChatState.loading = true;
       if (!silent) setSupportChatStatus('جاري تحميل المحادثة...');
       var usePageLoader = !silent && isSupportChatActive();
@@ -13636,7 +13950,7 @@ function wirePageBalanceBox(){
         loadSupportThread(false, { markRead: true, notify: false, force: true }).catch(function(){});
         startSupportPolling();
         setTimeout(function(){
-          scrollSupportMessagesToBottom();
+          scrollSupportMessagesToBottom({ force: true, defer: false });
         }, 80);
       } else {
         closeSupportImageViewer();
@@ -13689,10 +14003,11 @@ function wirePageBalanceBox(){
       sendBtn.disabled = !!busy;
       sendBtn.classList.toggle('is-sending', !!busy);
       sendBtn.setAttribute('aria-busy', busy ? 'true' : 'false');
-      sendBtn.setAttribute('aria-label', busy ? 'جاري الإرسال' : 'إرسال');
+      sendBtn.setAttribute('aria-label', 'إرسال');
       sendBtn.innerHTML = busy
-        ? '<i class="fa-solid fa-circle-notch" aria-hidden="true"></i>'
+        ? '<span class="site-support-chat__send-loader" aria-hidden="true"><span></span><span></span><span></span></span>'
         : '<i class="fa-solid fa-paper-plane" aria-hidden="true"></i>';
+      syncSupportTicketCloseButton();
     }
 
     async function submitSupportMessage(){
@@ -13707,9 +14022,8 @@ function wirePageBalanceBox(){
       supportChatState.sending = true;
       setSupportSendButtonBusy(true);
       try {
-        setSupportChatStatus(imageFile ? 'جاري رفع الصورة...' : 'جاري الإرسال...');
+        setSupportChatStatus('');
         var imageUrl = imageFile ? await uploadSupportImageFile(imageFile) : '';
-        if (imageUrl) setSupportChatStatus('جاري إرسال الرسالة...');
         var payload = await callSupportApi('support-message', {
           method: 'POST',
           body: {
@@ -13737,6 +14051,40 @@ function wirePageBalanceBox(){
       } finally {
         supportChatState.sending = false;
         setSupportSendButtonBusy(false);
+      }
+    }
+
+    async function submitSupportCloseTicket(){
+      if (supportChatState.sending) return;
+      if (!isSupportThreadTicketOpen(supportChatState.thread)) {
+        syncSupportTicketCloseButton();
+        return;
+      }
+      supportChatState.sending = true;
+      setSupportSendButtonBusy(true);
+      try {
+        setSupportChatStatus('');
+        var payload = await callSupportApi('support-message', {
+          method: 'POST',
+          body: {
+            action: 'close_ticket',
+            type: 'close_ticket',
+            chatId: String((supportChatAuthUser && supportChatAuthUser.uid) || (supportChatState.thread && supportChatState.thread.userUid) || '')
+          }
+        });
+        clearSupportMessageSelection({ render: false });
+        if (payload && Array.isArray(payload.messages)) {
+          renderSupportThread(mergeSupportThreadMessages(payload.thread || null, payload.messages), { notify: false });
+        } else {
+          renderSupportThread(payload.thread || null, { notify: false });
+        }
+        setSupportChatStatus(payload && payload.message ? payload.message : 'تم إغلاق التذكرة.');
+      } catch (err) {
+        setSupportChatStatus(err && err.message ? err.message : 'تعذر إغلاق التذكرة.');
+      } finally {
+        supportChatState.sending = false;
+        setSupportSendButtonBusy(false);
+        syncSupportTicketCloseButton();
       }
     }
 
@@ -14053,6 +14401,7 @@ function wirePageBalanceBox(){
           align-items:center;
           gap:10px;
           min-width:0;
+          flex:1 1 auto;
         }
         .site-support-chat__icon{
           width:42px;
@@ -14107,15 +14456,59 @@ function wirePageBalanceBox(){
         }
         .site-support-chat__title strong{display:block;font-size:.98rem}
         .site-support-chat__title span{display:block;color:#9ca3af;font-size:.76rem;margin-top:2px}
+        .site-support-chat__head-actions{
+          display:flex;
+          align-items:center;
+          gap:8px;
+          flex:0 0 auto;
+        }
+        .site-support-chat__close-ticket{
+          min-height:40px;
+          border:1px solid rgba(248,113,113,.38);
+          border-radius:999px;
+          background:linear-gradient(180deg,rgba(127,29,29,.42),rgba(69,10,10,.34));
+          color:#fee2e2;
+          display:inline-flex;
+          align-items:center;
+          justify-content:center;
+          gap:8px;
+          padding:0 14px;
+          font-size:.78rem;
+          font-weight:900;
+          line-height:1;
+          white-space:nowrap;
+          cursor:pointer;
+          box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 8px 22px rgba(127,29,29,.22);
+          transition:background .16s ease,border-color .16s ease,transform .16s ease,color .16s ease;
+        }
+        .site-support-chat__close-ticket:hover{
+          border-color:rgba(252,165,165,.62);
+          background:linear-gradient(180deg,rgba(153,27,27,.56),rgba(91,12,12,.44));
+          transform:translateY(-1px);
+        }
+        .site-support-chat__close-ticket[hidden]{
+          display:none!important;
+        }
+        .site-support-chat__close-ticket:disabled{
+          opacity:.58;
+          cursor:not-allowed;
+        }
         .site-support-chat__close{
           width:40px;
           height:40px;
-          border:1px solid rgba(255,255,255,.12);
-          border-radius:14px;
-          background:#111820;
+          border:1px solid rgba(148,163,184,.22);
+          border-radius:999px;
+          background:rgba(15,23,42,.58);
           color:#f8fafc;
           display:grid;
           place-items:center;
+          box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 8px 20px rgba(0,0,0,.2);
+          transition:background .16s ease,border-color .16s ease,transform .16s ease;
+        }
+        .site-support-chat__close:hover{
+          border-color:rgba(226,232,240,.38);
+          background:rgba(30,41,59,.74);
+          transform:translateY(-1px);
         }
         .site-support-chat__selection-bar{
           min-height:54px;
@@ -14180,6 +14573,35 @@ function wirePageBalanceBox(){
           background-position:0 0,0 17px,17px -17px,-17px 0;
           overscroll-behavior:contain;
         }
+        .site-support-chat__jump{
+          position:absolute;
+          left:50%;
+          bottom:calc(102px + max(10px,env(safe-area-inset-bottom,0px)));
+          width:42px;
+          height:42px;
+          border:0;
+          border-radius:999px;
+          display:grid;
+          place-items:center;
+          z-index:3;
+          color:#f8fafc;
+          background:rgba(15,23,42,.92);
+          box-shadow:0 16px 32px rgba(0,0,0,.28);
+          cursor:pointer;
+          opacity:0;
+          pointer-events:none;
+          transform:translate(-50%,8px) scale(.94);
+          transition:opacity .16s ease,transform .16s ease,background .16s ease;
+        }
+        .site-support-chat__jump.is-visible:not([hidden]){
+          opacity:1;
+          pointer-events:auto;
+          transform:translate(-50%,0) scale(1);
+        }
+        .site-support-chat__jump:hover{
+          background:#111827;
+        }
+        .site-support-chat__jump[hidden]{display:none!important}
         html[data-theme="dark"] .site-support-chat__messages,
         body.dark-mode .site-support-chat__messages{
           background-color:#0b141a;
@@ -14214,15 +14636,30 @@ function wirePageBalanceBox(){
           color:#cbd5e1;
         }
         .site-support-chat__spinner{
-          width:42px;
-          height:42px;
+          width:52px;
+          height:26px;
           border-radius:999px;
-          border:3px solid rgba(34,197,94,.2);
-          border-top-color:#22c55e;
-          animation:siteSupportChatSpin .8s linear infinite;
+          display:inline-flex;
+          align-items:center;
+          justify-content:center;
+          gap:6px;
+          background:rgba(34,197,94,.14);
         }
-        @keyframes siteSupportChatSpin{
-          to{transform:rotate(360deg)}
+        .site-support-chat__spinner::before,
+        .site-support-chat__spinner::after,
+        .site-support-chat__spinner span{
+          content:"";
+          width:6px;
+          height:6px;
+          border-radius:999px;
+          background:#22c55e;
+          animation:siteSupportTypingDots 1s ease-in-out infinite;
+        }
+        .site-support-chat__spinner span{animation-delay:.12s}
+        .site-support-chat__spinner::after{animation-delay:.24s}
+        @keyframes siteSupportTypingDots{
+          0%,80%,100%{transform:translateY(0);opacity:.45}
+          40%{transform:translateY(-4px);opacity:1}
         }
         .site-support-chat__bubble{
           position:relative;
@@ -14370,6 +14807,88 @@ function wirePageBalanceBox(){
           transform:none;
           filter:brightness(1.05);
         }
+        .site-support-chat__contact-links{
+          width:100%;
+          max-width:100%;
+          display:flex;
+          flex-wrap:wrap;
+          gap:8px;
+          margin-top:8px;
+          direction:rtl;
+        }
+        .site-support-chat__contact-btn{
+          min-width:0;
+          min-height:38px;
+          border-radius:999px;
+          display:inline-flex;
+          align-items:center;
+          gap:8px;
+          padding:6px 10px 6px 14px;
+          background:rgba(37,211,102,.14);
+          border:1px solid rgba(37,211,102,.28);
+          color:#dcfce7;
+          text-decoration:none;
+          font-size:.82rem;
+          font-weight:900;
+          line-height:1.2;
+          box-shadow:none;
+          max-width:100%;
+          transition:transform .16s ease,filter .16s ease,border-color .16s ease;
+        }
+        .site-support-chat__contact-btn:hover{
+          transform:translateY(-1px);
+          filter:brightness(1.08);
+          border-color:rgba(37,211,102,.5);
+          text-decoration:none;
+        }
+        .site-support-chat__bubble .site-support-chat__contact-icon{
+          position:relative;
+          width:28px;
+          height:28px;
+          border-radius:999px;
+          display:grid;
+          place-items:center;
+          flex:0 0 auto;
+          background:#25d366;
+          color:#fff;
+          box-shadow:0 8px 18px rgba(37,211,102,.24);
+        }
+        .site-support-chat__bubble .site-support-chat__contact-icon i{
+          font-size:1rem;
+          line-height:1;
+        }
+        .site-support-chat__bubble .site-support-chat__contact-badge{
+          position:absolute;
+          right:-3px;
+          bottom:-3px;
+          width:14px;
+          height:14px;
+          border-radius:999px;
+          display:grid;
+          place-items:center;
+          background:#0f172a;
+          color:#bbf7d0;
+          border:1px solid rgba(255,255,255,.34);
+          font-size:.48rem;
+        }
+        .site-support-chat__bubble .site-support-chat__contact-label{
+          min-width:0;
+          overflow:hidden;
+          text-overflow:ellipsis;
+          white-space:nowrap;
+          direction:rtl;
+          color:inherit;
+          font-size:.82rem;
+        }
+        .site-support-chat__contact-btn.is-telegram{
+          background:rgba(34,158,217,.14);
+          border-color:rgba(34,158,217,.28);
+          color:#e0f2fe;
+        }
+        .site-support-chat__contact-btn.is-telegram .site-support-chat__contact-icon{background:#229ed9}
+        .site-support-chat__contact-btn.is-facebook .site-support-chat__contact-icon{background:#1877f2}
+        .site-support-chat__contact-btn.is-instagram .site-support-chat__contact-icon{background:#e4405f}
+        .site-support-chat__contact-btn.is-email .site-support-chat__contact-icon{background:#64748b}
         .site-support-chat__card{
           flex:0 0 clamp(132px,28vw,174px);
           width:clamp(132px,28vw,174px);
@@ -14567,7 +15086,7 @@ function wirePageBalanceBox(){
           cursor:zoom-out;
         }
         .site-support-chat__form{
-          padding:12px max(16px,calc((100vw - 820px)/2));
+          padding:12px max(16px,calc((100vw - 820px)/2)) 10px;
           border-top:1px solid rgba(148,163,184,.18);
           background:#0b0f14;
           display:grid;
@@ -14584,7 +15103,7 @@ function wirePageBalanceBox(){
           width:46px;
           height:46px;
           border:1px solid rgba(255,255,255,.12);
-          border-radius:16px;
+          border-radius:999px;
           display:grid;
           place-items:center;
           color:#d1d5db;
@@ -14606,12 +15125,12 @@ function wirePageBalanceBox(){
         .site-support-chat__preview[hidden]{display:none!important}
         .site-support-chat__form input{
           width:100%;
-          height:52px;
-          border-radius:18px;
+          height:50px;
+          border-radius:999px;
           border:1px solid #293240;
           background:#111820;
           color:#f8fafc;
-          padding:0 14px;
+          padding:0 18px;
           outline:none;
           font:inherit;
         }
@@ -14620,7 +15139,7 @@ function wirePageBalanceBox(){
           width:52px;
           height:52px;
           border:0;
-          border-radius:18px;
+          border-radius:999px;
           display:grid;
           place-items:center;
           color:#fff;
@@ -14636,19 +15155,50 @@ function wirePageBalanceBox(){
         .site-support-chat__form button.is-sending{
           background:#16a34a;
         }
-        .site-support-chat__form button.is-sending i{
-          animation:siteSupportSendSpin .8s linear infinite;
+        .site-support-chat__send-loader{
+          width:26px;
+          height:14px;
+          display:inline-flex;
+          align-items:center;
+          justify-content:center;
+          gap:4px;
         }
-        @keyframes siteSupportSendSpin{
-          to{transform:rotate(360deg)}
+        .site-support-chat__send-loader span{
+          width:5px;
+          height:5px;
+          border-radius:999px;
+          background:#fff;
+          animation:siteSupportTypingDots .9s ease-in-out infinite;
         }
+        .site-support-chat__send-loader span:nth-child(2){animation-delay:.12s}
+        .site-support-chat__send-loader span:nth-child(3){animation-delay:.24s}
+        .site-support-chat__status-loader{
+          display:inline-flex;
+          align-items:center;
+          justify-content:center;
+          gap:4px;
+          margin-inline-end:8px;
+          vertical-align:middle;
+        }
+        .site-support-chat__status-loader span{
+          width:5px;
+          height:5px;
+          border-radius:999px;
+          background:#9ca3af;
+          animation:siteSupportTypingDots .9s ease-in-out infinite;
+        }
+        .site-support-chat__status-loader span:nth-child(2){animation-delay:.12s}
+        .site-support-chat__status-loader span:nth-child(3){animation-delay:.24s}
         #siteSupportChatStatus{
-          min-height:18px;
+          min-height:0;
           padding:0 max(16px,calc((100vw - 820px)/2)) max(10px,env(safe-area-inset-bottom,0px));
           color:#9ca3af;
           background:#0b0f14;
           font-size:.74rem;
           text-align:center;
+        }
+        #siteSupportChatStatus:empty{
+          display:none;
         }
         html.pre-login-route #siteSupportChatFab,
         html.pre-login-route #siteSupportChatPanel,
@@ -14679,6 +15229,11 @@ function wirePageBalanceBox(){
           .site-support-chat__head{
             padding-right:16px;
             padding-left:16px;
+          }
+          .site-support-chat__close-ticket{
+            min-height:38px;
+            padding:0 10px;
+            font-size:.74rem;
           }
           .site-support-chat__selection-bar{
             padding-right:14px;
@@ -14720,7 +15275,10 @@ function wirePageBalanceBox(){
             '<span class="site-support-chat__icon"><img id="siteSupportChatSiteImage" class="site-support-chat__site-image" alt="" hidden><i class="fa-solid fa-headset site-support-chat__support-mark" aria-hidden="true"></i></span>',
           '<div><strong>الدعم الفني</strong><span>فريق الدعم</span></div>',
           '</div>',
-          '<button class="site-support-chat__close" id="siteSupportChatClose" type="button" aria-label="رجوع"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>',
+          '<div class="site-support-chat__head-actions">',
+            '<button class="site-support-chat__close-ticket" id="siteSupportChatCloseTicket" type="button" hidden aria-hidden="true" aria-label="قفل التذكرة"><i class="fa-solid fa-lock" aria-hidden="true"></i><span>قفل التذكرة</span></button>',
+            '<button class="site-support-chat__close" id="siteSupportChatClose" type="button" aria-label="رجوع"><i class="fa-solid fa-arrow-right-long" aria-hidden="true"></i></button>',
+          '</div>',
         '</header>',
         '<div id="siteSupportChatSelectionBar" class="site-support-chat__selection-bar" hidden>',
           '<button class="site-support-chat__selection-clear" type="button" data-support-clear-selection aria-label="إلغاء التحديد"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>',
@@ -14730,6 +15288,7 @@ function wirePageBalanceBox(){
         '<div id="siteSupportChatMessages" class="site-support-chat__messages">',
           '<div class="site-support-chat__empty">لا توجد رسائل بعد.</div>',
         '</div>',
+        '<button id="siteSupportChatJump" class="site-support-chat__jump" type="button" hidden aria-label="النزول إلى آخر الرسائل"><i class="fa-solid fa-arrow-down" aria-hidden="true"></i></button>',
         '<div class="site-support-chat__composer">',
           '<div id="siteSupportChatPreview" class="site-support-chat__preview" hidden></div>',
           '<form id="siteSupportChatForm" class="site-support-chat__form">',
@@ -14759,6 +15318,16 @@ function wirePageBalanceBox(){
         });
       }
       applySupportChatSiteImage();
+      var supportMessagesList = panel.querySelector('#siteSupportChatMessages');
+      var supportJumpButton = panel.querySelector('#siteSupportChatJump');
+      if (supportMessagesList) {
+        supportMessagesList.addEventListener('scroll', updateSupportJumpButton, { passive: true });
+      }
+      if (supportJumpButton) {
+        supportJumpButton.addEventListener('click', function(){
+          scrollSupportMessagesToBottom({ force: true, defer: false });
+        });
+      }
       syncSupportChatVisibility(window.__AUTH_LAST_USER__ || null);
       try {
         if (typeof window.__refreshWaJoinShortcutLayout === 'function') {
@@ -14773,6 +15342,13 @@ function wirePageBalanceBox(){
       panel.querySelector('#siteSupportChatClose').addEventListener('click', function(){
         setSupportChatOpen(false);
       });
+      var supportCloseTicketButton = panel.querySelector('#siteSupportChatCloseTicket');
+      if (supportCloseTicketButton) {
+        supportCloseTicketButton.addEventListener('click', function(ev){
+          if (ev) ev.preventDefault();
+          submitSupportCloseTicket().catch(function(){});
+        });
+      }
       panel.addEventListener('click', function(ev){
         var supportCard = ev && ev.target && ev.target.closest
           ? ev.target.closest('[data-support-card-action]')
@@ -14799,6 +15375,10 @@ function wirePageBalanceBox(){
           copySupportSelectedMessages().catch(function(){});
           return;
         }
+        var contactLink = ev && ev.target && ev.target.closest
+          ? ev.target.closest('[data-support-contact-link]')
+          : null;
+        if (contactLink) return;
         var row = ev && ev.target && ev.target.closest
           ? ev.target.closest('[data-support-message-key]')
           : null;
@@ -14820,6 +15400,7 @@ function wirePageBalanceBox(){
       panel.addEventListener('keydown', function(ev){
         if (!ev || (ev.key !== 'Enter' && ev.key !== ' ')) return;
         if (ev.target && ev.target.closest && ev.target.closest('[data-support-card-action]')) return;
+        if (ev.target && ev.target.closest && ev.target.closest('[data-support-contact-link]')) return;
         var row = ev.target && ev.target.closest
           ? ev.target.closest('[data-support-message-key]')
           : null;
@@ -18547,7 +19128,6 @@ html[data-theme="dark"] #wa-join-modal .wa-modal-content{
   box-shadow: none !important;
 }
 .settings-page .info-card,
-.settings-page .theme-toggle,
 .settings-page #resetBtn,
 .settings-page .telegram-link-input,
 .settings-page .telegram-link-btn{
@@ -18557,7 +19137,6 @@ html[data-theme="dark"] #wa-join-modal .wa-modal-content{
   box-shadow: none !important;
 }
 .settings-page .info-card:hover,
-.settings-page .theme-toggle:hover,
 .settings-page #resetBtn:hover,
 .settings-page .telegram-link-input:focus,
 .settings-page .telegram-link-btn:hover,
@@ -20672,19 +21251,7 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
         siteLockRedirected = false;
         return;
       }
-      if (is404RouteActive() || siteLockRedirected) return;
-      siteLockRedirected = true;
-      try {
-        const targetUrl = new URL(window.location.href);
-        targetUrl.pathname = "/404.html";
-        targetUrl.search = "";
-        targetUrl.hash = "";
-        window.location.replace(targetUrl.toString());
-        return;
-      } catch (_) {}
-      try {
-        window.location.replace("/404.html");
-      } catch (_) {}
+      siteLockRedirected = false;
     }
 
     function decodeFirestoreValue(val){
@@ -21234,22 +21801,23 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
         const pid = window.__getSiteFirebaseProjectId
           ? String(window.__getSiteFirebaseProjectId() || "").trim()
           : String(opts.projectId || "").trim();
-        if (!pid) {
-          devCreditLog('warn', 'REST siteState fetch skipped because projectId is missing.');
-          return fetchSiteStateViaFirestoreClient({
-            projectId: opts.projectId || ''
-          }).then((ok) => {
-            if (!ok && !opts.hasUsableCache) applySiteWaJoin({ enabled: false });
-            return ok;
-          });
+        let requestUrl;
+        try {
+          const workerBase = window.__getSiteWorkerBaseDefault
+            ? String(window.__getSiteWorkerBaseDefault({ trailingSlash: true }) || "").trim()
+            : "";
+          requestUrl = new URL("site-state.json", workerBase || window.location.href);
+        } catch (_) {
+          requestUrl = new URL("/site-state.json", window.location.href);
         }
-        const requestUrl = `https://firestore.googleapis.com/v1/projects/${pid}/databases/(default)/documents/config/siteState`;
-        return fetch(requestUrl, {
-          cache: "no-store"
+        requestUrl.searchParams.set("_", String(Date.now()));
+        return fetch(requestUrl.toString(), {
+          cache: "no-store",
+          headers: { "accept": "application/json" }
         })
           .then(r => {
             if (!r.ok) {
-              devCreditLog('error', 'REST siteState fetch failed.', {
+              devCreditLog('error', 'Server siteState fetch failed.', {
                 projectId: pid,
                 status: r.status || 0
               });
@@ -21257,19 +21825,25 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
             }
             return r.json();
           })
-          .then(doc => {
-            if (!doc || doc.error || !doc.fields || typeof doc.fields !== 'object') {
-              devCreditLog('warn', 'REST siteState payload was invalid.', {
+          .then(payload => {
+            let data = null;
+            if (payload && payload.siteState && typeof payload.siteState === 'object') data = payload.siteState;
+            else if (payload && payload.data && typeof payload.data === 'object') data = payload.data;
+            else if (payload && payload.fields && typeof payload.fields === 'object') {
+              data = decodeFirestoreValue({ mapValue: { fields: payload.fields } }) || {};
+            } else if (payload && typeof payload === 'object' && !payload.error) {
+              data = payload;
+            }
+            if (!data || typeof data !== 'object' || (payload && payload.error)) {
+              devCreditLog('warn', 'Server siteState payload was invalid.', {
                 projectId: pid,
-                hasError: !!(doc && doc.error),
-                hasFields: !!(doc && doc.fields)
+                hasError: !!(payload && payload.error),
+                hasSiteState: !!(payload && payload.siteState)
               });
               if (!opts.hasUsableCache) applySiteWaJoin({ enabled: false });
               return false;
             }
-            const fields = (doc && doc.fields) ? doc.fields : {};
-            const data = decodeFirestoreValue({ mapValue: { fields } }) || {};
-            devCreditLog('info', 'REST siteState payload fetched successfully.', {
+            devCreditLog('info', 'Server siteState payload fetched successfully.', {
               projectId: pid,
               hasDeveloperCredit: hasDeveloperCreditPayload(data),
               developerCredit: readDeveloperCreditPreview(data)
@@ -21278,7 +21852,7 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
             return applyResolvedSiteStateData(data);
           })
           .catch((err) => {
-            devCreditLog('error', 'REST siteState fetch crashed.', {
+            devCreditLog('error', 'Server siteState fetch crashed.', {
               projectId: pid,
               error: err && err.message ? err.message : String(err || '')
             });
@@ -21456,7 +22030,3 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
     log("siteState listener failed", err?.message||err);
   }
 })();
-
-
-
-

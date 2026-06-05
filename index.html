@@ -7,7 +7,7 @@
   <title>Njad store | نجاد ستور</title>
   
   
-  <link id="dynamicSiteManifestLink" rel="manifest" href="/manifest.webmanifest?v=20260519-04">
+  <link id="dynamicSiteManifestLink" rel="manifest" href="/manifest.webmanifest?v=20260528-01">
   <link rel="icon" href="https://api.njad.store/site-icon.png?v=admin-20260518-02" type="image/png" sizes="any">
   <link rel="shortcut icon" href="https://api.njad.store/site-icon.png?v=admin-20260518-02" type="image/png">
   <link rel="apple-touch-icon" href="https://api.njad.store/site-icon.png?v=admin-20260518-02">
@@ -72,7 +72,7 @@
   <link rel="preconnect" href="https://cdn.qrcode-ai.com" crossorigin>
   <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" as="style" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'">
   <noscript><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" crossorigin="anonymous"></noscript>
-  <link rel="stylesheet" href="site-bundle.css?v=20260524-02">
+  <link rel="stylesheet" href="site-bundle.css?v=20260605-support-ai-guard-15s-01">
 
   <!-- End unified startup assets -->
   
@@ -214,6 +214,13 @@
 <main>
   <div class="home-sections">
     <!-- البحث -->
+    <div class="catalog-context-bar" id="catalogContextBar" hidden>
+      <button type="button" class="catalog-context-back" id="catalogContextBack" aria-label="&#1585;&#1580;&#1608;&#1593;">
+        <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+      </button>
+      <div class="catalog-context-title" id="catalogContextTitle"></div>
+      <span class="catalog-context-spacer" aria-hidden="true"></span>
+    </div>
     <div class="search-container">
       <input type="text" id="searchInput" placeholder="&#1575;&#1576;&#1581;&#1579; &#1593;&#1606; &#1575;&#1604;&#1576;&#1575;&#1602;&#1575;&#1578;..." aria-label="&#1576;&#1581;&#1579;" data-i18n-placeholder="catalog.searchPackages" data-i18n-aria-label="catalog.search" />
     </div>
@@ -502,6 +509,12 @@
             </div>
             <div id="catalogExtraFields" class="player-extra-fields"></div>
           </div>
+          <div id="catalogCurrentSection" class="catalog-current-sectionbar" hidden>
+            <button id="catalogSectionBack" class="catalog-current-section-back" type="button" aria-label="&#1585;&#1580;&#1608;&#1593;">
+              <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+            </button>
+            <strong id="catalogCurrentSectionTitle" class="catalog-current-section-title"></strong>
+          </div>
           <div class="search-container">
             <input id="catalogSearchInput" type="text" placeholder="&#1575;&#1576;&#1581;&#1579; &#1593;&#1606; &#1575;&#1604;&#1576;&#1575;&#1602;&#1575;&#1578;..." data-i18n-placeholder="catalog.searchPackages" />
           </div>
@@ -774,7 +787,7 @@
   }
   </script>
   <script src="site_settings.js?v=20260518-03"></script>
-  <script src="site-bundle.js?v=20260524-02"></script>
+  <script src="site-bundle.js?v=20260605-support-ai-guard-15s-01"></script>
   <!-- End runtime scripts -->
 </body>
 </html>

@@ -341,26 +341,19 @@ function buildOrdersApiUrl(params = {}) {
 }
 
 async function buildOrdersServerHeaders(uid) {
-  const headers = { "Accept": "application/json" };
-  const sessionKey = getStoredSessionKey(uid);
-  if (sessionKey) headers["X-SessionKey"] = sessionKey;
-  const user = getOrdersCurrentUser();
-  if (user && typeof user.getIdToken === "function") {
-    const idToken = await user.getIdToken();
-    if (idToken) headers["Authorization"] = `Bearer ${idToken}`;
-  }
-  return headers;
+  return {};
 }
 
 async function fetchOrdersFromServer(uid, opts = {}) {
   const safeUid = String(uid || "").trim();
   if (!safeUid) return [];
-  const params = {};
+  const params = { useruid: safeUid };
+  const sessionKey = getStoredSessionKey(safeUid);
+  if (sessionKey) params.sessionKey = sessionKey;
   if (opts && opts.code) params.orderCode = opts.code;
   if (opts && opts.limit) params.limit = opts.limit;
   const res = await fetch(buildOrdersApiUrl(params), {
     method: "GET",
-    headers: await buildOrdersServerHeaders(safeUid),
     cache: "no-store"
   });
   const data = await res.json().catch(() => ({}));
@@ -1420,6 +1413,7 @@ function normOrderStatus(s){
   if (
     v.includes('تم_الشحن') ||
     v.includes('تم الشحن') ||
+    v.includes('مقبول') ||
     v.includes('shipped') ||
     v.includes('تم-الشحن') ||
     v.includes('completed') ||
@@ -1442,7 +1436,7 @@ function normOrderStatus(s){
 function formatStatusLabel(value){
   const raw = String(value || '').trim();
   if (!raw) return ordersT("orders.status.processing", "قيد المعالجة", "Processing", "En cours");
-  if (raw === 'تم_الشحن') return ordersT("orders.status.shipped", "تم الشحن", "Shipped", "Expedie");
+  if (raw === 'تم_الشحن' || raw === 'تم الشحن') return ordersT("orders.status.accepted", "مقبول", "Accepted", "Acceptee");
   const normalized = raw.toLowerCase();
   if (normalized.includes('مكتمل') || normalized === 'completed' || normalized === 'success') {
     return ordersT("orders.status.completed", "مكتمل", "Completed", "Termine");
@@ -1619,7 +1613,7 @@ function ensureOrdersRealtimeReady(uid, opts){
   const safeUid = String(uid || "").trim();
   if (!safeUid) return Promise.resolve([]);
   const force = !!(opts && opts.force);
-  if (!force && _ordersBootstrapPromise && _ordersBootstrapUid === safeUid) {
+  if (_ordersBootstrapPromise && _ordersBootstrapUid === safeUid) {
     return _ordersBootstrapPromise;
   }
   if (!force && _ordersUnsub && _ordersRealtimeUid === safeUid) {
@@ -1631,8 +1625,9 @@ function ensureOrdersRealtimeReady(uid, opts){
   }
   showOrdersCachedState(safeUid, { skeleton: true });
   const task = Promise.resolve().then(function(){
-    listenOrdersRealtime(safeUid, { force: force });
-    return getCachedOrdersForUser(safeUid);
+    return Promise.resolve(listenOrdersRealtime(safeUid, { force: force })).then(function(result){
+      return Array.isArray(result) ? result : getCachedOrdersForUser(safeUid);
+    });
   }).finally(function(){
     if (_ordersBootstrapPromise === task) _ordersBootstrapPromise = null;
   });
@@ -1685,6 +1680,10 @@ async function bindOrdersAuthListener(){
     }
     const searchEl = document.getElementById('ordersSearch');
     if (searchEl) searchEl.value = '';
+    if (_ordersBootstrapPromise && _ordersBootstrapUid === String(user.uid || "").trim()) {
+      await _ordersBootstrapPromise.catch(()=>{});
+      return;
+    }
     showOrdersCachedState(user.uid, { skeleton: true });
     await ensureOrdersRealtimeReady(user.uid, { force: false });
   });
@@ -1703,17 +1702,26 @@ window.__initOrdersPage = function(){
 };
 
 // تحديث خفيف عند العودة للصفحة من الـ hash
-window.__ORDERS_REFRESH__ = function(opts){
-  if (!ordersUiReady()) return;
-  if (!isOrdersViewActive()) return;
-  const user = getOrdersCurrentUser();
-  if (!user) return;
+window.__ORDERS_REFRESH__ = async function(opts){
+  if (!ordersUiReady()) return [];
+  if (!isOrdersViewActive()) return [];
   const force = !!(opts && opts.force);
   try { syncToolbarUI(); } catch(_){}
-  showOrdersCachedState(user.uid, { skeleton: force });
+  await ensureOrdersFirebaseReady().catch(() => false);
+  let user = getOrdersCurrentUser();
+  if (!user) {
+    user = await resolveOrdersCurrentUserForView().catch(() => null);
+  }
+  let uid = String(user?.uid || "").trim();
+  if (!uid) {
+    const session = readOrdersSessionContext("");
+    uid = String(session.uid || "").trim();
+  }
+  if (!uid) return [];
+  showOrdersCachedState(uid, { skeleton: force });
   try {
-    ensureOrdersRealtimeReady(user.uid, { force: false }).catch(()=>{});
-  } catch(_){ }
+    return await ensureOrdersRealtimeReady(uid, { force: force }).catch(()=>[]);
+  } catch(_){ return []; }
 };
 
 // تهيئة تلقائية فقط عند صفحة talabat.html (النسخة المنفصلة)
@@ -2022,7 +2030,7 @@ function drawOrdersPage() {
     if (!msgEl) { msgEl = document.createElement('div'); msgEl.id = wrapId; }
     let message = ordersT("orders.empty.all", "لا توجد طلبات", "No orders", "Aucune commande");
     if (ORDERS_FILTER === 'approved') {
-      message = ordersT("orders.empty.approved", "لا توجد طلبات مشحونة", "No shipped orders", "Aucune commande expediee");
+      message = ordersT("orders.empty.approved", "لا توجد طلبات مقبولة", "No accepted orders", "Aucune commande acceptee");
     } else if (ORDERS_FILTER === 'rejected') {
       message = ordersT("orders.empty.rejected", "لا توجد طلبات مرفوضة", "No rejected orders", "Aucune commande rejetee");
     } else if (ORDERS_FILTER === 'pending') {
@@ -2615,8 +2623,10 @@ let _ordersUnsub = null;
 function listenOrdersRealtime(uid, opts) {
   const safeUid = String(uid || "").trim();
   const force = !!(opts && opts.force);
-  if (!safeUid) return false;
-  if (!force && _ordersUnsub && _ordersRealtimeUid === safeUid) return true;
+  if (!safeUid) return Promise.resolve([]);
+  if (!force && _ordersUnsub && _ordersRealtimeUid === safeUid) {
+    return Promise.resolve(getCachedOrdersForUser(safeUid));
+  }
   try {
     if (_ordersUnsub && (_ordersRealtimeUid !== safeUid || force)) {
       _ordersUnsub();
@@ -2626,33 +2636,35 @@ function listenOrdersRealtime(uid, opts) {
   try {
     _ordersRealtimeUid = safeUid;
     _ordersUnsub = function(){};
-    fetchOrdersFromServer(safeUid, { limit: 1000 }).then((fresh)=>{
+    return fetchOrdersFromServer(safeUid, { limit: 1000 }).then((fresh)=>{
       try{
         const uidNow = String((getOrdersCurrentUser() && getOrdersCurrentUser().uid) || "").trim();
-        if (uidNow && uidNow !== safeUid) return;
+        if (uidNow && uidNow !== safeUid) return getCachedOrdersForUser(safeUid);
         if (!fresh.length) {
           LS.replace(safeUid, []);
           renderOrders([]);
-          return;
+          return fresh;
         }
         LS.merge(safeUid, fresh);
         renderOrders(cacheToSortedArray(safeUid));
+        return fresh;
       }catch(e){ console.warn('orders merge failed', e); }
+      return getCachedOrdersForUser(safeUid);
     }).catch((err)=>{
       console.warn('orders fetch failed', err);
       const cached = cacheToSortedArray(safeUid);
       if (!cached.length) {
         LS.replace(safeUid, []);
         renderOrders([]);
-        return;
+        return [];
       }
       handleOrdersFirestoreError(err);
+      return cached;
     });
-    return true;
   } catch (e) {
     console.warn('listenOrdersRealtime failed', e);
     handleOrdersFirestoreError(e);
-    return false;
+    return Promise.resolve(getCachedOrdersForUser(safeUid));
   }
 }
 

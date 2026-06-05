@@ -1498,6 +1498,21 @@
     return "auth/unknown";
   }
 
+  function createWritableManualAuthError(source, code) {
+    const safeCode = String(code || "").trim() || "auth/unknown";
+    const message = source && source.message
+      ? String(source.message)
+      : String(source || safeCode || "auth/unknown");
+    const err = new Error(message || safeCode);
+    err.code = safeCode;
+    if (source && source.payload) err.payload = source.payload;
+    if (source && source.details) err.details = source.details;
+    if (source && source.status) err.status = source.status;
+    if (source && source.name) err.name = source.name;
+    if (source) err.originalError = source;
+    return err;
+  }
+
   async function callManualAuth(action = "login", payload = {}, targetErrorEl) {
     const manualUrl = buildManualAuthUrl();
     if (!manualUrl || typeof manualUrl !== "string") {
@@ -1568,17 +1583,16 @@
       }
       return data;
     } catch (err) {
-      manualAuthRecent.set(requestKey, { ts: Date.now(), error: err || null });
-      const resolvedCode = resolveManualAuthErrorCode(err && err.payload ? err.payload : null, err && err.code ? err.code : "");
-      if (!err.code) {
-        err.code = (err && err.name === "AbortError") ? "network/timeout" : "network/fetch-failed";
-      }
-      if (resolvedCode) err.code = resolvedCode;
-      const authLike = /^auth\//.test(String(err.code || "")) || /^totp[_-]/.test(String(err.code || "")) || /^telegram_otp[_-]/.test(String(err.code || ""));
+      const fallbackCode = (err && err.name === "AbortError") ? "network/timeout" : "network/fetch-failed";
+      const sourceCode = (err && err.name === "AbortError") ? fallbackCode : (err && err.code ? err.code : fallbackCode);
+      const resolvedCode = resolveManualAuthErrorCode(err && err.payload ? err.payload : null, sourceCode) || fallbackCode;
+      const safeErr = createWritableManualAuthError(err, resolvedCode);
+      manualAuthRecent.set(requestKey, { ts: Date.now(), error: safeErr });
+      const authLike = /^auth\//.test(String(safeErr.code || "")) || /^totp[_-]/.test(String(safeErr.code || "")) || /^telegram_otp[_-]/.test(String(safeErr.code || ""));
       if (targetErrorEl) {
         targetErrorEl.style.color = "var(--danger, #ef4444)";
         if (authLike) {
-          targetErrorEl.textContent = translateFirebaseError(err);
+          targetErrorEl.textContent = translateFirebaseError(safeErr);
         } else {
           targetErrorEl.textContent = "تعذر الاتصال بالخادم، تحقق من عنوان المانوال أو الشبكة.";
           if (manualUrl) targetErrorEl.textContent += ` (${manualUrl})`;
@@ -1589,14 +1603,14 @@
         if (fallbackEl && fallbackEl !== targetErrorEl) {
           fallbackEl.style.color = "var(--danger, #ef4444)";
           if (authLike) {
-            fallbackEl.textContent = translateFirebaseError(err);
+            fallbackEl.textContent = translateFirebaseError(safeErr);
           } else {
             fallbackEl.textContent = "تعذر الاتصال بالخادم، تحقق من عنوان المانوال أو الشبكة.";
             if (manualUrl) fallbackEl.textContent += ` (${manualUrl})`;
           }
         }
       } catch (_) {}
-      throw err;
+      throw safeErr;
     } finally {
       hideRequestLoader();
     }
@@ -1872,7 +1886,7 @@
       if (totpLoginSubtitle) {
         totpLoginSubtitle.textContent = deliveryChannel === "push"
           ? "ادخل الكود الذي وصلك عبر إشعار Firebase على جهازك."
-          : "ادخل الكود الذي وصلك على تيليغرام.";
+          : "ادخل الكود المستلم على تيليغرام.";
       }
       setTotpLoginInputVisible(true);
       if (totpLoginInput) {
@@ -1915,7 +1929,7 @@
       pendingTotpLostMode = pendingTotpLostSent;
       if (pendingTotpLostMode) {
         if (totpLoginSubtitle) {
-          totpLoginSubtitle.textContent = "ادخل الكود الذي وصلك على تيليغرام.";
+          totpLoginSubtitle.textContent = "ادخل الكود المستلم على تيليغرام.";
         }
         if (totpLoginInput) {
           try { totpLoginInput.focus(); } catch (_) {}
@@ -1948,7 +1962,7 @@
       if (totpLoginSubtitle) {
         totpLoginSubtitle.textContent = deliveryChannel === "push"
           ? "ادخل الكود الذي وصلك عبر إشعار Firebase على جهازك."
-          : "ادخل الكود الذي وصلك على تيليغرام.";
+          : "ادخل الكود المستلم على تيليغرام.";
       }
       if (totpLoginInput) {
         totpLoginInput.value = "";
@@ -2005,12 +2019,12 @@
       let fallbackSubtitle = "أدخل رمز Google Authenticator المكوّن من 6 أرقام.";
       if (isTotpCodeDeliveryMethod(method)) {
         fallbackSubtitle = pendingTotpEmailSent
-          ? "ادخل الكود الذي وصلك على تيليغرام."
+          ? "ادخل الكود المستلم على تيليغرام."
           : (emailCooldownActive
             ? "تعذر إرسال الرمز حاليًا. يمكنك إعادة المحاولة بعد انتهاء المؤقت."
             : "اضغط على زر إرسال رمز عبر تيليغرام أولاً.");
       } else if (pendingTotpLostMode) {
-        fallbackSubtitle = "ادخل الكود الذي وصلك على تيليغرام.";
+        fallbackSubtitle = "ادخل الكود المستلم على تيليغرام.";
       }
       totpLoginSubtitle.textContent = (isTotpCodeDeliveryMethod(method) && !pendingTotpEmailSent)
         ? fallbackSubtitle
@@ -3451,7 +3465,7 @@
             loginError.textContent = "";
             totpMethod = resolveTotpChallengeMethodFromError(err, totpMethod);
             const subtitle = totpMethod === "telegram"
-              ? "ادخل الكود الذي وصلك على تيليغرام."
+              ? "ادخل الكود المستلم على تيليغرام."
               : "أدخل رمز Google Authenticator المكوّن من 6 أرقام.";
             const errorText = (code === "telegram_otp_invalid")
               ? "رمز تيليغرام غير صحيح."
@@ -3779,7 +3793,7 @@
   async function requestTotpCode(message, errorText, options = {}) {
     const method = normalizeTotpChallengeMethod(options && options.method);
     const defaultSubtitle = method === "telegram"
-      ? "ادخل الكود الذي وصلك على تيليغرام."
+      ? "ادخل الكود المستلم على تيليغرام."
       : "أدخل رمز Google Authenticator المكوّن من 6 أرقام.";
     return requestTotpCodeWithModal({
       method,
@@ -3981,7 +3995,7 @@
           hideGoogleRedirectLoader();
           totpMethod = resolveTotpChallengeMethodFromError(err, totpMethod);
           const subtitle = totpMethod === "telegram"
-            ? "ادخل الكود الذي وصلك على تيليغرام."
+            ? "ادخل الكود المستلم على تيليغرام."
             : "أدخل رمز Google Authenticator المكوّن من 6 أرقام.";
           const errorText = (code === "telegram_otp_invalid")
             ? "رمز تيليغرام غير صحيح."

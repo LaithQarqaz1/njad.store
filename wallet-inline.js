@@ -119,7 +119,7 @@
       const CACHE_PREFIX = pageConfig.cachePrefix;
       const FILTER_PREFIX = pageConfig.filterPrefix;
       const LAST_CODE_PREFIX = pageConfig.lastCodePrefix;
-      const CACHE_SCHEMA_VERSION = 5;
+      const CACHE_SCHEMA_VERSION = 7;
       const PAGE_MODE = pageConfig.pageKey;
       const PENDING_AUTO_REFRESH_MS = 10000;
       const RECENT_SERVER_SYNC_TTL_MS = 5000;
@@ -143,6 +143,7 @@
       let SELECTED_DATE_STR = '';
       let DATE_MODE = 'single';
       let DATE_RANGE = { from: null, to: null };
+      let OPERATION_FILTER = 'all';
       const HISTORY_CAL = { el: null, year: 0, month: 0 };
       const CALENDAR_OWNER = `wallet-like-${PAGE_MODE}`;
       let TRANSACTION_DETAILS_MODAL = null;
@@ -150,6 +151,9 @@
       let TRANSACTION_DETAILS_REQUEST_TOKEN = '';
       let AUTO_REFRESH_BOUND = false;
       let PENDING_AUTO_REFRESH_ID = 0;
+      const HISTORY_INITIAL_VISIBLE_COUNT = 50;
+      const HISTORY_VISIBLE_STEP = 50;
+      let VISIBLE_LIMIT = HISTORY_INITIAL_VISIBLE_COUNT;
 
       function historyT(key, ar, en, fr){
         try {
@@ -180,9 +184,66 @@
         }
       }
 
+      function normalizeHistoryTimestampValue(value){
+        try{
+          if (value == null || value === '') return '';
+          if (value && typeof value === 'object'){
+            if (typeof value.toDate === 'function'){
+              const d = value.toDate();
+              return d && !isNaN(d.getTime()) ? d.toISOString() : '';
+            }
+            const seconds = Number(value.seconds != null ? value.seconds : value._seconds);
+            if (Number.isFinite(seconds)){
+              const nanos = Number(value.nanoseconds != null ? value.nanoseconds : value._nanoseconds);
+              const ms = seconds * 1000 + (Number.isFinite(nanos) ? Math.floor(nanos / 1000000) : 0);
+              return new Date(ms).toISOString();
+            }
+          }
+          if (typeof value === 'number' && Number.isFinite(value)){
+            const ms = Math.abs(value) < 100000000000 ? value * 1000 : value;
+            return new Date(ms).toISOString();
+          }
+          const text = String(value || '').trim();
+          if (!text) return '';
+          if (/^-?\d+(?:\.\d+)?$/.test(text)){
+            const numeric = Number(text);
+            if (Number.isFinite(numeric)){
+              const ms = Math.abs(numeric) < 100000000000 ? numeric * 1000 : numeric;
+              return new Date(ms).toISOString();
+            }
+          }
+          const parsed = Date.parse(text);
+          return Number.isFinite(parsed) ? new Date(parsed).toISOString() : text;
+        }catch(_){
+          return '';
+        }
+      }
+
+      function getItemRawTimeValue(item){
+        const source = item && typeof item === 'object' ? item : {};
+        const keys = [
+          'createdAt',
+          'created_at',
+          'createdAtISO',
+          'timestamp',
+          'time',
+          'date',
+          'serverCreatedAt'
+        ];
+        for (let i = 0; i < keys.length; i += 1){
+          const normalized = normalizeHistoryTimestampValue(source[keys[i]]);
+          if (normalized) return normalized;
+        }
+        return '';
+      }
+
       function getItemTimeMs(item){
-        const date = asDate(item && (item.createdAt || item.created_at || item.computedAt || item.timestamp));
+        const date = asDate(getItemRawTimeValue(item));
         return date && !isNaN(date.getTime()) ? date.getTime() : 0;
+      }
+
+      function hasItemDisplayTime(item){
+        return !!getItemRawTimeValue(item);
       }
 
       function isSameHistoryDay(ms, ymd){
@@ -208,10 +269,7 @@
       }
 
       function applyDefaultDateFilter(){
-        DATE_FILTER_ENABLED = true;
-        SELECTED_DATE_STR = getTodayDateStr();
-        DATE_MODE = 'single';
-        DATE_RANGE = { from: null, to: null };
+        resetDateFilter();
       }
 
       function resetDateFilter(){
@@ -219,6 +277,23 @@
         SELECTED_DATE_STR = null;
         DATE_MODE = 'single';
         DATE_RANGE = { from: null, to: null };
+      }
+
+      function resetHistoryViewState(){
+        CURRENT_FILTER = 'all';
+        OPERATION_FILTER = 'all';
+        resetDateFilter();
+        VISIBLE_LIMIT = HISTORY_INITIAL_VISIBLE_COUNT;
+        try { closeTransactionDetailsModal(); } catch(_){}
+        try { closeHistoryCalendar(); } catch(_){}
+      }
+
+      function resetHistoryViewStateForExit(){
+        resetHistoryViewState();
+        try {
+          if (LAST_USER_ID) delete FILTER_MEMORY[FILTER_PREFIX + LAST_USER_ID];
+        } catch(_){}
+        try { syncWalletToolbarUI(); } catch(_){}
       }
 
       function getDateChipText(){
@@ -244,7 +319,9 @@
 
       function isPageRouteActive(){
         const routeKey = String(pageConfig.routeKey || PAGE_MODE || '').toLowerCase();
-        return !!routeKey && getActiveInlineRouteKey() === routeKey;
+        const activeRouteKey = getActiveInlineRouteKey();
+        if (PAGE_MODE === 'payments' && activeRouteKey === 'payments') return true;
+        return !!routeKey && activeRouteKey === routeKey;
       }
 
       function markLoadRequest(uid){
@@ -282,11 +359,10 @@
 
       function sortRequestItemsByNewest(arr){
         return (arr || []).slice().sort(function(a,b){
-          const taDate = asDate(a && (a.createdAt || a.timestamp));
-          const tbDate = asDate(b && (b.createdAt || b.timestamp));
-          const ta = taDate && !isNaN(taDate.getTime()) ? taDate.getTime() : 0;
-          const tb = tbDate && !isNaN(tbDate.getTime()) ? tbDate.getTime() : 0;
-          return tb - ta;
+          const ta = getItemTimeMs(a);
+          const tb = getItemTimeMs(b);
+          if (tb !== ta) return tb - ta;
+          return String(getItemCacheKey(b) || getCode(b) || '').localeCompare(String(getItemCacheKey(a) || getCode(a) || ''));
         });
       }
 
@@ -324,26 +400,24 @@
         listEl.innerHTML = '<div class="empty">' + String(pageConfig.authRequiredText || '').trim() + '</div>';
         chipsWrap.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
         ALL_ITEMS = [];
-        CURRENT_FILTER = 'all';
+        resetHistoryViewState();
         LAST_USER_ID = null;
         closeTransactionDetailsModal();
-        applyDefaultDateFilter();
         syncWalletToolbarUI();
       }
 
       function asDate(ts){
         try{
-          if (!ts) return null;
-          if (ts.toDate) return ts.toDate();
-          if (typeof ts === 'object' && ts.seconds) return new Date(ts.seconds * 1000);
-          return new Date(ts);
+          const normalized = normalizeHistoryTimestampValue(ts);
+          if (!normalized) return null;
+          return new Date(normalized);
         }catch(_){ return null; }
       }
       function formatDate(ts){
         const d = asDate(ts);
         if (!d || isNaN(d.getTime())) return ts || '-';
         try{
-          return d.toLocaleString('ar-EG',{ weekday:'long', year:'numeric', month:'long', day:'numeric', hour:'2-digit', minute:'2-digit' });
+          return d.toLocaleString('ar-EG',{ weekday:'long', year:'numeric', month:'long', day:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit' });
         }catch(_){ return d.toString(); }
       }
 
@@ -516,8 +590,44 @@
         });
       }
 
+      function isWalletOperationFilterKey(value){
+        var key = String(value || 'all').trim();
+        return [
+          'all',
+          'transfer',
+          'purchase',
+          'refund',
+          'deposit',
+          'withdraw',
+          'admin',
+          'other'
+        ].indexOf(key) >= 0;
+      }
+
+      function resolveWalletOperationFilterKey(item){
+        var meta = resolveWalletOperationMeta(item || {}, '');
+        var key = String(meta && meta.key || '').trim();
+        if (key === 'transfer_in' || key === 'transfer_out') return 'transfer';
+        if (key === 'purchase') return 'purchase';
+        if (key === 'refund' || key === 'refund_reversal') return 'refund';
+        if (key === 'admin_credit' || key === 'admin_debit') return 'admin';
+        if (key === 'deposit_request') return 'deposit';
+        if (key === 'withdraw_request') return 'withdraw';
+        return 'other';
+      }
+
+      function applyOperationFilter(arr){
+        var list = Array.isArray(arr) ? arr.slice() : [];
+        if (PAGE_MODE !== 'wallet') return list;
+        var operation = String(OPERATION_FILTER || 'all').trim();
+        if (!operation || operation === 'all') return list;
+        return list.filter(function(item){
+          return resolveWalletOperationFilterKey(item) === operation;
+        });
+      }
+
       function getVisibleItems(){
-        return applyDateFilter(applyFilter(ALL_ITEMS));
+        return applyOperationFilter(applyDateFilter(applyFilter(ALL_ITEMS.filter(hasItemDisplayTime))));
       }
 
       function computeHistoryDateCounts(){
@@ -536,7 +646,9 @@
       function syncWalletToolbarUI(){
         try{
           chipsWrap.querySelectorAll('.chip[data-filter]').forEach(function(chip){
-            chip.classList.toggle('active', (chip.dataset.filter || 'all') === CURRENT_FILTER);
+            var filterValue = String(chip.dataset.filter || 'all').trim() || 'all';
+            var activeFilter = PAGE_MODE === 'wallet' ? String(OPERATION_FILTER || 'all') : String(CURRENT_FILTER || 'all');
+            chip.classList.toggle('active', filterValue === activeFilter);
           });
           const dateChip = document.getElementById(DATE_CHIP_ID);
           if (dateChip){
@@ -550,8 +662,29 @@
         }catch(_){}
       }
 
+      function appendHistoryLoadMore(total, shown, uid){
+        if (!listEl || total <= shown) return;
+        const wrap = document.createElement('div');
+        wrap.className = 'wallet-history-more';
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'wallet-history-more-btn';
+        btn.textContent = historyT('history.showMore', 'اظهار المزيد', 'Show more', 'Afficher plus');
+        btn.setAttribute('aria-label', btn.textContent);
+        btn.addEventListener('click', function(){
+          VISIBLE_LIMIT = Math.min(total, (Number(VISIBLE_LIMIT) || HISTORY_INITIAL_VISIBLE_COUNT) + HISTORY_VISIBLE_STEP);
+          renderVisibleItems(uid || LAST_USER_ID);
+        });
+        wrap.appendChild(btn);
+        listEl.appendChild(wrap);
+      }
+
       function renderVisibleItems(uid){
-        renderDeposits(getVisibleItems());
+        const visibleItems = getVisibleItems();
+        const limit = Math.max(HISTORY_INITIAL_VISIBLE_COUNT, Number(VISIBLE_LIMIT) || HISTORY_INITIAL_VISIBLE_COUNT);
+        const pageItems = visibleItems.slice(0, limit);
+        renderDeposits(pageItems);
+        appendHistoryLoadMore(visibleItems.length, pageItems.length, uid);
         fixWalletTextNodes(listEl);
         syncWalletToolbarUI();
         if (uid) selectLastCard(uid);
@@ -573,6 +706,7 @@
       function bindAutoHistoryRefresh(){
         if (AUTO_REFRESH_BOUND || typeof window === 'undefined') return;
         AUTO_REFRESH_BOUND = true;
+        if (PAGE_MODE === 'payments') return;
 
         function refreshIfNeeded(){
           if (!isPageRouteActive()) return;
@@ -609,7 +743,10 @@
       }
       try{
         window.__WALLET_LIKE_CALENDAR_CLOSE__ = window.__WALLET_LIKE_CALENDAR_CLOSE__ || {};
-        window.__WALLET_LIKE_CALENDAR_CLOSE__[PAGE_MODE] = function(){ closeHistoryCalendar(); };
+        window.__WALLET_LIKE_CALENDAR_CLOSE__[PAGE_MODE] = function(){
+          closeHistoryCalendar();
+          if (!isPageRouteActive()) resetHistoryViewStateForExit();
+        };
       }catch(_){}
 
       function shiftHistoryCalendar(delta){
@@ -724,11 +861,13 @@
               }
               if (ymd < DATE_RANGE.from) DATE_RANGE = { from: ymd, to: DATE_RANGE.from };
               else DATE_RANGE.to = ymd;
+              VISIBLE_LIMIT = HISTORY_INITIAL_VISIBLE_COUNT;
               closeHistoryCalendar();
               renderVisibleItems(LAST_USER_ID);
               return;
             }
             SELECTED_DATE_STR = ymd;
+            VISIBLE_LIMIT = HISTORY_INITIAL_VISIBLE_COUNT;
             closeHistoryCalendar();
             renderVisibleItems(LAST_USER_ID);
           };
@@ -788,6 +927,7 @@
           };
           panel.querySelector('#historyCalClear').onclick = function(){
             resetDateFilter();
+            VISIBLE_LIMIT = HISTORY_INITIAL_VISIBLE_COUNT;
             closeHistoryCalendar();
             renderVisibleItems(LAST_USER_ID);
           };
@@ -907,6 +1047,46 @@
         if (base) return 'استرداد - ' + base;
         var fallbackText = stripRefundAdminSuffix(fallback) || fixWalletText((fallback == null ? '' : fallback).toString()).trim();
         return fallbackText || 'استرداد';
+      }
+
+      function stripWalletCodeLikeText(value){
+        var txt = normalizeLedgerText(value);
+        if (!txt) return '';
+        txt = txt.replace(/\b(?:ORD|DEP|AUT)[A-Z0-9-]{6,}(?:-REFUND-[A-Z0-9-]+)?\b/ig, ' ');
+        txt = txt.replace(/\bREFUND\b/ig, ' ');
+        txt = txt.replace(/(?:رمز|كود|رقم)\s*(?:الطلب|العملية)?\s*[:：-]?\s*/ig, ' ');
+        txt = txt.replace(/\b(?:Payment\s*ID|ID)\s*[:：-]?\s*/ig, ' ');
+        return txt.replace(/\s+/g, ' ').trim();
+      }
+
+      function resolveRefundCardProductName(data, purchaseName, titleHint, method){
+        var src = data && typeof data === 'object' ? data : {};
+        var candidates = [
+          src.refundProductName,
+          src.originalProductName,
+          src.originalServiceName,
+          src.productName,
+          src.serviceName,
+          src.offerName,
+          src.offer,
+          src.itemName,
+          src.gameName,
+          src.game,
+          src.description,
+          src.title,
+          purchaseName,
+          titleHint,
+          method
+        ];
+        for (var i = 0; i < candidates.length; i += 1){
+          var txt = stripRefundAdminSuffix(candidates[i]);
+          if (!txt) continue;
+          txt = txt.replace(/^\s*(?:استرداد|إرجاع|ارجاع|رد\s*رصيد)\s*(?:الطلب)?\s*[-:،]?\s*/i, '').trim();
+          txt = stripWalletCodeLikeText(txt);
+          txt = txt.replace(/^(?:الطلب|طلب|استرداد|إرجاع|ارجاع|رد\s*رصيد)\s*$/i, '').trim();
+          if (txt && !/^(?:-|:|،)+$/.test(txt)) return txt;
+        }
+        return '';
       }
 
       function normalizeLedgerComparableText(value){
@@ -1417,7 +1597,7 @@
         );
         var operation = resolveWalletOperationMeta(data, cardTitle);
         var title = cardTitle || (kind === 'withdraw' ? 'طلب سحب' : 'طلب إيداع');
-        var createdText = formatDate(data.createdAt || data.created_at || data.computedAt || data.timestamp || '');
+        var createdText = formatDate(getItemRawTimeValue(data));
         var localCurrency = normalizeTransactionDetailText(data.currency || data.currencyCode || data.addedCurrency || '');
         var methodName = operation.methodName || '';
         var countryName = operation.countryName || '';
@@ -1620,6 +1800,73 @@
         ].join('');
       }
 
+      function renderTransactionInlineSummary(cards){
+        return (Array.isArray(cards) ? cards : []).map(function(entry){
+          if (!entry || !entry.label || !entry.value) return '';
+          return [
+            '<p class="wallet-inline-summary-row" data-tone="', escapeHtmlAttr(entry.tone || 'default'), '">',
+              '<strong>', escapeHtml(entry.label), ':</strong> ',
+              '<span>', escapeHtml(entry.value), '</span>',
+            '</p>'
+          ].join('');
+        }).join('');
+      }
+
+      function renderTransactionInlineDetailEntry(entry){
+        if (!entry || !entry.label || !entry.value) return '';
+        var valueHtml = entry.html
+          ? String(entry.value || '')
+          : escapeHtml(String(entry.value || '')).replace(/\n/g, '<br>');
+        return [
+          '<p class="wallet-inline-detail-row', entry.full ? ' full' : '', '">',
+            '<strong>', escapeHtml(entry.label), ':</strong> ',
+            '<span>', valueHtml, '</span>',
+          '</p>'
+        ].join('');
+      }
+
+      function renderTransactionInlineDetailSection(title, entries){
+        var list = Array.isArray(entries) ? entries.filter(Boolean) : [];
+        if (!list.length) return '';
+        return [
+          '<div class="wallet-inline-detail-section">',
+            '<p class="wallet-inline-detail-title"><strong>', escapeHtml(title), '</strong></p>',
+            list.map(renderTransactionInlineDetailEntry).join(''),
+          '</div>'
+        ].join('');
+      }
+
+      function renderTransactionInlineDetails(item, card){
+        var model = buildTransactionDetailsModel(item, card);
+        var sectionsHtml = [
+          renderTransactionInlineDetailSection(model.basicSectionTitle || 'ط¨ظٹط§ظ†ط§طھ ط§ظ„ط·ظ„ط¨', model.basic),
+          renderTransactionInlineDetailSection('ط¨ظٹط§ظ†ط§طھ ط§ظ„ظ…ط³طھظ„ظ…', model.payout),
+          renderTransactionInlineDetailSection('ط¬ظ‡ط§طھ ط§ظ„طھط­ظˆظٹظ„', model.transfers),
+          renderTransactionInlineDetailSection('ط§ظ„ط­ظ‚ظˆظ„ ط§ظ„ط¥ط¶ط§ظپظٹط©', model.extra)
+        ].filter(Boolean).join('');
+        var summaryHtml = renderTransactionInlineSummary(model.summary);
+        return [
+          summaryHtml ? '<div class="wallet-inline-summary">' + summaryHtml + '</div>' : '',
+          sectionsHtml || '<p class="wallet-inline-detail-empty">' + escapeHtml(model.emptyText || 'ظ„ط§ طھظˆط¬ط¯ طھظپط§طµظٹظ„ ط¥ط¶ط§ظپظٹط© ظ…طھط§ط­ط© ظ„ظ‡ط°ظ‡ ط§ظ„ط¹ظ…ظ„ظٹط©.') + '</p>'
+        ].join('');
+      }
+
+      function orderStatusToneClass(status){
+        var normalized = normStatus(status);
+        if (normalized === 'approved') return ' is-approved';
+        if (normalized === 'rejected') return ' is-rejected';
+        return ' is-pending';
+      }
+
+      function sanitizeHistoryDomId(value){
+        var text = String(value == null ? '' : value).trim();
+        return (text || ('tx-' + Date.now()))
+          .replace(/[^\w-]+/g, '-')
+          .replace(/-+/g, '-')
+          .replace(/^-+|-+$/g, '')
+          .slice(0, 80) || ('tx-' + Date.now());
+      }
+
       function buildTransactionActionIcon(actionKind){
         var glyph = '-';
         if (actionKind === 'withdraw') glyph = '↑';
@@ -1630,8 +1877,9 @@
         return '<span class="txn-action-glyph" aria-hidden="true">' + glyph + '</span>';
       }
 
-      function buildTransactionHTML(item){
+      function buildTransactionHTML(item, options){
         var data = Object.assign({}, item);
+        var opts = options && typeof options === 'object' ? options : {};
         var kind = resolveDisplayKind(data);
         ensureKind(data, kind);
         var code = getCode(data) || '';
@@ -1672,7 +1920,7 @@
             : ('تحويل من ' + transferPeer);
         }
         var title = titleBase;
-        var ts = data.createdAt || data.created_at || data.computedAt || data.timestamp || '';
+        var ts = getItemRawTimeValue(data);
         var shortDate = formatShortDate(ts);
         var longDate = formatDate(ts);
         var status = normStatus((data && (data.status || data.state || data.depositStatus)) || '');
@@ -1680,13 +1928,15 @@
           /^(DEP|AUT)/i.test(String(code || '').trim()) ||
           /إيداع|طلب\s*إيداع|إضافة\s*رصيد\s*من\s*الإيداع/i.test([method, titleHint, purchaseName, String(data.description || '')].join(' '))
         );
+        var outerSubtitle = '';
         if (PAGE_MODE === 'payments'){
           if (method && method !== 'طلب إيداع' && method !== 'طلب سحب'){
             title = titleBase + ' / ' + method;
           }
         } else {
           if (isRefundAction){
-            title = resolveRefundTitle(purchaseName || titleHint || method, fallbackRefundTitle);
+            outerSubtitle = resolveRefundCardProductName(data, purchaseName, titleHint, method);
+            title = 'استرداد';
           } else if (isDepositWalletCredit){
             title = method || titleHint || 'إضافة رصيد من الإيداع';
           } else if (titleHint){
@@ -1702,7 +1952,7 @@
         title = fixWalletText(title);
         var isRejectedDeposit = (kind === 'deposit' && status === 'rejected');
         if (isRejectedDeposit){
-          change.className = 'neutral';
+          change.className = 'negative';
           change.signSymbol = '';
         }
         if (PAGE_MODE === 'payments' && status === 'pending'){
@@ -1719,15 +1969,20 @@
             actionKind = 'pending';
           }
         }
-        var actionIconHtml = buildTransactionActionIcon(actionKind);
         var codeLabel = code && code !== '-' ? code : '';
-        var showCode = false;
-        var codePrefix = isTransfer ? 'ID:' : (kind === 'withdraw' ? 'ID:' : 'Payment ID:');
+        var hideOuterMeta = PAGE_MODE !== 'payments' && isRefundAction;
+        var showCode = PAGE_MODE === 'payments' ? !!codeLabel : false;
+        var codePrefix = PAGE_MODE === 'payments' ? '' : (isTransfer ? 'ID:' : (kind === 'withdraw' ? 'ID:' : 'Payment ID:'));
 
+        var paymentStatusTone = status === 'approved' ? 'approved' : (status === 'rejected' ? 'rejected' : 'pending');
+        var balanceAfterToneClass = isRejectedDeposit ? ' is-rejected' : '';
+        if (PAGE_MODE === 'payments') {
+          balanceAfterToneClass = ' is-' + paymentStatusTone;
+        }
         var balancePieces = [];
         var balanceCurrency = 'USD';
         if (balances.after != null) {
-          balancePieces.push('<span class="balance-after">' + formatBalanceValue(balances.after, balanceCurrency) + '</span>');
+          balancePieces.push('<span class="balance-after' + balanceAfterToneClass + '">' + formatBalanceValue(balances.after, balanceCurrency) + '</span>');
         }
         if (balances.before != null) {
           balancePieces.push('<span class="balance-before">' + formatBalanceValue(balances.before, balanceCurrency) + '</span>');
@@ -1738,33 +1993,38 @@
         var proofHtml = proofUrl
           ? '<span class="txn-proof"><a class="code-btn" href="' + escapeHtmlAttr(proofUrl) + '" target="_blank" rel="noopener noreferrer">فتح الصورة</a></span>'
           : '';
-        var codeHtml = showCode ? '<span class="txn-code">' + codePrefix + ' <button class="code-btn" data-code="' + codeLabel + '">' + codeLabel + '</button></span>' : '';
-        var dateHtml = shortDate ? '<span class="txn-date" title="' + longDate + '">' + shortDate + '</span>' : '';
-        var statusHtml = (PAGE_MODE === 'payments' && status !== 'pending')
-          ? '<span class="' + statusClass(status) + '">' + statusLabel(status) + '</span>'
-          : '';
-        var headerHtml = '<div class="txn-head"><div class="txn-title">' + title + '</div>' + statusHtml + '</div>';
-        var detailsRow = '';
-        var metaRow = (proofHtml || codeHtml || dateHtml) ? '<div class="txn-meta">' + [dateHtml, proofHtml, codeHtml].filter(Boolean).join('') + '</div>' : '';
+        var codeHtml = showCode ? '<span class="txn-code">' + (codePrefix ? codePrefix + ' ' : '') + '<button class="code-btn" data-code="' + codeLabel + '">' + codeLabel + '</button></span>' : '';
+        var dateHtml = (!hideOuterMeta && PAGE_MODE !== 'payments' && shortDate) ? '<span class="txn-date" title="' + longDate + '">' + shortDate + '</span>' : '';
+        var showWalletCardSecondaryLine = PAGE_MODE !== 'wallet';
+        var subtitleHtml = (showWalletCardSecondaryLine && outerSubtitle) ? '<div class="txn-subtitle">' + escapeHtml(outerSubtitle) + '</div>' : '';
+        var metaRow = (showWalletCardSecondaryLine && (proofHtml || codeHtml || dateHtml || subtitleHtml)) ? '<div class="txn-meta">' + [subtitleHtml, dateHtml, hideOuterMeta ? '' : proofHtml, codeHtml].filter(Boolean).join('') + '</div>' : '';
+        var detailSeed = Object.assign({}, data, { title: title });
+        var detailId = 'wallet-details-' + sanitizeHistoryDomId(getItemCacheKey(detailSeed) || code || kind);
+        var isOpen = !!opts.isOpen;
+        var statusText = statusLabel(status);
+        var amountClass = isRejectedDeposit ? 'negative' : change.className;
+        var amountSignText = change.signSymbol === '+' ? '' : (change.signSymbol || '');
+        var amountText = (amountSignText + change.numberText) + (change.currency ? ' ' + change.currency : '');
 
         return [
-          '<div class="txn-body">',
-            '<div class="txn-amount ', change.className, '">',
-              '<div class="txn-value">',
-                '<span class="sign">', change.signSymbol, '</span>',
-                '<span class="number">', change.numberText, '</span>',
-                change.currency ? '<span class="currency">' + change.currency + '</span>' : '',
+          '<div class="order-header wallet-history-header" data-history-toggle="1">',
+            '<div class="wallet-history-leading">',
+              '<div class="txn-amount ', amountClass, '">',
+                '<div class="txn-value">',
+                  '<span class="txn-value-text">', escapeHtml(amountText), '</span>',
+                '</div>',
+                balancesHtml,
               '</div>',
-              balancesHtml,
+              '<div class="order-status', orderStatusToneClass(status), '">', escapeHtml(statusText), '</div>',
             '</div>',
-            '<div class="txn-middle">',
-              headerHtml,
-              detailsRow,
-              metaRow,
+            '<div class="order-header-text wallet-history-title-block">',
+              '<div class="order-meta-line txn-title"><strong>', escapeHtml(title), '</strong></div>',
+              metaRow ? '<div class="order-code-line wallet-history-meta-line">' + metaRow + '</div>' : '',
             '</div>',
-            '<div class="txn-action ', actionKind, '">',
-              '<span class="txn-action-symbol" aria-hidden="true">', actionIconHtml, '</span>',
-            '</div>',
+            '<i class="fas fa-chevron-down" aria-hidden="true"></i>',
+          '</div>',
+          '<div class="order-details wallet-history-details" id="', detailId, '" style="display:', isOpen ? 'block' : 'none', ';">',
+            renderTransactionInlineDetails(detailSeed, null),
           '</div>'
         ].join('');
       }
@@ -1777,16 +2037,17 @@
         var code = getCode(copy) || '-';
         var itemKey = getItemCacheKey(copy) || code;
         if (itemKey) copy.__cacheKey = itemKey;
+        var isOpen = card.classList && card.classList.contains('open');
         card.dataset.code = code;
         card.dataset.itemKey = itemKey || '';
         card.dataset.kind = kind;
         card.dataset.openable = code && code !== '-' ? '1' : '0';
         card.setAttribute('tabindex', code && code !== '-' ? '0' : '-1');
         card.setAttribute('role', code && code !== '-' ? 'button' : 'article');
-        if (code && code !== '-') card.setAttribute('aria-haspopup', 'dialog');
-        else card.removeAttribute('aria-haspopup');
+        card.removeAttribute('aria-haspopup');
+        card.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
         card.setAttribute('aria-label', code && code !== '-' ? ('عرض تفاصيل الطلب ' + code) : 'طلب مالي');
-        card.innerHTML = buildTransactionHTML(copy);
+        card.innerHTML = buildTransactionHTML(copy, { isOpen: isOpen });
       }
 
       function renderDeposits(items){
@@ -1794,7 +2055,7 @@
         if (!items.length) { showEmpty(); return; }
         items.forEach(function(it){
           var card = document.createElement('div');
-          card.className = 'card';
+          card.className = 'order-card wallet-history-order-card';
           populateTransactionCard(card, it);
           listEl.appendChild(card);
         });
@@ -1817,7 +2078,7 @@
         try{ HISTORY_MEMORY[CACHE_PREFIX + uid] = obj || {}; }catch(_){ }
       }
       function replaceCache(uid, arr){
-        const sorted = sortByNewest(arr);
+        const sorted = sortByNewest((arr || []).filter(hasItemDisplayTime));
         const c = { version:CACHE_SCHEMA_VERSION, order:[], byCode:{}, lastSync: Date.now() };
         sorted.forEach(function(it){
           const item = Object.assign({}, it);
@@ -1861,7 +2122,7 @@
           item.__kind = ensureKind(item, item.__kind);
           arr.push(item);
         });
-        return sortByNewest(arr);
+        return sortByNewest(arr.filter(hasItemDisplayTime));
       }
 
       function getCode(item){
@@ -1876,7 +2137,7 @@
         if (PAGE_MODE === 'payments') return code;
         var entryKey = String(item.entryKey || item.entry_key || '').trim();
         if (entryKey) return entryKey;
-        var createdValue = item.createdAt || item.created_at || item.computedAt || item.timestamp || '';
+        var createdValue = getItemRawTimeValue(item);
         var createdDate = asDate(createdValue);
         var created = createdDate && !isNaN(createdDate.getTime())
           ? createdDate.getTime()
@@ -1897,18 +2158,13 @@
         return (arr || []).slice().sort(function(a,b){
           ensureKind(a, 'deposit');
           ensureKind(b, 'deposit');
-          const da = asDate(a && (a.createdAt || a.computedAt || a.timestamp));
-          const db = asDate(b && (b.createdAt || b.computedAt || b.timestamp));
-          const ta = da && !isNaN(da.getTime()) ? da.getTime() : 0;
-          const tb = db && !isNaN(db.getTime()) ? db.getTime() : 0;
+          const ta = getItemTimeMs(a);
+          const tb = getItemTimeMs(b);
           if (tb !== ta) return tb - ta;
           const ao = Number(a && a.__entryOrder);
           const bo = Number(b && b.__entryOrder);
-          if (Number.isFinite(ao) && Number.isFinite(bo) && ao !== bo) {
-            // Smaller entry order means newer inside persisted transfer arrays.
-            return ao - bo;
-          }
-          return 0;
+          if (Number.isFinite(ao) && Number.isFinite(bo) && ao !== bo) return bo - ao;
+          return String(getItemCacheKey(b) || getCode(b) || '').localeCompare(String(getItemCacheKey(a) || getCode(a) || ''));
         });
       }
       function buildSnapshotSignature(list){
@@ -1921,8 +2177,7 @@
           const code = getCode(item);
           const itemKey = getItemCacheKey(item) || code;
           const status = normStatus((item && (item.status || item.state || item.depositStatus)) || '');
-          const createdDate = asDate(item && (item.createdAt || item.computedAt || item.timestamp));
-          const created = createdDate && !isNaN(createdDate.getTime()) ? createdDate.getTime() : 0;
+          const created = getItemTimeMs(item);
           const changeVal = kind === 'withdraw'
             ? pickNumber(item, ['debited', 'debitedUSD', 'amountUSD', 'debitedJOD', 'amountJOD', 'amountCurrency'])
             : pickNumber(item, ['added', 'addedAmount', 'addedUSD', 'amountUSD', 'client_payAmount']);
@@ -1934,7 +2189,7 @@
         try{
           const last = LAST_CODE_MEMORY[LAST_CODE_PREFIX + uid];
           if (!last) return;
-          const cards = Array.from(listEl.querySelectorAll('.card'));
+          const cards = Array.from(listEl.querySelectorAll('.wallet-history-order-card, .card'));
           const card = cards.find(function(entryCard){
             return String(entryCard.dataset && entryCard.dataset.itemKey || '') === last;
           }) || cards.find(function(entryCard){
@@ -1947,7 +2202,7 @@
         }catch(_){ }
       }
       function displayItems(uid, items){
-        ALL_ITEMS = sortByNewest(items).map(function(item){
+        ALL_ITEMS = sortByNewest((items || []).filter(hasItemDisplayTime)).map(function(item){
           var normalized = Object.assign({}, item);
           var itemKey = getItemCacheKey(normalized);
           if (itemKey) normalized.__cacheKey = itemKey;
@@ -2100,11 +2355,23 @@
         return fresh;
       }
 
+      function setTransactionCardOpen(card, isOpen){
+        if (!card) return;
+        card.classList.toggle('open', !!isOpen);
+        card.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        var details = card.querySelector('.wallet-history-details, .order-details');
+        if (details) details.style.display = isOpen ? 'block' : 'none';
+      }
+
       async function openTransactionDetailsForCard(card){
         if (!card || !card.dataset) return;
         var code = String(card.dataset.code || '').trim();
         var itemKey = String(card.dataset.itemKey || '').trim();
         if (!code || code === '-') return;
+        if (PAGE_MODE === 'payments' || PAGE_MODE === 'wallet') {
+          setTransactionCardOpen(card, !card.classList.contains('open'));
+          return;
+        }
         var user = auth.currentUser;
         if (!user || !user.uid) return;
         var uid = user.uid;
@@ -2128,17 +2395,16 @@
         if (!currentItem) currentItem = { code: code, __kind: knownKind || 'deposit' };
         if (cached) currentItem = Object.assign({}, currentItem, cached);
 
-        listEl.querySelectorAll('.card.selected').forEach(function(el){
+        listEl.querySelectorAll('.wallet-history-order-card.selected, .card.selected').forEach(function(el){
           if (el !== card) el.classList.remove('selected');
         });
         card.classList.add('selected');
         try { LAST_CODE_MEMORY[LAST_CODE_PREFIX + uid] = itemKey || code; } catch (_) {}
 
-        openTransactionDetailsModal(card, currentItem, { loading: true });
-        var requestToken = (itemKey || code) + ':' + Date.now();
-        TRANSACTION_DETAILS_REQUEST_TOKEN = requestToken;
+        var shouldOpen = !card.classList.contains('open');
+        setTransactionCardOpen(card, shouldOpen);
+        if (!shouldOpen) return;
 
-        var finalItem = currentItem;
         try{
           var fresh = await fetchSingleRequestForUser(uid, code, knownKind);
           if (fresh){
@@ -2147,14 +2413,12 @@
             if (itemKey) fresh.__cacheKey = itemKey;
             updateCardFromData(card, fresh);
             upsertCache(uid, itemKey || getItemCacheKey(fresh) || code, fresh);
-            finalItem = Object.assign({}, mergeFreshTransactionIntoState(itemKey || code, fresh));
+            mergeFreshTransactionIntoState(itemKey || code, fresh);
           }
         }catch(_){ }
 
         if (card.dataset && knownKind) card.dataset.kind = knownKind;
-        if (TRANSACTION_DETAILS_REQUEST_TOKEN === requestToken){
-          openTransactionDetailsModal(card, finalItem, { loading: false });
-        }
+        setTransactionCardOpen(card, true);
       }
 
       function docToItem(doc, kind){
@@ -2194,10 +2458,8 @@
           arr = arr.filter(isDepositRequestCode);
           if (arr.length){
             arr.sort(function(a,b){
-              const taDate = asDate(a && (a.createdAt || a.timestamp));
-              const tbDate = asDate(b && (b.createdAt || b.timestamp));
-              const ta = taDate && !isNaN(taDate.getTime()) ? taDate.getTime() : 0;
-              const tb = tbDate && !isNaN(tbDate.getTime()) ? tbDate.getTime() : 0;
+              const ta = getItemTimeMs(a);
+              const tb = getItemTimeMs(b);
               return tb - ta;
             });
             return arr;
@@ -2219,10 +2481,8 @@
               let arr = snap2.docs.map(function(d){ return docToItem(d, 'deposit'); });
               arr = arr.filter(isDepositRequestCode);
               arr.sort(function(a,b){
-                const taDate = asDate(a && (a.createdAt || a.timestamp));
-                const tbDate = asDate(b && (b.createdAt || b.timestamp));
-                const ta = taDate && !isNaN(taDate.getTime()) ? taDate.getTime() : 0;
-                const tb = tbDate && !isNaN(tbDate.getTime()) ? tbDate.getTime() : 0;
+                const ta = getItemTimeMs(a);
+                const tb = getItemTimeMs(b);
                 return tb - ta;
               });
               return arr;
@@ -2242,10 +2502,8 @@
           let arr = docByCodeToItems(userSnap, 'withdraw');
           if (arr.length){
             arr.sort(function(a,b){
-              const ta = asDate(a && (a.createdAt || a.timestamp));
-              const tb = asDate(b && (b.createdAt || b.timestamp));
-              const taMs = ta && !isNaN(ta.getTime()) ? ta.getTime() : 0;
-              const tbMs = tb && !isNaN(tb.getTime()) ? tb.getTime() : 0;
+              const taMs = getItemTimeMs(a);
+              const tbMs = getItemTimeMs(b);
               return tbMs - taMs;
             });
             return arr;
@@ -2264,10 +2522,8 @@
               const snap2 = await baseRef.get();
               const arr = snap2.docs.map(function(d){ return docToItem(d, 'withdraw'); });
               arr.sort(function(a,b){
-                const ta = asDate(a && (a.createdAt || a.timestamp));
-                const tb = asDate(b && (b.createdAt || b.timestamp));
-                const taMs = ta && !isNaN(ta.getTime()) ? ta.getTime() : 0;
-                const tbMs = tb && !isNaN(tb.getTime()) ? tb.getTime() : 0;
+                const taMs = getItemTimeMs(a);
+                const tbMs = getItemTimeMs(b);
                 return tbMs - taMs;
               });
               return arr;
@@ -2320,6 +2576,7 @@
       function mergeByCode(list){
         const map = {};
         (list || []).forEach(function(item){
+          if (!hasItemDisplayTime(item)) return;
           const code = getCode(item);
           if (!code) return;
           const existing = map[code];
@@ -2340,15 +2597,24 @@
 
       async function fetchTransfers(uid){
         try{
-          const snap = await db.collection('userTransactions').doc(uid).get();
-          if (!snap || !snap.exists) return [];
-          return normalizeTransferEntries(snap.data() || {});
+          return await fetchWalletTransactionsFromServer(uid, { limit: 1000 });
         }catch(err){
-          console.warn('fetchTransfers failed', err);
+          console.warn('fetchWalletTransactionsFromServer failed', err);
           return [];
         }
       }
       async function fetchSingleRequestForUser(uid, code, preferredKind){
+        if (PAGE_MODE === 'wallet'){
+          try{
+            var preferred = String(preferredKind || '').trim();
+            var serverItems = await fetchWalletTransactionsFromServer(uid, {
+              code: code,
+              entryKey: preferred && preferred !== 'deposit' && preferred !== 'withdraw' ? preferred : ''
+            });
+            if (serverItems && serverItems.length) return serverItems[0];
+          }catch(_){ }
+          return null;
+        }
         const normalizedCode = String(code || '').trim().toUpperCase();
         const collections = preferredKind === 'withdraw'
           ? ['withdrawRequests', 'depositRequests']
@@ -2428,8 +2694,7 @@
           var created =
             readField(flat,'createdAt') ||
             readField(flat,'timestamp') ||
-            readField(flat,'created_at') ||
-            readField(flat,'computedAt');
+            readField(flat,'created_at');
           var createdDate = null;
           if (created && typeof created.toDate === 'function') createdDate = created.toDate();
           else if (created instanceof Date) createdDate = created;
@@ -2553,28 +2818,298 @@
 
       async function fetchAllTransactions(uid){
         if (PAGE_MODE === 'payments') {
-          const depositsPromise = (async function(){
-            let depositList = await fetchFromDepositRequests(uid);
-            if (!depositList.length) depositList = await fetchFromOrdersPrefix(uid);
-            return depositList;
-          })();
-          const withdrawPromise = fetchFromWithdrawRequests(uid);
-          const paymentResults = await Promise.all([depositsPromise, withdrawPromise]);
-          return sortByNewest(mergeByCode([].concat(paymentResults[0] || [], paymentResults[1] || [])));
+          return fetchPaymentsFromServer(uid);
         }
         const transfers = await fetchTransfers(uid);
         return sortByNewest(transfers || []);
       }
 
       async function fetchAllPayments(uid){
-        const depositsPromise = (async function(){
-          let depositList = await fetchFromDepositRequests(uid);
-          if (!depositList.length) depositList = await fetchFromOrdersPrefix(uid);
-          return depositList;
-        })();
-        const withdrawPromise = fetchFromWithdrawRequests(uid);
-        const results = await Promise.all([depositsPromise, withdrawPromise]);
-        return sortByNewest(mergeByCode([].concat(results[0] || [], results[1] || [])));
+        return fetchPaymentsFromServer(uid);
+      }
+
+      function normalizeWalletApiBase(value){
+        var raw = String(value == null ? '' : value).trim();
+        if (!raw) return '';
+        try {
+          if (window.__normalizeSiteWorkerBase) {
+            var normalized = String(window.__normalizeSiteWorkerBase(raw) || '').trim();
+            if (normalized) return normalized.replace(/\/+$/, '') + '/';
+          }
+        } catch(_){ }
+        try {
+          var parsed = new URL(raw, window.location.href);
+          if (!/^https?:$/i.test(parsed.protocol)) return '';
+          parsed.search = '';
+          parsed.hash = '';
+          return parsed.toString().replace(/\/+$/, '') + '/';
+        } catch(_){ return ''; }
+      }
+
+      function getWalletApiBase(){
+        var candidates = [];
+        try { if (window.__getSiteWorkerBase) candidates.push(window.__getSiteWorkerBase({ trailingSlash: true, allowStorageOverride: true })); } catch(_){ }
+        try { if (window.__getSiteWorkerBaseDefault) candidates.push(window.__getSiteWorkerBaseDefault({ trailingSlash: true })); } catch(_){ }
+        try {
+          candidates.push(
+            window.API_BASE_URL,
+            window.__API_BASE__,
+            window.API_BASE,
+            document.documentElement && document.documentElement.getAttribute('data-api-base')
+          );
+        } catch(_){ }
+        try {
+          candidates.push(
+            localStorage.getItem('MANWAL_ROUTER_BASE'),
+            localStorage.getItem('apiBase'),
+            localStorage.getItem('workerBase')
+          );
+        } catch(_){ }
+        try { candidates.push(window.__getSiteSetting ? window.__getSiteSetting('workers.routerBase', '') : ''); } catch(_){ }
+        for (var i = 0; i < candidates.length; i += 1) {
+          var base = normalizeWalletApiBase(candidates[i]);
+          if (base) return base;
+        }
+        return normalizeWalletApiBase(window.location.origin + '/');
+      }
+
+      function readWalletJsonStorage(key){
+        try {
+          var raw = localStorage.getItem(key) || sessionStorage.getItem(key);
+          return raw ? JSON.parse(raw) : null;
+        } catch(_){ return null; }
+      }
+
+      function readWalletSessionContext(uid){
+        var wantedUid = String(uid || '').trim();
+        var candidates = [];
+        function pushCandidate(item){ if (item && typeof item === 'object') candidates.push(item); }
+        pushCandidate(readWalletJsonStorage('sessionKeyInfo'));
+        pushCandidate(readWalletJsonStorage('postLoginPayload'));
+        try {
+          var bundleKey = String(window.__AUTH_SESSION_BUNDLE_STORAGE_KEY__ || 'auth:session:bundle:v1');
+          var bundle = readWalletJsonStorage(bundleKey);
+          if (bundle && typeof bundle === 'object') {
+            pushCandidate(bundle.sessionKeyInfo);
+            pushCandidate(bundle.postLoginPayload);
+          }
+        } catch(_){ }
+        try { pushCandidate(window.__AUTH_LAST_USER__); } catch(_){ }
+        for (var i = 0; i < candidates.length; i += 1) {
+          var item = candidates[i] || {};
+          var itemUid = String(item.uid || item.useruid || item.userUid || item.user_id || '').trim();
+          if (wantedUid && itemUid && itemUid !== wantedUid) continue;
+          var sessionKey = String(item.sessionKey || item.session_key || item.sessionkey || '').trim();
+          if (sessionKey) return { uid: itemUid || wantedUid, sessionKey: sessionKey, deviceId: String(item.deviceId || item.device_id || '').trim() };
+        }
+        return { uid: wantedUid, sessionKey: '', deviceId: '' };
+      }
+
+      function resolveWalletLoadUser(candidate){
+        var activeUser = candidate || auth.currentUser || null;
+        if (activeUser && String(activeUser.uid || '').trim()) return activeUser;
+        var session = readWalletSessionContext('');
+        var sessionUid = String(session && session.uid || '').trim();
+        var sessionKey = String(session && session.sessionKey || '').trim();
+        if (sessionUid && sessionKey) return { uid: sessionUid };
+        return null;
+      }
+
+      function waitForWalletLoadUser(candidate, timeoutMs){
+        var immediate = resolveWalletLoadUser(candidate);
+        if (immediate) return Promise.resolve(immediate);
+        var waitMs = Math.max(250, Math.min(8000, Number(timeoutMs) || 3500));
+        if (!auth || typeof auth.onAuthStateChanged !== 'function') return Promise.resolve(null);
+        return new Promise(function(resolve){
+          var done = false;
+          var timer = 0;
+          var unsubscribe = null;
+          function finish(user){
+            if (done) return;
+            done = true;
+            try { if (timer) clearTimeout(timer); } catch(_){ }
+            try { if (typeof unsubscribe === 'function') unsubscribe(); } catch(_){ }
+            resolve(resolveWalletLoadUser(user));
+          }
+          try {
+            unsubscribe = auth.onAuthStateChanged(function(user){
+              finish(user || null);
+            }, function(){
+              finish(null);
+            });
+          } catch(_){
+            finish(null);
+            return;
+          }
+          try {
+            timer = setTimeout(function(){
+              finish(resolveWalletLoadUser());
+            }, waitMs);
+          } catch(_){ }
+        });
+      }
+
+      async function buildWalletServerAuthContext(uid, forceToken){
+        var wantedUid = String(uid || '').trim();
+        var user = auth.currentUser || null;
+        var userUid = String(user && user.uid || '').trim();
+        var session = readWalletSessionContext(wantedUid || userUid);
+        var resolvedUid = String(wantedUid || session.uid || userUid || '').trim();
+        var idToken = '';
+        if (user && typeof user.getIdToken === 'function') {
+          try { idToken = String(await user.getIdToken(!!forceToken) || '').trim(); }
+          catch(_){ if (!forceToken) { try { idToken = String(await user.getIdToken(true) || '').trim(); } catch(__){ } } }
+        }
+        return { user: user, uid: resolvedUid, sessionKey: String(session.sessionKey || '').trim(), deviceId: String(session.deviceId || '').trim(), idToken: idToken };
+      }
+
+      function buildWalletServerHeaders(authContext){
+        return {};
+      }
+
+      async function refreshWalletSessionOnce(authContext){
+        try {
+          var user = authContext && authContext.user ? authContext.user : auth.currentUser;
+          if (!user || typeof user.getIdToken !== 'function' || typeof window.__syncCatalogAuthFromToken !== 'function') return null;
+          var freshToken = String(await user.getIdToken(true) || '').trim();
+          if (!freshToken) return null;
+          var basePayload = Object.assign({}, readWalletJsonStorage('postLoginPayload') || {}, {
+            uid: String(authContext && authContext.uid || user.uid || '').trim(),
+            idToken: freshToken,
+            token: freshToken,
+            sessionKey: String(authContext && authContext.sessionKey || '').trim(),
+            session_key: String(authContext && authContext.sessionKey || '').trim(),
+            deviceId: String(authContext && authContext.deviceId || '').trim()
+          });
+          var synced = await window.__syncCatalogAuthFromToken(freshToken, basePayload);
+          if (!synced || !synced.sessionKey) return null;
+          return buildWalletServerAuthContext(String(synced.uid || basePayload.uid || ''), false);
+        } catch(_){ return null; }
+      }
+
+      function isWalletSessionRejectedPayload(data, res){
+        var code = String(data && (data.error_code || data.errorCode || data.code) || '').trim().toLowerCase();
+        if (code === 'session_required' || code === 'session_invalid' || code === 'session_expired') return true;
+        var text = String(data && (data.message || data.error) || '').trim();
+        return Number(res && res.status || 0) === 401 && /session|الجلسة|رمز الجلسة/i.test(text);
+      }
+
+      function buildPaymentsApiUrl(params){
+        var url = new URL(getWalletApiBase(), window.location.href);
+        url.search = '';
+        url.hash = '';
+        url.searchParams.set('action', 'pru');
+        url.searchParams.set('mode', 'client-payments');
+        Object.keys(params || {}).forEach(function(key){
+          var text = String(params[key] == null ? '' : params[key]).trim();
+          if (text) url.searchParams.set(key, text);
+        });
+        return url.toString();
+      }
+
+      function buildWalletTransactionsApiUrl(params){
+        var url = new URL(getWalletApiBase(), window.location.href);
+        url.search = '';
+        url.hash = '';
+        url.searchParams.set('action', 'pru');
+        url.searchParams.set('mode', 'client-wallet');
+        Object.keys(params || {}).forEach(function(key){
+          var text = String(params[key] == null ? '' : params[key]).trim();
+          if (text) url.searchParams.set(key, text);
+        });
+        return url.toString();
+      }
+
+      async function fetchWalletTransactionsFromServer(uid, options){
+        var safeUid = String(uid || '').trim();
+        if (!safeUid) return [];
+        var authContext = await buildWalletServerAuthContext(safeUid, false);
+        if (!authContext.sessionKey) {
+          var refreshed = await refreshWalletSessionOnce(authContext);
+          if (refreshed && refreshed.sessionKey) authContext = refreshed;
+        }
+        if (!authContext.sessionKey) throw new Error('رمز الجلسة غير متوفر. سجّل الدخول مرة أخرى ثم أعد المحاولة.');
+        var opts = options && typeof options === 'object' ? options : {};
+        var send = async function(nextAuthContext){
+          var requestUid = String(nextAuthContext && nextAuthContext.uid || safeUid).trim();
+          var params = { useruid: requestUid, limit: opts.limit || 1000 };
+          if (opts.code) params.code = opts.code;
+          if (opts.entryKey) params.entryKey = opts.entryKey;
+          if (nextAuthContext && nextAuthContext.sessionKey) params.sessionKey = nextAuthContext.sessionKey;
+          var res = await fetch(buildWalletTransactionsApiUrl(params), {
+            method: 'GET',
+            cache: 'no-store'
+          });
+          var data = await res.json().catch(function(){ return {}; });
+          return { res: res, data: data };
+        };
+        var result = await send(authContext);
+        var res = result.res;
+        var data = result.data;
+        if ((!res.ok || data.success === false || data.ok === false) && isWalletSessionRejectedPayload(data, res)) {
+          var refreshedAgain = await refreshWalletSessionOnce(authContext);
+          if (refreshedAgain && refreshedAgain.sessionKey) {
+            authContext = refreshedAgain;
+            result = await send(authContext);
+            res = result.res;
+            data = result.data;
+          }
+        }
+        if (!res.ok || data.success === false || data.ok === false) {
+          throw new Error(data.error || data.message || 'تعذر تحميل معاملات المحفظة من الخادم.');
+        }
+        var wallet = (data.wallet && typeof data.wallet === 'object') ? data.wallet : {};
+        var items = Array.isArray(wallet.items)
+          ? wallet.items
+          : (Array.isArray(data.items) ? data.items : (Array.isArray(data.transactions) ? data.transactions : []));
+        return sortByNewest((items || []).map(function(item){
+          var normalized = Object.assign({}, item || {});
+          normalized.__kind = ensureKind(normalized, normalized.kind || normalized.__kind || 'deposit');
+          if (!normalized.code && normalized.entryKey) normalized.code = normalized.entryKey;
+          return normalized;
+        }));
+      }
+
+      async function fetchPaymentsFromServer(uid){
+        var safeUid = String(uid || '').trim();
+        if (!safeUid) return [];
+        var authContext = await buildWalletServerAuthContext(safeUid, false);
+        if (!authContext.sessionKey) {
+          var refreshed = await refreshWalletSessionOnce(authContext);
+          if (refreshed && refreshed.sessionKey) authContext = refreshed;
+        }
+        if (!authContext.sessionKey) throw new Error('رمز الجلسة غير متوفر. سجّل الدخول مرة أخرى ثم أعد المحاولة.');
+        var send = async function(nextAuthContext){
+          var requestUid = String(nextAuthContext && nextAuthContext.uid || safeUid).trim();
+          var params = { useruid: requestUid, limit: 1000 };
+          if (nextAuthContext && nextAuthContext.sessionKey) params.sessionKey = nextAuthContext.sessionKey;
+          var res = await fetch(buildPaymentsApiUrl(params), {
+            method: 'GET',
+            cache: 'no-store'
+          });
+          var data = await res.json().catch(function(){ return {}; });
+          return { res: res, data: data };
+        };
+        var result = await send(authContext);
+        var res = result.res;
+        var data = result.data;
+        if ((!res.ok || data.success === false || data.ok === false) && isWalletSessionRejectedPayload(data, res)) {
+          var refreshedAgain = await refreshWalletSessionOnce(authContext);
+          if (refreshedAgain && refreshedAgain.sessionKey) {
+            authContext = refreshedAgain;
+            result = await send(authContext);
+            res = result.res;
+            data = result.data;
+          }
+        }
+        if (!res.ok || data.success === false || data.ok === false) {
+          throw new Error(data.error || data.message || 'تعذر تحميل دفعاتك من الخادم.');
+        }
+        var wallet = (data.wallet && typeof data.wallet === 'object') ? data.wallet : {};
+        var items = Array.isArray(wallet.items)
+          ? wallet.items
+          : (Array.isArray(data.items) ? data.items : (Array.isArray(data.transactions) ? data.transactions : []));
+        return sortByNewest(mergeByCode(items));
       }
 
       function fetchLatestTransactions(uid){
@@ -2595,25 +3130,27 @@
       }
 
       function applyFilter(arr){
+        if (PAGE_MODE === 'wallet') return Array.isArray(arr) ? arr.slice() : [];
         if (CURRENT_FILTER === 'all') return arr.slice();
         return arr.filter(function(item){ return normStatus((item && (item.status || item.state || item.depositStatus)) || '') === CURRENT_FILTER; });
       }
 
       async function loadWalletFor(user, opts = {}){
-        if (!user){ showRequiresAuth(); fixWalletTextNodes(listEl); return; }
+        const loadUser = resolveWalletLoadUser(user);
+        if (!loadUser){ showRequiresAuth(); fixWalletTextNodes(listEl); return; }
         const force = !!opts.force;
         const skipSkeleton = !!opts.skipSkeleton;
         const skipServerSync = !!opts.skipServerSync;
         if (!skipSkeleton) showSkeleton();
 
-        const uid = user.uid;
+        const uid = String(loadUser.uid || '').trim();
+        if (!uid){ showRequiresAuth(); fixWalletTextNodes(listEl); return; }
         const sameUserAsLastRender = LAST_USER_ID === uid;
         if (!force && !isPageRouteActive()) return;
         if (shouldSkipImmediateReload(uid, force)) return;
         markLoadRequest(uid);
         if (!LAST_USER_ID || LAST_USER_ID !== uid) {
-          CURRENT_FILTER = 'all';
-          applyDefaultDateFilter();
+          resetHistoryViewState();
         }
         LAST_USER_ID = uid;
 
@@ -2634,11 +3171,6 @@
           items = await fetchLatestTransactions(uid);
           replaceCache(uid, items);
         }
-
-        try{
-          const savedFilter = FILTER_MEMORY[FILTER_PREFIX + uid];
-          if (savedFilter) CURRENT_FILTER = savedFilter;
-        }catch(_){ }
 
         displayItems(uid, items);
         const hasPendingItems = hasPendingHistoryItems(items);
@@ -2668,11 +3200,16 @@
           return;
         }
         if (!btn.dataset || !btn.dataset.filter) return;
-        CURRENT_FILTER = btn.dataset.filter || 'all';
-        const user = auth.currentUser;
-        if (user){
-          try{ FILTER_MEMORY[FILTER_PREFIX + user.uid] = CURRENT_FILTER; }catch(_){ }
+        var nextFilter = String(btn.dataset.filter || 'all').trim() || 'all';
+        if (PAGE_MODE === 'wallet' && isWalletOperationFilterKey(nextFilter)) {
+          OPERATION_FILTER = nextFilter;
+          CURRENT_FILTER = 'all';
+        } else {
+          CURRENT_FILTER = nextFilter;
+          if (PAGE_MODE !== 'wallet') OPERATION_FILTER = 'all';
         }
+        VISIBLE_LIMIT = HISTORY_INITIAL_VISIBLE_COUNT;
+        const user = auth.currentUser;
         renderVisibleItems((user && user.uid) || LAST_USER_ID);
       });
 
@@ -2687,7 +3224,7 @@
         var codeBtn = e.target.closest('.code-btn[data-code], .code-status-btn[data-code]');
         if (codeBtn){
           e.preventDefault();
-          var codeCard = codeBtn.closest('.card');
+          var codeCard = codeBtn.closest('.wallet-history-order-card, .card');
           if (!codeCard) return;
           await openTransactionDetailsForCard(codeCard);
           return;
@@ -2696,7 +3233,7 @@
         var interactive = e.target.closest('a, button, input, select, textarea, label');
         if (interactive) return;
 
-        var card = e.target.closest('.card[data-openable="1"]');
+        var card = e.target.closest('.wallet-history-order-card[data-openable="1"], .card[data-openable="1"]');
         if (!card) return;
         await openTransactionDetailsForCard(card);
       });
@@ -2704,7 +3241,7 @@
       listEl.addEventListener('keydown', async (e)=>{
         if (!e) return;
         if (e.key !== 'Enter' && e.key !== ' ') return;
-        var card = e.target.closest('.card[data-openable="1"]');
+        var card = e.target.closest('.wallet-history-order-card[data-openable="1"], .card[data-openable="1"]');
         if (!card) return;
         e.preventDefault();
         await openTransactionDetailsForCard(card);
@@ -2741,9 +3278,14 @@
       window[pageConfig.refreshFnName] = function(opts){
         try {
           const refreshOpts = opts || {};
-          if (!refreshOpts.force && !isPageRouteActive()) return;
-          loadWalletFor(auth.currentUser, refreshOpts);
-        }catch(_){ }
+          if (!refreshOpts.force && !isPageRouteActive()) return Promise.resolve();
+          const authWaitMs = refreshOpts.authWaitMs || (PAGE_MODE === 'payments' ? 6000 : 3500);
+          return waitForWalletLoadUser(null, authWaitMs).then(function(loadUser){
+            return loadWalletFor(loadUser, refreshOpts);
+          }).catch(function(err){
+            try { console.warn('wallet refresh failed', err); } catch(_){ }
+          });
+        }catch(_){ return Promise.resolve(); }
       };
 
       if (document.readyState === 'loading'){

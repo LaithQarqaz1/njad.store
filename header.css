@@ -1214,7 +1214,7 @@ body:has(#loginInline:not(.hidden)) #preloader { z-index: 200000 !important; }
 }
 
 body[data-inline-route="deposit"] #methodModal:not(.hidden),
-body[data-inline-route="edaa"] #methodModal:not(.hidden),
+body[data-inline-route="edaa"] #methodModal:not(.hidden) {
   position: static !important;
   inset: auto !important;
   width: 100% !important;
@@ -1230,7 +1230,7 @@ body[data-inline-route="edaa"] #methodModal:not(.hidden),
 }
 
 body[data-inline-route="deposit"] #methodModal:not(.hidden) .modal-content,
-body[data-inline-route="edaa"] #methodModal:not(.hidden) .modal-content,
+body[data-inline-route="edaa"] #methodModal:not(.hidden) .modal-content {
   max-height: none !important;
   min-height: auto !important;
   overflow: visible !important;
@@ -1338,7 +1338,8 @@ body[data-inline-route="edaa"] #methodModal:not(.hidden) .modal-content,
   align-items: center;
   gap: 6px;
 }
-.order-status.تم_الشحن {
+.order-status.تم_الشحن,
+.order-status.مقبول {
   background-color: #28a745;
   color: white;
 }
