@@ -269,7 +269,10 @@
       }
 
       function applyDefaultDateFilter(){
-        resetDateFilter();
+        DATE_FILTER_ENABLED = true;
+        SELECTED_DATE_STR = getTodayDateStr();
+        DATE_MODE = 'single';
+        DATE_RANGE = { from: null, to: null };
       }
 
       function resetDateFilter(){
@@ -282,7 +285,7 @@
       function resetHistoryViewState(){
         CURRENT_FILTER = 'all';
         OPERATION_FILTER = 'all';
-        resetDateFilter();
+        applyDefaultDateFilter();
         VISIBLE_LIMIT = HISTORY_INITIAL_VISIBLE_COUNT;
         try { closeTransactionDetailsModal(); } catch(_){}
         try { closeHistoryCalendar(); } catch(_){}

@@ -800,7 +800,7 @@ html[dir="ltr"] #langLi > a {
   border-radius:12px;
   padding:10px 12px;
   font-size:15px;
-  font-weight:700;
+  font-weight:800;
   text-align:center;
   direction:rtl;
   cursor:pointer;
@@ -6464,7 +6464,7 @@ body.dark-mode #ordersContainer{
   --orders-reply-copied-border: #22c55e;
 }
 #ordersContainer .order-card{
-  overflow:hidden;
+  overflow:visible;
   border-radius:18px;
   border:1px solid var(--orders-card-border);
   box-shadow:var(--orders-card-shadow);
@@ -6485,6 +6485,9 @@ body.dark-mode #ordersContainer{
   align-items:center;
   gap:12px;
   padding:16px 18px;
+  outline:0 !important;
+  -webkit-tap-highlight-color:transparent !important;
+  user-select:none;
 }
 #ordersContainer .order-header-text{
   min-width:0;
@@ -6509,6 +6512,8 @@ body.dark-mode #ordersContainer{
 }
 #ordersContainer .order-header i{
   color:var(--orders-icon-color);
+  outline:0 !important;
+  -webkit-tap-highlight-color:transparent !important;
 }
 #ordersContainer .order-status{
   display:inline-flex;
@@ -6532,6 +6537,7 @@ body.dark-mode #ordersContainer{
   background:#eafaf0;
   border-color:#9ed8ae;
   color:#136a39 !important;
+  font-weight:900 !important;
 }
 #ordersContainer .order-status.is-rejected{
   background:#ffecec;
@@ -6568,7 +6574,7 @@ body.dark-mode #ordersContainer .orders-search:focus-within{
   appearance:none;
 }
 #ordersContainer .order-details{
-  margin-top:0 !important;
+  margin-top:8px !important;
   padding:16px 18px 18px;
   border-top:1px solid var(--orders-details-border);
   background:var(--orders-details-bg);
@@ -6580,6 +6586,9 @@ body.dark-mode #ordersContainer .orders-search:focus-within{
 }
 #ordersContainer .order-details p:last-child{
   margin-bottom:0;
+}
+#ordersContainer .order-category-line{
+  margin:0 !important;
 }
 #ordersContainer .order-details .offers-list{
   margin:6px 0 10px;
@@ -6595,11 +6604,12 @@ body.dark-mode #ordersContainer .orders-search:focus-within{
   color:var(--orders-strong-color) !important;
 }
 #ordersContainer .order-reply-field{
-  margin-top:16px;
+  margin-top:12px;
+  margin-bottom:2px;
 }
 #ordersContainer .order-reply-label{
   margin:0 0 8px;
-  font-size:13px;
+  font-size:12px;
   color:var(--orders-response-title);
 }
 #ordersContainer .order-reply-value{
@@ -6608,25 +6618,28 @@ body.dark-mode #ordersContainer .orders-search:focus-within{
   display:block;
   margin-top:0;
   min-height:0;
-  padding:14px 16px;
-  border-radius:14px;
+  padding:11px 13px;
+  border-radius:11px;
   border:1px solid var(--orders-response-body-border);
   background:var(--orders-response-body-bg);
   color:var(--orders-response-body-color);
-  line-height:1.85;
+  line-height:1.5;
   unicode-bidi:plaintext;
   white-space:pre-wrap;
   word-break:break-word;
   text-align:start;
   font:inherit;
+  font-size:14px;
   font-weight:700;
   cursor:pointer;
   position:relative;
+  outline:0 !important;
+  -webkit-tap-highlight-color:transparent !important;
   transition:background-color .15s ease, border-color .15s ease, box-shadow .15s ease, transform .15s ease, color .15s ease;
 }
 #ordersContainer .order-reply-value:focus-visible{
   outline:none;
-  box-shadow:var(--ring, 0 0 0 3px rgba(var(--site-accent-rgb, 148, 163, 184), .25));
+  box-shadow:var(--ring, 0 0 0 2px rgba(var(--site-accent-rgb, 148, 163, 184), .22));
 }
 #ordersContainer .order-reply-value:hover{
   background:var(--orders-reply-hover-bg);
@@ -6681,11 +6694,12 @@ body.dark-mode #ordersContainer .orders-search:focus-within{
     padding:14px;
   }
   #ordersContainer .order-reply-field{
-    margin-top:14px;
+    margin-top:12px;
   }
   #ordersContainer .order-reply-value{
-    padding:12px 13px;
+    padding:10px 12px;
     font-size:13px;
+    line-height:1.48;
   }
 }
 @media (max-width: 720px){
@@ -14895,8 +14909,8 @@ body[data-inline-route="orders"] #ordersContainer .order-details strong{
 }
 body[data-inline-route="orders"] #ordersContainer .order-reply-value,
 body[data-inline-route="orders"] #ordersContainer .order-reply-value *{
-  font-size:clamp(17px, 2.8vw, 23px) !important;
-  line-height:1.75 !important;
+  font-size:clamp(14px, 2.1vw, 17px) !important;
+  line-height:1.5 !important;
 }
 html,
 body{
@@ -14927,8 +14941,8 @@ body[data-inline-route="orders"] #ordersContainer .order-offers-value{
 }
 body[data-inline-route="orders"] #ordersContainer .order-reply-value,
 body[data-inline-route="orders"] #ordersContainer .order-reply-value *{
-  font-size:clamp(16.5px, 2.45vw, 20px) !important;
-  line-height:1.72 !important;
+  font-size:clamp(14px, 2.1vw, 17px) !important;
+  line-height:1.5 !important;
 }
 #totpLoginInput.otp-hidden-input,
 #transferTotpInput.otp-hidden-input,
@@ -15068,7 +15082,7 @@ body.dark-mode .transfer-modal-backdrop.transfer-receipt-backdrop{
 }
 @media (max-width:520px){
   body[data-inline-route="orders"] #ordersContainer .order-header{
-    grid-template-columns:minmax(58px,72px) minmax(0,1fr) 48px !important;
+    grid-template-columns:minmax(58px,72px) minmax(0,1fr) 42px !important;
     gap:8px !important;
   }
   body[data-inline-route="orders"] #ordersContainer .order-header .order-code-line,
@@ -15095,7 +15109,8 @@ body.dark-mode .transfer-modal-backdrop.transfer-receipt-backdrop{
   }
   body[data-inline-route="orders"] #ordersContainer .order-reply-value,
   body[data-inline-route="orders"] #ordersContainer .order-reply-value *{
-    font-size:16px !important;
+    font-size:14px !important;
+    line-height:1.48 !important;
   }
   .modal.unified-otp-modal .otp-slot-row,
   .transfer-modal-backdrop.unified-otp-modal .otp-slot-row{
@@ -16563,24 +16578,30 @@ body:not(.dark-mode) #ordersContainer .order-header i{
   box-shadow:0 8px 18px rgba(15,23,42,.08)!important;
 }
 body[data-inline-route="orders"] #ordersContainer .order-header{
-  grid-template-columns:minmax(104px,146px) minmax(0,1fr) 52px !important;
+  grid-template-columns:minmax(104px,146px) minmax(0,1fr) 44px !important;
+  outline:0 !important;
+  -webkit-tap-highlight-color:transparent !important;
+  user-select:none;
 }
 body[data-inline-route="orders"] #ordersContainer .order-header > i.fas,
 body[data-inline-route="orders"] #ordersContainer .order-header > i.fa-solid,
 body[data-inline-route="orders"] #ordersContainer .order-header > i.fa-chevron-down{
   grid-column:3 !important;
   grid-row:1 !important;
-  width:48px !important;
-  min-width:48px !important;
-  height:48px !important;
-  min-height:48px !important;
+  width:44px !important;
+  min-width:44px !important;
+  height:44px !important;
+  min-height:44px !important;
   display:grid !important;
   place-items:center !important;
   border-radius:50% !important;
-  font-size:17px !important;
+  font-size:16px !important;
   line-height:1 !important;
   justify-self:end !important;
   margin:0 !important;
+  outline:0 !important;
+  box-shadow:none !important;
+  -webkit-tap-highlight-color:transparent !important;
   transition:transform .18s ease !important;
 }
 body[data-inline-route="orders"] #ordersContainer .order-card.open .order-header > i.fas,
@@ -16616,8 +16637,17 @@ body:not(.dark-mode)[data-inline-route="orders"] #ordersContainer .order-header 
 }
 @media (max-width:520px){
   body[data-inline-route="orders"] #ordersContainer .order-header{
-    grid-template-columns:minmax(58px,72px) minmax(0,1fr) 48px !important;
+    grid-template-columns:minmax(58px,72px) minmax(0,1fr) 42px !important;
     gap:8px !important;
+  }
+  body[data-inline-route="orders"] #ordersContainer .order-header > i.fas,
+  body[data-inline-route="orders"] #ordersContainer .order-header > i.fa-solid,
+  body[data-inline-route="orders"] #ordersContainer .order-header > i.fa-chevron-down{
+    width:42px !important;
+    min-width:42px !important;
+    height:42px !important;
+    min-height:42px !important;
+    font-size:15px !important;
   }
 }
 html[data-theme="dark"] .wallet-page .txn-action,
@@ -16697,4 +16727,117 @@ body:not(.dark-mode) .wallet-search-modal .txn-action{
 #paymentsList .balance-after.is-rejected,
 #paymentsList .balance-after.is-rejected .txn-balance-value{
   color:var(--wallet-red,#d60945)!important;
+}
+
+/* Orders, wallet, and payments mobile spacing */
+#ordersContainer .order-status.is-approved{
+  font-weight:900!important;
+}
+#ordersContainer .order-category-line{
+  margin:0!important;
+}
+body[data-inline-route="orders"] #ordersContainer .order-details{
+  margin-top:18px!important;
+}
+body[data-inline-route="orders"] #ordersContainer .order-details p{
+  margin:0!important;
+  padding:9px 0!important;
+  border-bottom:1px solid rgba(var(--site-accent-rgb,125,140,175),.24)!important;
+}
+body[data-inline-route="orders"] #ordersContainer .order-details p:first-child{
+  padding-top:0!important;
+}
+body[data-inline-route="orders"] #ordersContainer .order-details p:last-child{
+  padding-bottom:0!important;
+  border-bottom:0!important;
+}
+body[data-inline-route="orders"] #ordersContainer .order-details p.order-reply-label{
+  margin:0 0 8px!important;
+  padding:0!important;
+  border-bottom:0!important;
+}
+.wallet-page .payment-inline-details p,
+.wallet-page .wallet-inline-details p,
+.wallet-search-modal .payment-inline-details p,
+.wallet-search-modal .wallet-inline-details p{
+  margin:0!important;
+  padding:9px 0!important;
+  border-bottom:1px solid rgba(var(--site-accent-rgb,125,140,175),.24)!important;
+}
+.wallet-page .payment-inline-details p:first-child,
+.wallet-page .wallet-inline-details p:first-child,
+.wallet-search-modal .payment-inline-details p:first-child,
+.wallet-search-modal .wallet-inline-details p:first-child{
+  padding-top:0!important;
+}
+.wallet-page .payment-inline-details p:last-child,
+.wallet-page .wallet-inline-details p:last-child,
+.wallet-search-modal .payment-inline-details p:last-child,
+.wallet-search-modal .wallet-inline-details p:last-child{
+  padding-bottom:0!important;
+  border-bottom:0!important;
+}
+.wallet-page .wallet-modern-shell{
+  width:min(100%,980px)!important;
+  padding-inline:clamp(10px,3vw,28px)!important;
+}
+.wallet-page .txn-body,
+.wallet-search-modal .txn-body,
+#walletList .txn-body,
+#paymentsList .txn-body{
+  grid-template-columns:minmax(96px,132px) minmax(0,1fr) 44px!important;
+  gap:12px!important;
+}
+.wallet-page .txn-action,
+.wallet-search-modal .txn-action,
+#walletList .txn-action,
+#paymentsList .txn-action{
+  width:44px!important;
+  min-width:44px!important;
+  height:44px!important;
+  min-height:44px!important;
+}
+.wallet-page .txn-action-symbol,
+.wallet-page .txn-action-glyph,
+.wallet-search-modal .txn-action-symbol,
+.wallet-search-modal .txn-action-glyph,
+#walletList .txn-action-symbol,
+#walletList .txn-action-glyph,
+#paymentsList .txn-action-symbol,
+#paymentsList .txn-action-glyph{
+  font-size:18px!important;
+}
+@media (max-width:520px){
+  .wallet-page .wallet-modern-shell,
+  .wallet-modern-shell > .wallet-filter-modal .wallet-filter-panel,
+  .wallet-modern-shell > .wallet-history-modal .wallet-history-modal-card,
+  .wallet-modern-shell > .wallet-search-modal .wallet-search-panel{
+    padding-inline:6px!important;
+  }
+  .wallet-page .txn-body,
+  .wallet-search-modal .txn-body,
+  #walletList .txn-body,
+  #paymentsList .txn-body{
+    grid-template-columns:minmax(72px,84px) minmax(0,1fr) 42px!important;
+    gap:8px!important;
+  }
+  .wallet-page .txn-action,
+  .wallet-search-modal .txn-action,
+  #walletList .txn-action,
+  #paymentsList .txn-action{
+    width:42px!important;
+    min-width:42px!important;
+    height:42px!important;
+    min-height:42px!important;
+  }
+  .wallet-page .txn-action-symbol,
+  .wallet-page .txn-action-glyph,
+  .wallet-search-modal .txn-action-symbol,
+  .wallet-search-modal .txn-action-glyph,
+  #walletList .txn-action-symbol,
+  #walletList .txn-action-glyph,
+  #paymentsList .txn-action-symbol,
+  #paymentsList .txn-action-glyph{
+    font-size:17px!important;
+  }
 }
