@@ -8656,6 +8656,54 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
     return true;
   }
 
+  function normalizeInlineDepositRequestCodeText(value){
+    return String(value == null ? '' : value)
+      .replace(/\s+/g, '')
+      .trim()
+      .toUpperCase();
+  }
+
+  function polishInlineDepositSuccessCodes(target){
+    try {
+      const root = findInlineDepositSuccessModal(target || document.body);
+      if (!root || !root.querySelectorAll) return false;
+      let changed = false;
+      root.querySelectorAll('*').forEach(function(el){
+        if (!el || (el.children && el.children.length)) return;
+        const raw = String(el.textContent || '');
+        const code = normalizeInlineDepositRequestCodeText(raw);
+        if (!/^DEP[A-Z0-9]{8,}$/i.test(code)) return;
+        el.textContent = code;
+        try { el.setAttribute('dir', 'ltr'); } catch (_) {}
+        try { el.setAttribute('data-inline-deposit-request-code', '1'); } catch (_) {}
+        try {
+          el.style.direction = 'ltr';
+          el.style.unicodeBidi = 'isolate';
+          el.style.whiteSpace = 'nowrap';
+          el.style.wordBreak = 'normal';
+          el.style.overflowWrap = 'normal';
+          el.style.display = 'inline-block';
+          el.style.maxWidth = '100%';
+          el.style.fontSize = '14px';
+          el.style.lineHeight = '1.45';
+          el.style.letterSpacing = '0';
+        } catch (_) {}
+        changed = true;
+      });
+      return changed;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function scheduleInlineDepositSuccessCodePolish(){
+    [0, 60, 180].forEach(function(delay){
+      setTimeout(function(){
+        polishInlineDepositSuccessCodes(document.body);
+      }, delay);
+    });
+  }
+
   if (typeof showDepositConfirm === 'function') {
     const __originalInlineShowDepositConfirm = showDepositConfirm;
     showDepositConfirm = function(){
@@ -8666,6 +8714,7 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
         const result = __originalInlineShowDepositConfirm.apply(this, arguments);
         if (result === true) {
           try { beginInlineSubmitAwait(); } catch (_) {}
+          try { scheduleInlineDepositSuccessCodePolish(); } catch (_) {}
         }
         return result;
       } catch (err) {
@@ -13097,8 +13146,13 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     p2.style.cssText = "margin:0 0 10px; font-size:15px;";
 
     const code = document.createElement("p");
-    code.innerHTML = `كود الطلب: <strong>${orderCode || "-"}</strong>`;
-    code.style.cssText = "margin:6px 0 18px; font-size:15px; line-height:1.7;";
+    const codeValue = document.createElement("strong");
+    code.textContent = "كود الطلب: ";
+    codeValue.textContent = orderCode || "-";
+    codeValue.setAttribute("dir", "ltr");
+    codeValue.style.cssText = "display:inline-block;direction:ltr;unicode-bidi:isolate;white-space:nowrap;word-break:normal;overflow-wrap:normal;max-width:100%;font-size:14px;line-height:1.45;letter-spacing:0;";
+    code.appendChild(codeValue);
+    code.style.cssText = "margin:6px 0 18px; font-size:15px; line-height:1.7; display:flex; align-items:center; justify-content:center; gap:8px; flex-wrap:wrap;";
 
     const actions = document.createElement("div");
     actions.style.cssText = "display:flex; gap:12px; justify-content:center; align-items:center; flex-wrap:wrap; margin-top:20px; padding:0;";
@@ -17542,6 +17596,17 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     }
   }
 
+  function storedCatalogObjectHasContent(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+    if (Array.isArray(value.tree) && value.tree.length) return true;
+    const buckets = ["games", "items", "products", "categories", "sections", "cats"];
+    return buckets.some((key) => {
+      const bucket = value[key];
+      if (Array.isArray(bucket)) return bucket.length > 0;
+      return !!(bucket && typeof bucket === "object" && !Array.isArray(bucket) && Object.keys(bucket).length);
+    });
+  }
+
   function readCatalogCache() {
     try {
       const uid = getCachedUid();
@@ -17559,10 +17624,10 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
         if (Array.isArray(data.tree) && data.tree.length) {
           try {
             const catalog = buildCatalogFromTree(data.tree);
-            if (catalog && typeof catalog === "object") return catalog;
+            if (storedCatalogObjectHasContent(catalog)) return catalog;
           } catch (_) {}
         }
-        if (data.catalog && typeof data.catalog === "object") return data.catalog;
+        if (storedCatalogObjectHasContent(data.catalog)) return data.catalog;
       }
       return null;
     } catch (_) {
@@ -32566,17 +32631,32 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           return (value || "").toString().trim().toLowerCase();
         }
 
+        function catalogCacheObjectHasContent(value){
+          if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+          if (Array.isArray(value.tree) && value.tree.length) return true;
+          var buckets = ["games", "items", "products", "categories", "sections", "cats"];
+          for (var i = 0; i < buckets.length; i += 1) {
+            var bucket = value[buckets[i]];
+            if (Array.isArray(bucket) && bucket.length) return true;
+            if (bucket && typeof bucket === "object" && !Array.isArray(bucket) && Object.keys(bucket).length) return true;
+          }
+          return false;
+        }
+
+        function catalogCachePayloadHasContent(data){
+          if (!data || typeof data !== "object") return false;
+          if (Array.isArray(data.tree) && data.tree.length) return true;
+          if (Array.isArray(data.games) && data.games.length) return true;
+          if (Array.isArray(data.categories) && data.categories.length) return true;
+          return catalogCacheObjectHasContent(data.catalog);
+        }
+
         function readCatalogCache(uid){
           try{
             var raw = localStorage.getItem(getCatalogCacheKey(uid));
             if (!raw) return null;
             var data = JSON.parse(raw);
-            if (!data) return null;
-            var hasGames = Array.isArray(data.games);
-            var hasCategories = Array.isArray(data.categories);
-            var hasTree = Array.isArray(data.tree);
-            var hasCatalog = !!(data.catalog && typeof data.catalog === "object");
-            if (!hasGames && !hasCategories && !hasTree && !hasCatalog) return null;
+            if (!catalogCachePayloadHasContent(data)) return null;
             return data;
           }catch(_){
             return null;
@@ -32585,13 +32665,20 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
 
         function writeCatalogCache(uid, games, categories, catalogPayload){
           try{
+            var storedTree = Array.isArray(treeCache) && treeCache.length ? treeCache : null;
+            if (!catalogCachePayloadHasContent({
+              games: games,
+              categories: categories,
+              catalog: catalogPayload,
+              tree: storedTree
+            })) return;
             var payload = {
               visitId: CATALOG_VISIT_ID,
               savedAt: Date.now(),
               games: Array.isArray(games) ? games : [],
               categories: Array.isArray(categories) ? categories : null,
               catalog: (catalogPayload && typeof catalogPayload === "object") ? catalogPayload : null,
-              tree: Array.isArray(treeCache) ? treeCache : null
+              tree: storedTree
             };
             localStorage.setItem(getCatalogCacheKey(uid), JSON.stringify(payload));
           }catch(_){}
@@ -32601,12 +32688,12 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           if (cache) return;
           var stored = readCatalogCache(uid);
           if (!stored) return;
-          treeCache = Array.isArray(stored.tree) ? stored.tree : null;
+          treeCache = Array.isArray(stored.tree) && stored.tree.length ? stored.tree : null;
           if (Array.isArray(treeCache) && treeCache.length) {
             try { markTreeSnapshotLoaded(treeCache); } catch(_){}
           }
           try { window.__CATALOG_TREE_CACHE__ = treeCache; } catch(_){}
-          if (getCatalogMode() === "provider-games" && treeCache) {
+          if (getCatalogMode() === "provider-games" && Array.isArray(treeCache) && treeCache.length) {
             var extracted = _extractGamesFromTree(treeCache);
             cache = Array.isArray(extracted.games) ? extracted.games : [];
             categoriesCache = Array.isArray(extracted.categories) ? extracted.categories : null;
@@ -34078,7 +34165,7 @@ function normalizeCategory(value){
                 catalogPayload = _buildCatalogFromTree(tree);
               } catch(_){}
             }
-            if (tree) {
+            if (Array.isArray(tree) && tree.length) {
               try { if (providerCategoryCache && typeof providerCategoryCache.clear === "function") providerCategoryCache.clear(); } catch(_){}
               try { markTreeSnapshotLoaded(tree); } catch(_){}
               treeCache = tree;
@@ -34121,6 +34208,14 @@ function normalizeCategory(value){
             return games;
           }).catch(function(err){
             console.error("Catalog games fetch error:", err);
+            if (catalogCachePayloadHasContent({
+              games: cache,
+              categories: categoriesCache,
+              catalog: catalogPayloadCache,
+              tree: treeCache
+            })) {
+              return Array.isArray(cache) ? cache : [];
+            }
             return [];
           }).finally(function(){ inflight = null; if (loaderHeld) releaseLoader(); });
           return inflight;
@@ -37139,7 +37234,11 @@ function normalizeCategory(value){
           var codeLine = null;
           if (orderCode){
             codeLine = document.createElement('p');
-            codeLine.innerHTML = 'كود الطلب: <strong>' + orderCode + '</strong>';
+            var codeLabel = document.createTextNode('كود الطلب: ');
+            var codeStrong = document.createElement('strong');
+            codeStrong.textContent = String(orderCode || '');
+            codeLine.appendChild(codeLabel);
+            codeLine.appendChild(codeStrong);
             codeLine.style.cssText = 'margin:12px 0 6px;font-weight:700;';
           }
 

@@ -396,11 +396,19 @@
       function cardSkeleton(){ const d=document.createElement('div'); d.className='card loading'; d.style.minHeight='118px'; return d; }
       function showSkeleton(n=3){ listEl.innerHTML=''; for(let i=0;i<n;i++) listEl.appendChild(cardSkeleton()); }
       function showEmpty(){
-        listEl.innerHTML = '<div class="empty">' + String(pageConfig.emptyText || '').trim() + '</div>';
+        listEl.innerHTML = '';
+        const empty = document.createElement('div');
+        empty.className = 'empty';
+        empty.textContent = String(pageConfig.emptyText || '').trim();
+        listEl.appendChild(empty);
         closeTransactionDetailsModal();
       }
       function showRequiresAuth(){
-        listEl.innerHTML = '<div class="empty">' + String(pageConfig.authRequiredText || '').trim() + '</div>';
+        listEl.innerHTML = '';
+        const empty = document.createElement('div');
+        empty.className = 'empty';
+        empty.textContent = String(pageConfig.authRequiredText || '').trim();
+        listEl.appendChild(empty);
         chipsWrap.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
         ALL_ITEMS = [];
         resetHistoryViewState();
@@ -1996,8 +2004,8 @@
         var proofHtml = proofUrl
           ? '<span class="txn-proof"><a class="code-btn" href="' + escapeHtmlAttr(proofUrl) + '" target="_blank" rel="noopener noreferrer">فتح الصورة</a></span>'
           : '';
-        var codeHtml = showCode ? '<span class="txn-code">' + (codePrefix ? codePrefix + ' ' : '') + '<button class="code-btn" data-code="' + codeLabel + '">' + codeLabel + '</button></span>' : '';
-        var dateHtml = (!hideOuterMeta && PAGE_MODE !== 'payments' && shortDate) ? '<span class="txn-date" title="' + longDate + '">' + shortDate + '</span>' : '';
+        var codeHtml = showCode ? '<span class="txn-code">' + (codePrefix ? escapeHtml(codePrefix) + ' ' : '') + '<button class="code-btn" data-code="' + escapeHtmlAttr(codeLabel) + '">' + escapeHtml(codeLabel) + '</button></span>' : '';
+        var dateHtml = (!hideOuterMeta && PAGE_MODE !== 'payments' && shortDate) ? '<span class="txn-date" title="' + escapeHtmlAttr(longDate) + '">' + escapeHtml(shortDate) + '</span>' : '';
         var showWalletCardSecondaryLine = PAGE_MODE !== 'wallet';
         var subtitleHtml = (showWalletCardSecondaryLine && outerSubtitle) ? '<div class="txn-subtitle">' + escapeHtml(outerSubtitle) + '</div>' : '';
         var metaRow = (showWalletCardSecondaryLine && (proofHtml || codeHtml || dateHtml || subtitleHtml)) ? '<div class="txn-meta">' + [subtitleHtml, dateHtml, hideOuterMeta ? '' : proofHtml, codeHtml].filter(Boolean).join('') + '</div>' : '';

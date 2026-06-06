@@ -12132,6 +12132,17 @@ function wirePageBalanceBox(){
       return text.slice(0, 2000);
     }
 
+    function sanitizeSupportImageUrl(value){
+      var text = normalizeSupportMediaUrl(value);
+      if (!text || /^(?:javascript|vbscript|data):/i.test(text)) return '';
+      try {
+        var parsed = new URL(text, window.location.href);
+        var protocol = String(parsed.protocol || '').toLowerCase();
+        if (protocol === 'http:' || protocol === 'https:' || protocol === 'blob:') return parsed.href;
+      } catch (_) {}
+      return '';
+    }
+
     function readSupportCachedSiteMediaValue(path){
       try {
         var raw = localStorage.getItem('site:media:v1');
@@ -12741,7 +12752,7 @@ function wirePageBalanceBox(){
         id: String(source.id || source.messageId || ''),
         sender: sender,
         text: String(source.text || source.message || source.body || '').trim(),
-        imageUrl: String(source.imageUrl || source.image_url || '').trim(),
+        imageUrl: sanitizeSupportImageUrl(source.imageUrl || source.image_url || ''),
         cards: normalizeSupportCards(source.cards || source.supportCards || source.cardList || []),
         authorName: String(source.authorName || source.author || source.name || '').trim(),
         createdAt: String(source.createdAt || source.created_at || '').trim()
@@ -12765,7 +12776,7 @@ function wirePageBalanceBox(){
         subtitle: String(source.subtitle || source.description || source.meta || '').trim(),
         priceText: String(source.priceText || source.price_text || '').trim(),
         statusText: String(source.statusText || source.statusLabel || source.status || '').trim(),
-        imageUrl: String(source.imageUrl || source.image_url || source.image || '').trim(),
+        imageUrl: sanitizeSupportImageUrl(source.imageUrl || source.image_url || source.image || ''),
         productId: String(source.productId || source.product_id || '').trim(),
         gameSlug: String(source.gameSlug || source.game_slug || source.catalogSlug || source.slug || '').trim(),
         methodId: String(source.methodId || source.method_id || '').trim(),
@@ -12807,8 +12818,9 @@ function wirePageBalanceBox(){
         }
         var icon = card.type === 'deposit' ? 'fa-wallet' : (card.type === 'order' ? 'fa-receipt' : 'fa-bag-shopping');
         var cta = card.action === 'open_deposit' ? 'إيداع' : (card.action === 'start_objection' ? 'اعتراض' : 'شراء');
-        var media = card.imageUrl
-          ? '<span class="site-support-chat__card-media"><img src="' + escapeSupport(card.imageUrl) + '" alt=""></span>'
+        var cardImageUrl = sanitizeSupportImageUrl(card.imageUrl);
+        var media = cardImageUrl
+          ? '<span class="site-support-chat__card-media"><img src="' + escapeSupport(cardImageUrl) + '" alt=""></span>'
           : '<span class="site-support-chat__card-media is-empty"><i class="fa-solid ' + icon + '" aria-hidden="true"></i></span>';
         var data = [
           'data-support-card-action="' + escapeSupport(card.action) + '"',
@@ -13303,8 +13315,9 @@ function wirePageBalanceBox(){
             '</div>'
           ].join('');
         }
-        var imageHtml = message.imageUrl
-          ? '<button class="site-support-chat__image-btn" type="button" data-support-image="' + escapeSupport(message.imageUrl) + '" aria-label="عرض الصورة"><img src="' + escapeSupport(message.imageUrl) + '" alt=""></button>'
+        var messageImageUrl = sanitizeSupportImageUrl(message.imageUrl);
+        var imageHtml = messageImageUrl
+          ? '<button class="site-support-chat__image-btn" type="button" data-support-image="' + escapeSupport(messageImageUrl) + '" aria-label="عرض الصورة"><img src="' + escapeSupport(messageImageUrl) + '" alt=""></button>'
           : '';
         var cardsHtml = renderSupportCards(message.cards);
         return [
@@ -13889,7 +13902,7 @@ function wirePageBalanceBox(){
     }
 
     function openSupportImageViewer(url){
-      var safeUrl = String(url || '').trim();
+      var safeUrl = sanitizeSupportImageUrl(url);
       if (!safeUrl) return;
       var viewer = ensureSupportImageViewer();
       supportImageViewerState.url = safeUrl;
@@ -15395,7 +15408,7 @@ function wirePageBalanceBox(){
         }
         if (!button) return;
         ev.preventDefault();
-        openSupportImageViewer(button.getAttribute('data-support-image') || '');
+        openSupportImageViewer(sanitizeSupportImageUrl(button.getAttribute('data-support-image') || ''));
       });
       panel.addEventListener('keydown', function(ev){
         if (!ev || (ev.key !== 'Enter' && ev.key !== ' ')) return;

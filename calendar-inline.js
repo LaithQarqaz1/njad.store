@@ -2055,8 +2055,11 @@ function drawOrdersPage() {
           <circle cx="48" cy="3" r="3" class="dot" fill="currentColor"/>
         </g>
       </svg>
-      <div class="caption">${message}</div>
     `;
+    const caption = document.createElement('div');
+    caption.className = 'caption';
+    caption.textContent = message;
+    msgEl.appendChild(caption);
     ordersList.innerHTML = '';
     ordersList.appendChild(msgEl);
     try { applyOrdersI18n(msgEl); } catch {}
@@ -2611,7 +2614,11 @@ function handleOrdersFirestoreError(err){
     : (status === 401 || status === 403)
       ? "يجب تسجيل الدخول لعرض الطلبات."
       : "تعذر تحميل الطلبات من الخادم مؤقتًا. حاول لاحقًا.";
-  msgEl.innerHTML = `<div class="caption">${message}</div>`;
+  msgEl.innerHTML = '';
+  const caption = document.createElement('div');
+  caption.className = 'caption';
+  caption.textContent = message;
+  msgEl.appendChild(caption);
   ordersList.innerHTML = '';
   ordersList.appendChild(msgEl);
   const pager = document.getElementById('ordersPagination');
