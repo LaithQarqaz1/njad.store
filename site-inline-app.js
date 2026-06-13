@@ -1155,7 +1155,15 @@
       }
 
       function getRuntimeSharePreviewUrl(fallbackUrl){
-        return '';
+        try {
+          var fromWindow = resolveRuntimeSiteUrl(window.__SITE_SHARE_PREVIEW__ || '');
+          if (fromWindow && !isBlockedRuntimeSharePreviewUrl(fromWindow)) return fromWindow;
+        } catch(_){}
+        try {
+          var fromSettings = window.__getSiteSetting ? resolveRuntimeSiteUrl(window.__getSiteSetting('media.sitePreview', '')) : '';
+          if (fromSettings && !isBlockedRuntimeSharePreviewUrl(fromSettings)) return fromSettings;
+        } catch(_){}
+        return resolveRuntimeSiteUrl(fallbackUrl || '');
       }
 
       function applyRuntimeSharePreviewMeta(url){
@@ -1175,7 +1183,7 @@
 
       function updateStructuredData(iconUrl, storeName){
         var logoUrl = String(iconUrl || '').trim();
-        var imageUrl = getRuntimeSharePreviewUrl('');
+        var imageUrl = getRuntimeSharePreviewUrl(logoUrl);
         var currentStoreName = String(storeName || DEFAULT_STORE_NAME).trim();
         var seoStoreTitle = buildRuntimeSeoStoreTitle(currentStoreName);
         var currentOrigin = '';
@@ -1226,7 +1234,7 @@
               "url": canonicalUrl,
               "alternateName": [SITE_ARABIC_STORE_NAME, "Njad store", currentHost].filter(Boolean),
               "inLanguage": "ar",
-              "image": imageUrl || undefined,
+              "image": imageUrl,
               "potentialAction": {
                 "@type": "SearchAction",
                 "target": searchUrl,
@@ -1236,12 +1244,12 @@
                 "@type": "Organization",
                 "name": organizationName,
                 "alternateName": [SITE_ARABIC_STORE_NAME, "Njad store", currentHost].filter(Boolean),
-                "logo": logoUrl ? {
+                "logo": {
                   "@type": "ImageObject",
-                  "url": logoUrl,
+                  "url": logoUrl || imageUrl,
                   "width": "512",
                   "height": "512"
-                } : undefined
+                }
               }
             }, null, 2);
           }
@@ -1271,7 +1279,7 @@
               "name": currentStoreName || currentHost,
               "alternateName": [SITE_ARABIC_STORE_NAME, "Njad store", currentHost].filter(Boolean),
               "url": canonicalUrl,
-              "logo": logoUrl || undefined,
+              "logo": logoUrl || imageUrl,
               "sameAs": canonicalUrl ? [canonicalUrl] : []
             }, null, 2);
           }
@@ -1293,6 +1301,8 @@
             window.__refreshDynamicSiteManifestHead();
           }
         } catch(_){}
+        applyRuntimeSharePreviewMeta(getRuntimeSharePreviewUrl(nextIcon));
+        setMetaContent('meta[name="msapplication-TileImage"]', nextIcon);
         updateStructuredData(nextIcon, window.__getCurrentStoreName ? window.__getCurrentStoreName() : DEFAULT_STORE_NAME);
       }
 
@@ -2557,6 +2567,15 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
         return;
       }
       clearHideTimer();
+      const minVisibleMs = 650;
+      const elapsed = inlineLoaderShownAtMs > 0 ? (Date.now() - inlineLoaderShownAtMs) : minVisibleMs;
+      if (elapsed < minVisibleMs) {
+        inlineLoaderHideTimer = setTimeout(function(){
+          inlineLoaderHideTimer = 0;
+          setInlinePreloaderVisible(app, false);
+        }, Math.max(0, minVisibleMs - elapsed));
+        return;
+      }
 
       try { syncDepositInlineLoadingEmptyState(false); } catch (_) {}
       try { clearDepositInlineCountriesLoaderOverrides(); } catch (_) {}
@@ -12476,20 +12495,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           try {
             if (Number(window.__CATALOG_PAGE_LOADER_ACTIVE_COUNT__ || 0) > 0) {
               window.__CATALOG_INLINE_LOADING__ = true;
-              // Only force styles when something actually hid the loader;
-              // rewriting identical styles 4x/sec causes needless style
-              // recalcs and can restart animations in Safari.
-              const el = document.getElementById("preloader");
-              const stillVisible = !!(
-                el &&
-                !el.classList.contains("hidden") &&
-                !el.classList.contains("closing") &&
-                String(el.style.display || "") === "flex" &&
-                String(el.style.opacity || "") === "1" &&
-                document.documentElement &&
-                document.documentElement.classList.contains("catalog-loader-pending")
-              );
-              if (!stillVisible) forceCatalogPageLoaderVisible();
+              forceCatalogPageLoaderVisible();
               return;
             }
             clearInterval(window.__CATALOG_PAGE_LOADER_KEEPALIVE_TIMER__);
@@ -16905,51 +16911,8 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     return String(control.dataset?.fieldKind || "").toLowerCase() === "image";
   }
 
-  // Resolve the effective keyboard/input mode of a purchase control so values
-  // can be sanitized to what that keyboard could actually have produced.
-  function purchaseFieldInputMode(control, field) {
-    let mode = field && field.inputMode != null ? String(field.inputMode) : "";
-    if (!mode && control) {
-      try { mode = String(control.inputMode || ""); } catch (_) { mode = ""; }
-      if (!mode && typeof control.getAttribute === "function") {
-        try { mode = String(control.getAttribute("inputmode") || ""); } catch (_) {}
-      }
-    }
-    mode = mode.toLowerCase();
-    if (!mode && control) {
-      let type = "";
-      try { type = String(control.type || "").toLowerCase(); } catch (_) {}
-      if (type === "tel") mode = "tel";
-      else if (type === "number") mode = "numeric";
-      else if (type === "email") mode = "email";
-      else if (type === "url") mode = "url";
-    }
-    return mode;
-  }
-
   function sanitizeFieldValueForControl(control, value, field = null) {
-    let text = normalizeDigitsToEnglish(String(value ?? "")).trim();
-    if (!text) return "";
-    // Drop characters that the field's own keyboard can never emit. iOS Safari
-    // autofill (and some keyboards) inject nearby button/label/description text
-    // into numeric ID/quantity inputs; since those keyboards only produce
-    // digits, any letters/punctuation are never user-typed and are removed on
-    // the spot. Free-text/email/url fields are left untouched.
-    const mode = purchaseFieldInputMode(control, field);
-    if (mode === "numeric") {
-      text = text.replace(/\D+/g, "");
-    } else if (mode === "tel") {
-      const hasPlus = /^\+/.test(text);
-      text = text.replace(/\D+/g, "");
-      if (hasPlus) text = "+" + text;
-    } else if (mode === "decimal") {
-      text = text.replace(/[^0-9.]+/g, "");
-      const dot = text.indexOf(".");
-      if (dot >= 0) {
-        text = text.slice(0, dot + 1) + text.slice(dot + 1).replace(/\./g, "");
-      }
-    }
-    return text;
+    return normalizeDigitsToEnglish(String(value ?? "").trim());
   }
 
   function isTextPurchaseFieldControl(control) {
@@ -16964,6 +16927,19 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
       control.dataset.purchaseTrustedValue = sanitizeFieldValueForControl(control, control.value);
       control.dataset.purchaseTrustedValueSet = "1";
     } catch (_) {}
+  }
+
+  function scheduleTrustedPurchaseFieldValueStore(control) {
+    if (!isTextPurchaseFieldControl(control)) return;
+    const store = () => storeTrustedPurchaseFieldValue(control);
+    try { Promise.resolve().then(store); } catch (_) {}
+    try { setTimeout(store, 0); } catch (_) {}
+  }
+
+  function markPurchaseFieldUserIntent(control) {
+    if (!isTextPurchaseFieldControl(control)) return;
+    try { control.dataset.purchaseTrustedInputPending = "1"; } catch (_) {}
+    scheduleTrustedPurchaseFieldValueStore(control);
   }
 
   function readTrustedPurchaseFieldValue(control) {
@@ -17014,17 +16990,6 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     return true;
   }
 
-  // Insert types `beforeinput` reports for the customer's own direct editing
-  // (typing, IME composition, paste, drop). Anything else that inserts content
-  // — insertReplacementText, insertFromYank, autofill/suggestion inserts — is
-  // rejected so neighbouring text (the description, another field, or a value
-  // the browser remembered) can never be dropped into a purchase field.
-  var DIRECT_PURCHASE_INSERTS = (typeof Set === "function") ? new Set([
-    "insertText", "insertCompositionText", "insertFromComposition",
-    "insertFromPaste", "insertFromPasteAsQuotation", "insertFromDrop",
-    "insertLineBreak", "insertParagraph", "insertTranspose"
-  ]) : null;
-
   function preparePurchaseFieldControl(control, field = null) {
     if (!control || isImageFieldControl(control)) return;
     try { control.setAttribute("autocomplete", "off"); } catch (_) {}
@@ -17032,37 +16997,42 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     try { control.setAttribute("autocapitalize", "off"); } catch (_) {}
     try { control.setAttribute("autocorrect", "off"); } catch (_) {}
     try { control.spellcheck = false; } catch (_) {}
-    // Password managers / extensions ignore hints.
-    try { control.setAttribute("data-1p-ignore", "true"); } catch (_) {}
-    try { control.setAttribute("data-lpignore", "true"); } catch (_) {}
-    try { control.setAttribute("data-form-type", "other"); } catch (_) {}
     try {
-      // A per-instance random name stops the browser from matching — and
-      // autofilling — a value it remembered for this field on a previous visit.
-      // App logic addresses fields by data-field-key, so the name is cosmetic.
-      if (!control.dataset.purchaseNameNonce) {
-        control.dataset.purchaseNameNonce = Math.random().toString(36).slice(2, 10);
-      }
-      control.name = `pf_${control.dataset.purchaseNameNonce}`;
+      const key = toSafeId(field?.key || control.dataset?.fieldKey || control.id || "field") || "field";
+      const scope = String(control.id || "").startsWith("modal") ? "modal" : "catalog";
+      control.name = `catalog_${scope}_${key}`;
     } catch (_) {}
     try { control.removeAttribute("pattern"); } catch (_) {}
     if (control.dataset.purchaseSanitizeBound !== "1") {
       control.dataset.purchaseSanitizeBound = "1";
-      // Block autofill / suggestion / replacement inserts at the source so the
-      // field stays isolated. beforeinput is cancelable; real typing, IME and
-      // paste/drop are in the allow-list and pass through untouched.
       control.addEventListener("beforeinput", (event) => {
-        if (!event) return;
-        const type = String(event.inputType || "");
-        if (!type || type.indexOf("insert") !== 0) return; // deletions/formatting
-        if (DIRECT_PURCHASE_INSERTS && DIRECT_PURCHASE_INSERTS.has(type)) return;
-        try { event.preventDefault(); } catch (_) {}
+        if (event && event.isTrusted === false) return;
+        markPurchaseFieldUserIntent(control);
+      });
+      control.addEventListener("paste", (event) => {
+        if (event && event.isTrusted === false) return;
+        markPurchaseFieldUserIntent(control);
+      });
+      control.addEventListener("drop", (event) => {
+        if (event && event.isTrusted === false) return;
+        markPurchaseFieldUserIntent(control);
+      });
+      control.addEventListener("keydown", (event) => {
+        if (event && event.isTrusted === false) return;
+        markPurchaseFieldUserIntent(control);
+      });
+      control.addEventListener("compositionend", (event) => {
+        if (event && event.isTrusted === false) return;
+        markPurchaseFieldUserIntent(control);
       });
       control.addEventListener("input", () => {
         sanitizeFieldInputInPlace(control);
-        // Whatever the customer typed/pasted/dropped is the trusted value;
-        // nothing reverts it, so paste works on every platform.
-        try { storeTrustedPurchaseFieldValue(control); } catch (_) {}
+        try {
+          if (control.dataset.purchaseTrustedInputPending === "1") {
+            storeTrustedPurchaseFieldValue(control);
+            delete control.dataset.purchaseTrustedInputPending;
+          }
+        } catch (_) {}
       });
       control.addEventListener("blur", () => { sanitizeFieldInputInPlace(control); });
       control.addEventListener("change", () => { sanitizeFieldInputInPlace(control); });
@@ -19940,42 +19910,6 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     }
   }
 
-  // Route-exit cleanup: when the inline catalog page is closed by navigation
-  // the purchase modal must not leak its open state (body.modal-open hides
-  // the dock/support widgets site-wide) or its per-purchase lock/fields into
-  // the next visit. While a purchase request is pending the modal is kept
-  // as-is so the pending UI state stays authoritative.
-  try {
-    window.__catalogResetPurchaseModalOnRouteExit = function () {
-      try {
-        if (state.submitting) return;
-        const modal = dom.modal || document.getElementById("purchase-modal");
-        if (!modal) return;
-        const wasOpen = modal.classList.contains("show") || modal.classList.contains("closing");
-        if (state.modalCloseTimer) {
-          clearTimeout(state.modalCloseTimer);
-          state.modalCloseTimer = null;
-        }
-        modal.classList.remove("show", "closing");
-        try { document.body.classList.remove("modal-open"); } catch (_) {}
-        if (!wasOpen) return;
-        try { resetTurnstileWidget({ remove: true }); } catch (_) {}
-        try { clearFieldControlValues(dom.modalPlayerRow || modal); } catch (_) {}
-        try { closeQtyPickerMenu(); } catch (_) {}
-        state.modalLock = null;
-        state.modalPriceValue = null;
-        state.modalPriceDisplayText = "";
-        state.modalPriceAnimatingTarget = "";
-        try {
-          if (state.modalPriceAnimTimer) {
-            clearTimeout(state.modalPriceAnimTimer);
-            state.modalPriceAnimTimer = null;
-          }
-        } catch (_) {}
-      } catch (_) {}
-    };
-  } catch (_) {}
-
   function splitPriceForRolling(text) {
     const raw = String(text || "").trim();
     const m = raw.match(/^([^0-9]*)([0-9][0-9.,]*)([^0-9]*)$/);
@@ -20527,23 +20461,15 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     return updateCatalogBalanceView(next);
   }
 
-  // Synchronous re-entrancy guard: state.submitting is only set after the
-  // awaited login/validation steps, so without this a fast double-tap could
-  // pass the state.submitting check twice and POST the purchase twice.
-  let submitOrderInFlight = false;
-
   async function submitOrder() {
     if (!state.selected) {
       showToast("يرجى اختيار عرض.", "warning");
       return;
     }
-    if (state.submitting || submitOrderInFlight) {
+    if (state.submitting) {
       showToast("الطلب قيد المعالجة، يرجى الانتظار.", "warning");
       return;
     }
-    submitOrderInFlight = true;
-    if (dom.modalBuy) dom.modalBuy.disabled = true;
-    try {
 
     let currentUser = await requireCatalogPurchaseLogin();
     if (!currentUser) {
@@ -20707,21 +20633,10 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
       showToast("حدث خطأ غير متوقع أثناء تنفيذ الطلب.", "error");
       resetTurnstileWidget();
     } finally {
-      // Clear the pending state first: if the modal DOM was torn down by a
-      // navigation while the request was in flight, a throw here must not
-      // leave state.submitting stuck or the page loader held forever.
+      dom.modalBuy.disabled = false;
       state.submitting = false;
       try { window.__CATALOG_PURCHASE_ACTIVE__ = false; } catch(_) {}
-      try { if (dom.modalBuy) dom.modalBuy.disabled = false; } catch (_) {}
       releaseCatalogNetworkPageLoader();
-    }
-
-    } finally {
-      submitOrderInFlight = false;
-      // Early validation returns happen before state.submitting is set;
-      // restore the button for those paths (the inner finally already
-      // handles the request path).
-      try { if (dom.modalBuy && !state.submitting) dom.modalBuy.disabled = false; } catch (_) {}
     }
   }
 
@@ -20934,10 +20849,6 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
       input.addEventListener("input", () => { normalizeInputDigitsInPlace(input); });
       input.addEventListener("blur", () => { normalizeInputDigitsInPlace(input); });
     });
-    // Purchase text autofill removed by request: fields must only ever change
-    // from the customer's own direct entry into that field. No typed/pasted
-    // text is parsed or distributed across fields. (Browser/iOS autofill is
-    // still neutralized by the trusted-value revert in preparePurchaseFieldControl.)
     if (dom.modalDesc) {
       dom.modalDesc.addEventListener("scroll", () => updateModalDescScrollIndicator(), { passive: true });
       dom.modalDesc.addEventListener("pointerdown", handleModalDescPointerDown);
@@ -20950,24 +20861,14 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
       if (!dom.modal?.classList.contains("show")) return;
       requestAnimationFrame(() => updateModalDescScrollIndicator());
     });
-    // currency:change / currency:rates:change / currency:ready often fire
-    // back-to-back; renderOffers rebuilds the whole grid, so coalesce the
-    // bursts into a single re-render per animation frame.
-    let currencyRefreshScheduled = false;
     const handleCatalogCurrencyChange = () => {
-      if (currencyRefreshScheduled) return;
-      currencyRefreshScheduled = true;
-      const run = () => {
-        currencyRefreshScheduled = false;
-        try {
-          if (Array.isArray(state.allItems) && state.allItems.length) {
-            renderOffers(state.allItems);
-          }
-        } catch (_) {}
-        try { updateSummary(); } catch (_) {}
-        try { updateModalPrice(); } catch (_) {}
-      };
-      try { requestAnimationFrame(run); } catch (_) { setTimeout(run, 0); }
+      try {
+        if (Array.isArray(state.allItems) && state.allItems.length) {
+          renderOffers(state.allItems);
+        }
+      } catch (_) {}
+      try { updateSummary(); } catch (_) {}
+      try { updateModalPrice(); } catch (_) {}
     };
     window.addEventListener("currency:change", handleCatalogCurrencyChange);
     window.addEventListener("currency:rates:change", handleCatalogCurrencyChange);
@@ -21143,13 +21044,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           showToast("لا يوجد حقل للصق.", "warning");
           return;
         }
-        if (txt) {
-          // Direct paste into this one field only — the clipboard text is not
-          // parsed and is never distributed to other fields.
-          dom.playerInput.value = txt;
-          try { sanitizeFieldInputInPlace(dom.playerInput); } catch (_) {}
-          try { storeTrustedPurchaseFieldValue(dom.playerInput); } catch (_) {}
-        }
+        if (txt) dom.playerInput.value = txt;
         else showToast("لا يوجد نص في الحافظة.", "warning");
       } catch {
         showToast("تعذر قراءة الحافظة. يرجى الإدخال يدويًا.", "error");
@@ -32113,9 +32008,6 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
             if (catalogSectionLoaderHolds > 0) {
               return;
             }
-            if (Number(window.__SERVER_REQUEST_LOADER_PENDING_COUNT__ || 0) > 0) {
-              return;
-            }
           } catch(_){}
           try {
             if (typeof window.__resetPageLoaderHold === "function") {
@@ -39715,10 +39607,10 @@ function normalizeCategory(value){
               if (typeof showPageLoader === 'function') showPageLoader({ hold: true, replay: true });
             } catch(_){}
           }
-          if (inlineWalletBootLoaderTimer) {
-            clearTimeout(inlineWalletBootLoaderTimer);
-            inlineWalletBootLoaderTimer = null;
-          }
+          if (inlineWalletBootLoaderTimer) clearTimeout(inlineWalletBootLoaderTimer);
+          inlineWalletBootLoaderTimer = setTimeout(function(){
+            releaseInlineWalletBootLoader();
+          }, 15000);
         } catch(_){}
       }
       try { window.__releaseInlineWalletBootLoader = releaseInlineWalletBootLoader; } catch(_){}
@@ -40027,16 +39919,6 @@ function normalizeCategory(value){
             modalOnlyFlow = !!(host && host.dataset && host.dataset.modalOnlyFlow === '1');
             if (host && host.dataset) delete host.dataset.modalOnlyFlow;
           } catch(_){ modalOnlyFlow = false; }
-          // Never leak the purchase modal (and body.modal-open) across routes.
-          try {
-            if (typeof window.__catalogResetPurchaseModalOnRouteExit === 'function') {
-              window.__catalogResetPurchaseModalOnRouteExit();
-            } else if (window.__CATALOG_PURCHASE_ACTIVE__ !== true) {
-              var leakedPm = document.getElementById('purchase-modal');
-              if (leakedPm) leakedPm.classList.remove('show', 'closing');
-              document.body.classList.remove('modal-open');
-            }
-          } catch(_){ }
           if (host) host.style.display = 'none';
           setModalOnlyClassSafe(false);
           try { window.__CATALOG_INLINE_MODAL_ONLY__ = ''; window.__CATALOG_INLINE_MODAL_ONLY_SOURCE__ = ''; window.__CATALOG_INLINE_KEEP_PAGE_FOR_FORCE_MODAL__ = ''; } catch(_){ }
@@ -41045,90 +40927,6 @@ function normalizeCategory(value){
         } catch(_){}
       }
 
-      function getInlineRouteFetchUrl(input){
-        try {
-          if (typeof input === 'string') return input;
-          if (input && typeof input.url === 'string') return input.url;
-        } catch(_){}
-        return '';
-      }
-
-      function isInlineRouteServerFetchUrl(input){
-        var url = getInlineRouteFetchUrl(input);
-        if (!url) return true;
-        var lower = String(url || '').toLowerCase();
-        if (/^(?:data|blob|file):/.test(lower)) return false;
-        if (/\.(?:js|mjs|css|png|jpe?g|webp|gif|svg|ico|woff2?|ttf|map)(?:[?#]|$)/i.test(lower)) return false;
-        return true;
-      }
-
-      function createInlineRouteServerFetchTracker(options){
-        var opts = options || {};
-        var originalFetch = null;
-        try { originalFetch = window.fetch; } catch(_){ originalFetch = null; }
-        if (typeof originalFetch !== 'function') {
-          return {
-            waitForIdle: function(){ return Promise.resolve(); },
-            stop: function(){},
-            hasTrackedFetch: function(){ return false; }
-          };
-        }
-        var active = true;
-        var pending = 0;
-        var trackedFetchStarted = false;
-        var idleResolvers = [];
-        function notifyIdle(){
-          if (pending > 0) return;
-          var resolvers = idleResolvers.splice(0);
-          resolvers.forEach(function(resolve){ try { resolve(); } catch(_){} });
-        }
-        function waitForIdle(){
-          if (pending <= 0) return Promise.resolve();
-          return new Promise(function(resolve){ idleResolvers.push(resolve); });
-        }
-        function trackedFetch(){
-          var shouldTrack = false;
-          try { shouldTrack = active && isInlineRouteServerFetchUrl(arguments[0]); } catch(_){ shouldTrack = false; }
-          if (!shouldTrack) return originalFetch.apply(this, arguments);
-          if (!trackedFetchStarted) {
-            trackedFetchStarted = true;
-            try {
-              if (typeof opts.onFirstFetch === 'function') opts.onFirstFetch(arguments[0]);
-            } catch(_){}
-          }
-          pending += 1;
-          var result;
-          try {
-            result = originalFetch.apply(this, arguments);
-          } catch(err) {
-            pending = Math.max(0, pending - 1);
-            notifyIdle();
-            throw err;
-          }
-          return Promise.resolve(result).then(function(response){
-            pending = Math.max(0, pending - 1);
-            notifyIdle();
-            return response;
-          }, function(err){
-            pending = Math.max(0, pending - 1);
-            notifyIdle();
-            throw err;
-          });
-        }
-        try { window.fetch = trackedFetch; } catch(_){}
-        return {
-          waitForIdle: waitForIdle,
-          hasTrackedFetch: function(){ return trackedFetchStarted; },
-          stop: function(){
-            active = false;
-            try {
-              if (window.fetch === trackedFetch) window.fetch = originalFetch;
-            } catch(_){}
-            notifyIdle();
-          }
-        };
-      }
-
       function setInlineRouteTransitionPending(active, meta){
         var next = !!active;
         var token = Number(meta && meta.token || 0) || 0;
@@ -41190,14 +40988,36 @@ function normalizeCategory(value){
       }
 
       function waitForInlineWalletRouteStep(value, maxMs, label){
-        return Promise.resolve(value).catch(function(err){
+        var timeoutMs = Math.max(3000, Number(maxMs) || INLINE_WALLET_ROUTE_ONSHOW_MAX_MS);
+        return new Promise(function(resolve){
+          var done = false;
+          var timer = 0;
+          function finish(result){
+            if (done) return;
+            done = true;
+            try { if (timer) clearTimeout(timer); } catch(_){ }
+            resolve(result);
+          }
           try {
-            console.warn('[inline-route] wallet route step failed', {
-              label: String(label || 'wallet_route_step'),
-              error: err && err.message ? err.message : String(err || '')
-            });
+            timer = setTimeout(function(){
+              try {
+                console.warn('[inline-route] wallet route step timed out', {
+                  label: String(label || 'wallet_route_step'),
+                  timeoutMs: timeoutMs
+                });
+              } catch(_){ }
+              finish(null);
+            }, timeoutMs);
           } catch(_){ }
-          return null;
+          Promise.resolve(value).then(finish).catch(function(err){
+            try {
+              console.warn('[inline-route] wallet route step failed', {
+                label: String(label || 'wallet_route_step'),
+                error: err && err.message ? err.message : String(err || '')
+              });
+            } catch(_){ }
+            finish(null);
+          });
         });
       }
 
@@ -41219,11 +41039,8 @@ function normalizeCategory(value){
             );
           } catch(_){ canResolveCatalogRouteLocally = false; }
         }
-        // Pure route switches should not flash the global loader. The loader
-        // starts only when an actual server fetch begins during inline load.
         var useNonWalletTransitionLoader = !isWalletFlowRoute && !canResolveCatalogRouteLocally;
         var nonWalletLoaderSettled = false;
-        var nonWalletLoaderStarted = false;
         var keyLower = String(key || '').toLowerCase();
         var activeInlineRouteKey = '';
         try { activeInlineRouteKey = String(document.body && document.body.getAttribute('data-inline-route') || '').toLowerCase(); } catch(_){ activeInlineRouteKey = ''; }
@@ -41238,17 +41055,6 @@ function normalizeCategory(value){
         if (isWalletFlowRoute && !Object.prototype.hasOwnProperty.call(ctx, '__enteredWalletRoute')) {
           ctx.__enteredWalletRoute = activeInlineRouteKey !== keyLower;
         }
-        function beginNonWalletLoader(){
-          if (!useNonWalletTransitionLoader || nonWalletLoaderStarted || nonWalletLoaderSettled) return;
-          nonWalletLoaderStarted = true;
-          holdInlineRoutePageLoader();
-          setInlineRouteTransitionPending(true, { token: routeLoadToken, key: key });
-          try {
-            if (typeof catalogGamesInline !== 'undefined' && catalogGamesInline && typeof catalogGamesInline.primeRouteLoader === 'function') {
-              catalogGamesInline.primeRouteLoader(key, ctx);
-            }
-          } catch(_){ }
-        }
         function settleNonWalletLoader(forceImmediate){
           if (!useNonWalletTransitionLoader || nonWalletLoaderSettled) return;
           nonWalletLoaderSettled = true;
@@ -41261,14 +41067,26 @@ function normalizeCategory(value){
           function finish(){
             if (!isCurrentRouteToken()) return;
             setInlineRouteTransitionPending(false, { token: routeLoadToken });
-            if (nonWalletLoaderStarted) releaseInlineRoutePageLoader();
+            releaseInlineRoutePageLoader();
           }
           if (forceImmediate === true) {
             finish();
             return;
           }
           try {
-            requestAnimationFrame(function(){ requestAnimationFrame(finish); });
+            var elapsed = started ? (Date.now() - started) : Infinity;
+            var remain = 300 - elapsed;
+            if (remain > 0 && remain < 5000) {
+              setTimeout(function(){
+                try {
+                  requestAnimationFrame(function(){ requestAnimationFrame(finish); });
+                } catch(_){ finish(); }
+              }, remain);
+            } else {
+              try {
+                requestAnimationFrame(function(){ requestAnimationFrame(finish); });
+              } catch(_){ finish(); }
+            }
           } catch(_){ finish(); }
         }
         var forceReload = !!ctx.__forceReload;
@@ -41317,16 +41135,17 @@ function normalizeCategory(value){
             });
           }
         }
-        var routeFetchTracker = null;
         var loadTask = (async function(){
         if (useNonWalletTransitionLoader) {
-          routeFetchTracker = createInlineRouteServerFetchTracker({ onFirstFetch: beginNonWalletLoader });
+          holdInlineRoutePageLoader();
+          setInlineRouteTransitionPending(true, { token: routeLoadToken, key: key });
         } else {
           try { clearInlineRouteTransitionPendingState(); } catch(_){ }
         }
         try {
           if (typeof catalogGamesInline !== 'undefined' && catalogGamesInline && typeof catalogGamesInline.primeRouteLoader === 'function') {
             if (isWalletFlowRoute) catalogGamesInline.clearRouteLoaderPrime();
+            else if (useNonWalletTransitionLoader) catalogGamesInline.primeRouteLoader(key, ctx);
             else if (typeof catalogGamesInline.clearRouteLoaderPrime === 'function') catalogGamesInline.clearRouteLoaderPrime();
           }
         } catch(_){ }
@@ -41365,12 +41184,6 @@ function normalizeCategory(value){
             await waitForInlineWalletRouteStep(onShowResult, INLINE_WALLET_ROUTE_ONSHOW_MAX_MS, 'onShow:' + String(key || ''));
           } else {
             try { await Promise.resolve(onShowResult); } catch(_){ }
-            if (routeFetchTracker) {
-              try {
-                await Promise.resolve();
-                await routeFetchTracker.waitForIdle();
-              } catch(_){ }
-            }
           }
           try{ if (typeof applyCardsVisibility === 'function') applyCardsVisibility(); }catch(_){ }
           try{ attachSearchBehavior(inlineBox); }catch(_){ }
@@ -41406,7 +41219,6 @@ function normalizeCategory(value){
           inlineWalletRouteLoadState.inFlightStartedAt = Date.now();
         }
         return Promise.resolve(loadTask).finally(function(){
-          try { if (routeFetchTracker) routeFetchTracker.stop(); } catch(_){}
           if (useNonWalletTransitionLoader) {
             try { settleNonWalletLoader(true); } catch(_){}
           }
@@ -41468,6 +41280,23 @@ function normalizeCategory(value){
         var hash = buildCategoryHash(key, hashPartsSource);
         var historyPath = routeValue || '';
         if (location.hash !== hash) { history.pushState({key:key, path: historyPath}, '', hash); }
+        var keyLowerLoader = String(key || '').toLowerCase();
+        var lightweightInlineRoutes = { games:1, favorites:1, privacy:1, terms:1 };
+        var walletFlowRoutes = { deposit:1, edaa:1 };
+        var shouldShowNavLoader = !lightweightInlineRoutes[keyLowerLoader];
+        var shouldPrimeInlineLoader = !!(
+          !walletFlowRoutes[keyLowerLoader] &&
+          /^(games)$/.test(keyLowerLoader) &&
+          (
+            (Array.isArray(effectiveParts) && effectiveParts.length) ||
+            (routeValue && String(routeValue).trim())
+          )
+        );
+        if (shouldShowNavLoader) {
+          try { if (typeof showPageLoader === 'function') showPageLoader(); } catch(_){ }
+        } else if (!walletFlowRoutes[keyLowerLoader] && !shouldPrimeInlineLoader) {
+          try { if (typeof hidePageLoader === 'function') hidePageLoader(); } catch(_){ }
+        }
         try { window.__INLINE_FORCE_ROUTE__ = key; } catch(_){ }
         try {
           loadInline(key, { routeValue: routeValue || '', routeParts: effectiveParts });

@@ -11,7 +11,10 @@
   "lang": "ar",
   "dir": "rtl",
   "prefer_related_applications": false,
-  "icons": [],
+  "icons": [
+    { "src": "https://api.njad.store/site-icon.png?v=admin-20260518-02", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "https://api.njad.store/site-icon.png?v=admin-20260518-02", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ],
   "shortcuts": [
     { "name": "تسجيل الدخول", "short_name": "الدخول", "url": "/login" },
     { "name": "الإعدادات", "short_name": "إعدادات", "url": "/settings" },

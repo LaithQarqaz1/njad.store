@@ -3187,20 +3187,20 @@
         const hasPendingItems = hasPendingHistoryItems(items);
         const previousSignature = buildSnapshotSignature(ALL_ITEMS);
 
-        if (force || skipServerSync) return items;
+        if (force || skipServerSync) return;
 
         if (usedCache && (!recentlySynced || hasPendingItems)){
-          try{
-            const fresh = await fetchLatestTransactions(uid);
-            replaceCache(uid, fresh);
-            const newSignature = buildSnapshotSignature(fresh);
-            if (newSignature !== previousSignature){
-              displayItems(uid, fresh);
-            }
-            return fresh;
-          }catch(_){ }
+          (async ()=>{
+            try{
+              const fresh = await fetchLatestTransactions(uid);
+              replaceCache(uid, fresh);
+              const newSignature = buildSnapshotSignature(fresh);
+              if (newSignature !== previousSignature){
+                displayItems(uid, fresh);
+              }
+            }catch(_){ }
+          })();
         }
-        return items;
       }
 
       chipsWrap.addEventListener('click', (e)=>{
