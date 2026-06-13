@@ -1155,15 +1155,7 @@
       }
 
       function getRuntimeSharePreviewUrl(fallbackUrl){
-        try {
-          var fromWindow = resolveRuntimeSiteUrl(window.__SITE_SHARE_PREVIEW__ || '');
-          if (fromWindow && !isBlockedRuntimeSharePreviewUrl(fromWindow)) return fromWindow;
-        } catch(_){}
-        try {
-          var fromSettings = window.__getSiteSetting ? resolveRuntimeSiteUrl(window.__getSiteSetting('media.sitePreview', '')) : '';
-          if (fromSettings && !isBlockedRuntimeSharePreviewUrl(fromSettings)) return fromSettings;
-        } catch(_){}
-        return resolveRuntimeSiteUrl(fallbackUrl || '');
+        return '';
       }
 
       function applyRuntimeSharePreviewMeta(url){
@@ -1183,7 +1175,7 @@
 
       function updateStructuredData(iconUrl, storeName){
         var logoUrl = String(iconUrl || '').trim();
-        var imageUrl = getRuntimeSharePreviewUrl(logoUrl);
+        var imageUrl = getRuntimeSharePreviewUrl('');
         var currentStoreName = String(storeName || DEFAULT_STORE_NAME).trim();
         var seoStoreTitle = buildRuntimeSeoStoreTitle(currentStoreName);
         var currentOrigin = '';
@@ -1234,7 +1226,7 @@
               "url": canonicalUrl,
               "alternateName": [SITE_ARABIC_STORE_NAME, "Njad store", currentHost].filter(Boolean),
               "inLanguage": "ar",
-              "image": imageUrl,
+              "image": imageUrl || undefined,
               "potentialAction": {
                 "@type": "SearchAction",
                 "target": searchUrl,
@@ -1244,12 +1236,12 @@
                 "@type": "Organization",
                 "name": organizationName,
                 "alternateName": [SITE_ARABIC_STORE_NAME, "Njad store", currentHost].filter(Boolean),
-                "logo": {
+                "logo": logoUrl ? {
                   "@type": "ImageObject",
-                  "url": logoUrl || imageUrl,
+                  "url": logoUrl,
                   "width": "512",
                   "height": "512"
-                }
+                } : undefined
               }
             }, null, 2);
           }
@@ -1279,7 +1271,7 @@
               "name": currentStoreName || currentHost,
               "alternateName": [SITE_ARABIC_STORE_NAME, "Njad store", currentHost].filter(Boolean),
               "url": canonicalUrl,
-              "logo": logoUrl || imageUrl,
+              "logo": logoUrl || undefined,
               "sameAs": canonicalUrl ? [canonicalUrl] : []
             }, null, 2);
           }
@@ -1301,8 +1293,6 @@
             window.__refreshDynamicSiteManifestHead();
           }
         } catch(_){}
-        applyRuntimeSharePreviewMeta(getRuntimeSharePreviewUrl(nextIcon));
-        setMetaContent('meta[name="msapplication-TileImage"]', nextIcon);
         updateStructuredData(nextIcon, window.__getCurrentStoreName ? window.__getCurrentStoreName() : DEFAULT_STORE_NAME);
       }
 
@@ -1623,6 +1613,26 @@
       return depositInlineCountriesLoadingCount > 0;
     }
   }
+  function syncDepositInlineLoadingEmptyState(active) {
+    const loading = active === true;
+    try {
+      if (document.documentElement) document.documentElement.classList.toggle('deposit-inline-loading', loading);
+      if (document.body) document.body.classList.toggle('deposit-inline-loading', loading);
+      const app = document.getElementById('depositInlineApp');
+      if (app && app.classList) app.classList.toggle('deposit-inline-loading', loading);
+      if (!app || !app.querySelectorAll) return;
+      app.querySelectorAll('#noResults, .no-results').forEach(function (el) {
+        try {
+          if (loading) {
+            el.style.display = 'none';
+            el.setAttribute('aria-hidden', 'true');
+          } else {
+            el.removeAttribute('aria-hidden');
+          }
+        } catch (_) {}
+      });
+    } catch (_) {}
+  }
   function forceDepositInlineCountriesLoaderVisible() {
     try {
       const pre = document.getElementById('preloader');
@@ -1747,6 +1757,7 @@
       if (document.documentElement) document.documentElement.classList.toggle('deposit-countries-loader-pending', next);
       if (document.body) document.body.classList.toggle('deposit-countries-loader-pending', next);
     } catch (_) {}
+    syncDepositInlineLoadingEmptyState(next);
     if (next) {
       showDepositInlineCountriesLoader();
     } else if (wasLoading) {
@@ -2014,6 +2025,22 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       '#depositInlineApp #noResults{',
       '  color:var(--site-accent-runtime-light, var(--site-accent-runtime, var(--accent-theme, #64748b))) !important;',
       '  text-shadow:0 1px 10px rgba(var(--site-accent-rgb, 148, 163, 184), .18) !important;',
+      '}',
+      'html.deposit-inline-loading #depositInlineApp .no-results,',
+      'body.deposit-inline-loading #depositInlineApp .no-results,',
+      'html.deposit-inline-loading #depositInlineApp #noResults,',
+      'body.deposit-inline-loading #depositInlineApp #noResults,',
+      'html.deposit-countries-loader-pending #depositInlineApp .no-results,',
+      'body.deposit-countries-loader-pending #depositInlineApp .no-results,',
+      'html.deposit-countries-loader-pending #depositInlineApp #noResults,',
+      'body.deposit-countries-loader-pending #depositInlineApp #noResults,',
+      'html.inline-wallet-route-pending #depositInlineApp .no-results,',
+      'body.inline-wallet-route-pending #depositInlineApp .no-results,',
+      'html.inline-wallet-route-pending #depositInlineApp #noResults,',
+      'body.inline-wallet-route-pending #depositInlineApp #noResults,',
+      '#depositInlineApp.deposit-inline-loading .no-results,',
+      '#depositInlineApp.deposit-inline-loading #noResults{',
+      '  display:none !important;',
       '}',
       '#depositInlineApp #grid.categories,',
       '#depositInlineApp .categories{',
@@ -2464,6 +2491,7 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
     };
     try {
       if (visible) {
+        try { syncDepositInlineLoadingEmptyState(true); } catch (_) {}
         clearHideTimer();
         try {
           if (typeof window.__setInlineWalletRoutePending === 'function') window.__setInlineWalletRoutePending(true);
@@ -2521,6 +2549,7 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       }
 
       if (isDepositInlineCountriesLoading()) {
+        try { syncDepositInlineLoadingEmptyState(true); } catch (_) {}
         clearHideTimer();
         try {
           if (typeof window.__setInlineWalletRoutePending === 'function') window.__setInlineWalletRoutePending(true);
@@ -2528,16 +2557,8 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
         return;
       }
       clearHideTimer();
-      const minVisibleMs = 650;
-      const elapsed = inlineLoaderShownAtMs > 0 ? (Date.now() - inlineLoaderShownAtMs) : minVisibleMs;
-      if (elapsed < minVisibleMs) {
-        inlineLoaderHideTimer = setTimeout(function(){
-          inlineLoaderHideTimer = 0;
-          setInlinePreloaderVisible(app, false);
-        }, Math.max(0, minVisibleMs - elapsed));
-        return;
-      }
 
+      try { syncDepositInlineLoadingEmptyState(false); } catch (_) {}
       try { clearDepositInlineCountriesLoaderOverrides(); } catch (_) {}
       try {
         if (typeof window.__setInlineWalletRoutePending === 'function') window.__setInlineWalletRoutePending(false);
@@ -3078,7 +3099,7 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       });
       grid.appendChild(a);
     });
-    if (noResults) noResults.style.display = countries.length ? 'none' : 'block';
+    if (noResults) noResults.style.display = (countries.length || isDepositInlineCountriesLoading()) ? 'none' : 'block';
   }
   function setFlowSwitchLoadingUi(app, flow) {
     if (!app || !app.querySelector) return;
@@ -3498,6 +3519,49 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
         window.__DEPOSIT_INLINE_COUNTRIES_LOADING__ = active === true;
       }
     } catch (_) {}
+    try {
+      if (document.documentElement) document.documentElement.classList.toggle('deposit-inline-loading', active === true);
+      if (document.body) document.body.classList.toggle('deposit-inline-loading', active === true);
+      const app = document.getElementById('depositInlineApp');
+      if (app && app.classList) app.classList.toggle('deposit-inline-loading', active === true);
+    } catch (_) {}
+  }
+
+  function isInlineDepositEmptyStateLoading(){
+    try {
+      if (window.__DEPOSIT_INLINE_COUNTRIES_LOADING__ === true || window.__INLINE_WALLET_ROUTE_PENDING__ === true) return true;
+    } catch (_) {}
+    try {
+      if (document.documentElement && (
+        document.documentElement.classList.contains('deposit-inline-loading') ||
+        document.documentElement.classList.contains('deposit-countries-loader-pending') ||
+        document.documentElement.classList.contains('inline-wallet-route-pending')
+      )) return true;
+      if (document.body && (
+        document.body.classList.contains('deposit-inline-loading') ||
+        document.body.classList.contains('deposit-countries-loader-pending') ||
+        document.body.classList.contains('inline-wallet-route-pending')
+      )) return true;
+    } catch (_) {}
+    try {
+      const app = document.getElementById('depositInlineApp');
+      if (app && app.classList && app.classList.contains('deposit-inline-loading')) return true;
+    } catch (_) {}
+    return false;
+  }
+
+  function setInlineDepositNoResultsVisible(visible){
+    const showEmpty = visible === true && !isInlineDepositEmptyStateLoading();
+    try { showNoResults(showEmpty); } catch (_) {}
+    try {
+      const noResults = document.querySelector('#depositInlineApp #noResults') || document.getElementById('noResults');
+      if (noResults) {
+        noResults.style.display = showEmpty ? 'block' : 'none';
+        if (showEmpty) noResults.removeAttribute('aria-hidden');
+        else noResults.setAttribute('aria-hidden', 'true');
+      }
+    } catch (_) {}
+    return showEmpty;
   }
 
   function getInlineDepositAuthInstance(){
@@ -5670,8 +5734,8 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
   renderCountries = function(list){
     if (!grid) {
       debugCountriesLog('error', 'Grid element not found while rendering countries');
-      showNoResults(true);
-      setCountriesRetryButtonVisible(true, 'grid_missing');
+      const showGridMissing = setInlineDepositNoResultsVisible(true);
+      setCountriesRetryButtonVisible(showGridMissing, 'grid_missing');
       return;
     }
       const activeFlow = getCurrentInlineFlowKind();
@@ -5727,8 +5791,9 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       });
       grid.appendChild(node);
     });
-    showNoResults(rootEntries.length === 0);
-    if (!currentCountry) setCountriesRetryButtonVisible(rootEntries.length === 0, rootEntries.length ? '' : 'countries_empty');
+    const rootEmpty = rootEntries.length === 0;
+    const rootEmptyVisible = setInlineDepositNoResultsVisible(rootEmpty);
+    if (!currentCountry) setCountriesRetryButtonVisible(rootEmptyVisible, rootEntries.length ? '' : 'countries_empty');
   };
 
   renderMethods = function(list){
@@ -5757,7 +5822,7 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       });
       grid.appendChild(node);
     });
-    showNoResults((Array.isArray(list) ? list.length : 0) === 0);
+    setInlineDepositNoResultsVisible((Array.isArray(list) ? list.length : 0) === 0);
   };
 
   applySearch = function(){
@@ -6375,6 +6440,7 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       return hasInlineRootEntries();
     }
     setInlineCountriesGlobalLoading(true);
+    try { setInlineDepositNoResultsVisible(false); } catch (_) {}
     inlineCountriesRefreshPromiseByFlow[flowKind] = Promise.resolve().then(async function(){
       debugCountriesLog('info', 'Guarded countries refresh requested', {
         reason: reason || 'manual',
@@ -9953,6 +10019,77 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
     } catch (_) {}
   }
 
+  function isInlineDepositRouteActiveForScroll(){
+    try {
+      const routeKey = String((document.body && document.body.getAttribute('data-inline-route')) || '').toLowerCase();
+      if (routeKey === 'deposit' || routeKey === 'edaa') return true;
+    } catch (_) {}
+    try {
+      const rawHash = String(location.hash || '');
+      let hashPath = rawHash.charAt(0) === '#' ? rawHash.slice(1) : rawHash;
+      while (hashPath.charAt(0) === '/') hashPath = hashPath.slice(1);
+      const hashKey = hashPath.split('/').filter(Boolean)[0] || '';
+      return hashKey.toLowerCase() === 'deposit' || hashKey.toLowerCase() === 'edaa';
+    } catch (_) {}
+    return false;
+  }
+
+  function resetInlineMethodModalScrollToTop(modal){
+    try {
+      if (!isInlineDepositRouteActiveForScroll()) return;
+      const targetModal = modal || (typeof document !== 'undefined' ? document.getElementById('methodModal') : null);
+      const target = targetModal || (typeof document !== 'undefined' ? document.getElementById('methodModal') : null);
+      const content = (targetModal && targetModal.querySelector && targetModal.querySelector('.modal-content')) || null;
+      const getHeaderOffset = function(){
+        try {
+          const nodes = Array.from(document.querySelectorAll('.top-header, #topHeader, #siteHeader, .site-header, header'));
+          let max = 0;
+          nodes.forEach(function(node){
+            try {
+              const rect = node && node.getBoundingClientRect ? node.getBoundingClientRect() : null;
+              const style = node ? getComputedStyle(node) : null;
+              if (!rect || rect.height <= 0 || !style) return;
+              if (style.position === 'fixed' || style.position === 'sticky') max = Math.max(max, rect.height);
+            } catch (_) {}
+          });
+          return Math.max(0, Math.ceil(max || 0) + 10);
+        } catch (_) {
+          return 82;
+        }
+      };
+      const run = function(){
+        let top = 0;
+        try {
+          if (target && typeof target.getBoundingClientRect === 'function') {
+            const rect = target.getBoundingClientRect();
+            const scrollY = window.pageYOffset || (document.documentElement && document.documentElement.scrollTop) || 0;
+            top = Math.max(0, Math.floor(scrollY + rect.top - getHeaderOffset()));
+          }
+        } catch (_) {}
+        try {
+          if (typeof window.scrollTo === 'function') window.scrollTo({ top: top, left: 0, behavior: 'auto' });
+        } catch (_) {
+          try { document.documentElement.scrollTop = top; } catch (__) {}
+          try { document.body.scrollTop = top; } catch (__) {}
+        }
+        [targetModal, content, document.getElementById('inlinePage'), document.getElementById('depositInlineApp')].forEach(function(node){
+          if (!node) return;
+          try {
+            if (typeof node.scrollTo === 'function') node.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+            else node.scrollTop = 0;
+          } catch (_) {
+            try { node.scrollTop = 0; } catch (__) {}
+          }
+        });
+      };
+      run();
+      if (typeof requestAnimationFrame === 'function') requestAnimationFrame(run);
+      [40, 120, 260, 420].forEach(function(delay){
+        setTimeout(run, delay);
+      });
+    } catch (_) {}
+  }
+
   installInlineDepositAuthRecovery();
 
   if (typeof handleSubmitDeposit === 'function') {
@@ -9982,6 +10119,7 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       }
       try { scheduleInlineMethodInitialFocusClear(typeof methodModal !== 'undefined' ? methodModal : null); } catch (_) {}
       try { updateSubmitState(); } catch (_) {}
+      try { resetInlineMethodModalScrollToTop(typeof methodModal !== 'undefined' ? methodModal : null); } catch (_) {}
       return result;
     };
   }
@@ -12338,7 +12476,20 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           try {
             if (Number(window.__CATALOG_PAGE_LOADER_ACTIVE_COUNT__ || 0) > 0) {
               window.__CATALOG_INLINE_LOADING__ = true;
-              forceCatalogPageLoaderVisible();
+              // Only force styles when something actually hid the loader;
+              // rewriting identical styles 4x/sec causes needless style
+              // recalcs and can restart animations in Safari.
+              const el = document.getElementById("preloader");
+              const stillVisible = !!(
+                el &&
+                !el.classList.contains("hidden") &&
+                !el.classList.contains("closing") &&
+                String(el.style.display || "") === "flex" &&
+                String(el.style.opacity || "") === "1" &&
+                document.documentElement &&
+                document.documentElement.classList.contains("catalog-loader-pending")
+              );
+              if (!stillVisible) forceCatalogPageLoaderVisible();
               return;
             }
             clearInterval(window.__CATALOG_PAGE_LOADER_KEEPALIVE_TIMER__);
@@ -12383,6 +12534,53 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     stopCatalogPageLoaderKeepAlive();
     showLoader(false);
   }
+
+  function isSiteDisabledApiResponse(data, res) {
+    try {
+      const headerLocked = res && res.headers && typeof res.headers.get === "function"
+        ? String(res.headers.get("x-site-locked") || "").trim()
+        : "";
+      if (headerLocked === "1" || headerLocked.toLowerCase() === "true") return true;
+    } catch (_) {}
+    try {
+      const src = (data && typeof data === "object") ? data : {};
+      const code = String(src.code || src.error || src.reason || src.message || "").trim().toLowerCase();
+      return code === "site_disabled" || code === "site-disabled" || code === "site locked" || code === "site_locked";
+    } catch (_) {}
+    return false;
+  }
+
+  function handleSiteDisabledApiResponse(data, res, reason) {
+    if (!isSiteDisabledApiResponse(data, res)) return null;
+    try {
+      if (typeof window.__showSiteUnavailableNow === "function") {
+        window.__showSiteUnavailableNow({ reason: reason || "api-site-disabled" });
+      }
+    } catch (_) {}
+    const err = new Error("site_disabled");
+    err.code = "site_disabled";
+    err.siteDisabled = true;
+    err.payload = data || {};
+    return err;
+  }
+
+  function isSiteDisabledCatalogError(err) {
+    try {
+      if (!err) return false;
+      if (err.siteDisabled === true || err.code === "site_disabled") return true;
+      const payload = err.payload && typeof err.payload === "object" ? err.payload : null;
+      if (payload && isSiteDisabledApiResponse(payload, null)) return true;
+      const text = String(err.message || err.error || "").trim().toLowerCase();
+      return text === "site_disabled" || text === "site-disabled" || text === "site_locked";
+    } catch (_) {}
+    return false;
+  }
+
+  try {
+    window.__isSiteDisabledApiResponse = isSiteDisabledApiResponse;
+    window.__handleSiteDisabledApiResponse = handleSiteDisabledApiResponse;
+    window.__isSiteDisabledCatalogError = isSiteDisabledCatalogError;
+  } catch (_) {}
 
   function playErrorToastSound() {
     try {
@@ -15238,7 +15436,15 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
 
   function getCatalogCurrencySymbol(code, rates) {
     const cur = rates && rates[code];
-    return String((cur && (cur.symbol || cur.code)) || code || "USD").trim();
+    const raw = String(cur && (cur.symbol ?? cur.displaySymbol ?? cur.sign ?? "") || "").replace(/\s+/g, " ").trim();
+    const name = String(cur && (cur.nameAr ?? cur.arName ?? cur.name ?? cur.label ?? cur.title ?? "") || "").replace(/\s+/g, " ").trim();
+    const looksLikeName = raw && (
+      (name && raw.toLowerCase() === name.toLowerCase()) ||
+      /\s/.test(raw) ||
+      (/[\u0600-\u06ff]/.test(raw) && !/[.$\u20ac\u00a3]/.test(raw) && raw.replace(/[.\s]/g, "").length > 3)
+    );
+    if (raw && !looksLikeName) return raw;
+    return String(code || "USD").trim();
   }
 
   function formatPrice(value, currency) {
@@ -16699,6 +16905,309 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     return String(control.dataset?.fieldKind || "").toLowerCase() === "image";
   }
 
+  function sanitizeFieldValueForControl(control, value, field = null) {
+    return normalizeDigitsToEnglish(String(value ?? "").trim());
+  }
+
+  function isTextPurchaseFieldControl(control) {
+    if (!control || isImageFieldControl(control)) return false;
+    const tag = String(control.tagName || "").toUpperCase();
+    return tag === "INPUT" || tag === "TEXTAREA";
+  }
+
+  function storeTrustedPurchaseFieldValue(control) {
+    if (!isTextPurchaseFieldControl(control)) return;
+    try {
+      control.dataset.purchaseTrustedValue = sanitizeFieldValueForControl(control, control.value);
+      control.dataset.purchaseTrustedValueSet = "1";
+    } catch (_) {}
+  }
+
+  function scheduleTrustedPurchaseFieldValueStore(control) {
+    if (!isTextPurchaseFieldControl(control)) return;
+    const store = () => storeTrustedPurchaseFieldValue(control);
+    try { Promise.resolve().then(store); } catch (_) {}
+    try { setTimeout(store, 0); } catch (_) {}
+  }
+
+  function markPurchaseFieldUserIntent(control) {
+    if (!isTextPurchaseFieldControl(control)) return;
+    try { control.dataset.purchaseTrustedInputPending = "1"; } catch (_) {}
+    scheduleTrustedPurchaseFieldValueStore(control);
+  }
+
+  function readTrustedPurchaseFieldValue(control) {
+    const current = sanitizeFieldValueForControl(control, control?.value);
+    if (!isTextPurchaseFieldControl(control)) return current;
+    try {
+      if (control.dataset.purchaseTrustedValueSet === "1") {
+        const trusted = sanitizeFieldValueForControl(control, control.dataset.purchaseTrustedValue || "");
+        if (current !== trusted) return trusted;
+      }
+    } catch (_) {}
+    return current;
+  }
+
+  function restoreUntrustedPurchaseFieldValues(root) {
+    if (!root) return;
+    root.querySelectorAll("[data-field-key]").forEach((control) => {
+      if (!isTextPurchaseFieldControl(control)) return;
+      try {
+        if (control.dataset.purchaseTrustedValueSet !== "1") return;
+        const trusted = sanitizeFieldValueForControl(control, control.dataset.purchaseTrustedValue || "");
+        const current = sanitizeFieldValueForControl(control, control.value);
+        if (current !== trusted) control.value = trusted;
+      } catch (_) {}
+    });
+  }
+
+  function schedulePurchaseFieldLeakGuard(root) {
+    [0, 80, 240, 600, 1200].forEach((delay) => {
+      try { setTimeout(() => restoreUntrustedPurchaseFieldValues(root), delay); } catch (_) {}
+    });
+  }
+
+  function sanitizeFieldInputInPlace(control) {
+    if (!control || typeof control.value !== "string") return false;
+    const raw = control.value;
+    const next = sanitizeFieldValueForControl(control, raw);
+    if (next === raw) return false;
+    const start = typeof control.selectionStart === "number" ? control.selectionStart : null;
+    const end = typeof control.selectionEnd === "number" ? control.selectionEnd : null;
+    control.value = next;
+    try {
+      if (start != null && end != null && typeof control.setSelectionRange === "function") {
+        const pos = Math.min(next.length, start);
+        control.setSelectionRange(pos, Math.min(next.length, end));
+      }
+    } catch (_) {}
+    return true;
+  }
+
+  /* ---------------- Purchase text autofill ---------------- */
+  /* Parses typed/pasted purchase text (Arabic/English labels and numerals)
+     and distributes the detected values across the purchase fields. Parsing
+     lives in the standalone PurchaseAutofill utility (purchase-autofill.js);
+     this block only owns DOM wiring. */
+  const AUTOFILL_FLASH_MS = 1600;
+  let autofillApplying = false;
+  let autofillTypingTimer = null;
+
+  function purchaseAutofillApi() {
+    try {
+      const api = window.PurchaseAutofill;
+      return api && typeof api.parsePurchaseText === "function" ? api : null;
+    } catch (_) { return null; }
+  }
+
+  function autofillRoots() {
+    const roots = [];
+    const modalRoot = dom.modalPlayerRow || dom.modal;
+    if (modalRoot) roots.push(modalRoot);
+    const inlineBox = dom.playerInput ? dom.playerInput.closest(".player-id-box") : null;
+    if (inlineBox && inlineBox !== modalRoot) roots.push(inlineBox);
+    return roots;
+  }
+
+  function collectAutofillControls() {
+    const byKey = new Map();
+    autofillRoots().forEach((root) => {
+      root.querySelectorAll("[data-field-key]").forEach((control) => {
+        if (!isTextPurchaseFieldControl(control)) return;
+        const key = control.dataset.fieldKey;
+        if (!key) return;
+        if (!byKey.has(key)) byKey.set(key, []);
+        byKey.get(key).push(control);
+      });
+    });
+    return byKey;
+  }
+
+  function markControlAutofilled(control) {
+    try {
+      control.dataset.autofillValue = String(control.value || "");
+      control.classList.add("autofill-flash");
+      setTimeout(() => { try { control.classList.remove("autofill-flash"); } catch (_) {} }, AUTOFILL_FLASH_MS);
+    } catch (_) {}
+  }
+
+  function controlAutofillState(control, key) {
+    const value = String(control.value || "");
+    const autofilled = !!value && control.dataset.autofillValue === value;
+    return { key, value, autofilled, manualEdit: !!value && !autofilled };
+  }
+
+  function applyParsedQuantityToModal(qty) {
+    const item = (state.modalLock && state.modalLock.item) || (state.selected && state.selected.item) || null;
+    if (!item || !shouldShowQtyInput(item)) return false;
+    const qtyMeta = (state.modalLock && state.modalLock.qtyMeta) ? state.modalLock.qtyMeta : getItemQtyMeta(item);
+    const validation = validateQty(qty, qtyMeta.min, qtyMeta.max, qtyMeta.options);
+    if (!validation.ok) return false;
+    const currentRaw = readModalQtyRaw(qtyMeta);
+    if (Number.isFinite(currentRaw) && currentRaw === qty) return false;
+    writeModalQtyValue(qty);
+    if (state.selected) state.selected.quantity = qty;
+    try {
+      const control = hasFixedQtyOptions(qtyMeta) ? (dom.modalQtySelect || dom.modalQty) : (dom.modalQty || dom.modalQtySelect);
+      if (control) {
+        control.dispatchEvent(new Event("input", { bubbles: true }));
+        markControlAutofilled(control);
+      }
+    } catch (_) {}
+    return true;
+  }
+
+  // Returns { applied, structured }. "structured" means the text carried
+  // explicit labeled values (or a quantity), i.e. it is safe to consume the
+  // paste instead of dumping the raw blob into one input.
+  function runPurchaseAutofill(rawText, { source = "input", origin = null } = {}) {
+    const none = { applied: false, structured: false };
+    if (autofillApplying) return none;
+    const api = purchaseAutofillApi();
+    if (!api) return none;
+    const text = String(rawText == null ? "" : rawText);
+    if (!text.trim()) return none;
+    const lock = state.modalLock;
+    const item = (lock && lock.item) || (state.selected && state.selected.item) || null;
+    const fields = (lock && Array.isArray(lock.fields) && lock.fields.length)
+      ? lock.fields
+      : (Array.isArray(state.selectedFields) && state.selectedFields.length
+        ? state.selectedFields
+        : (item ? resolveItemInputFields(item) : []));
+    if (!fields.length) return none;
+    let parsed = null;
+    try { parsed = api.parsePurchaseText(text, fields); } catch (_) { parsed = null; }
+    if (!parsed || !parsed.matchedAny) return none;
+    const structured = parsed.quantity != null ||
+      Object.keys(parsed.labeled || {}).some((key) => parsed.labeled[key] === true);
+
+    const controlsByKey = collectAutofillControls();
+    const states = [];
+    controlsByKey.forEach((controls, key) => {
+      const reference = controls.find((control) => String(control.value || "").trim()) || controls[0];
+      states.push(controlAutofillState(reference, key));
+    });
+    let actions = [];
+    try { actions = api.planAutofill(parsed, states, { source }); } catch (_) { actions = []; }
+
+    let applied = false;
+    autofillApplying = true;
+    try {
+      actions.forEach((action) => {
+        const controls = controlsByKey.get(action.key) || [];
+        controls.forEach((control) => {
+          if (!structured && origin && control === origin) return;
+          control.value = sanitizeFieldValueForControl(control, action.value);
+          storeTrustedPurchaseFieldValue(control);
+          markControlAutofilled(control);
+          applied = true;
+        });
+      });
+      if (parsed.quantity != null) {
+        applied = applyParsedQuantityToModal(parsed.quantity) || applied;
+      }
+    } finally {
+      autofillApplying = false;
+    }
+    if (applied) {
+      try { clearNameValidationResult(); } catch (_) {}
+      try { syncNameValidationUI(item); } catch (_) {}
+      try { updateModalPrice(); } catch (_) {}
+      try { updateSummary(); } catch (_) {}
+    }
+    return { applied, structured };
+  }
+
+  function bindPurchaseAutofillSource(input) {
+    if (!input || input.dataset.autofillBound === "1") return;
+    input.dataset.autofillBound = "1";
+    input.addEventListener("paste", (event) => {
+      let pasted = "";
+      try {
+        pasted = event.clipboardData ? String(event.clipboardData.getData("text") || "") : "";
+      } catch (_) { pasted = ""; }
+      if (!pasted || !pasted.trim()) return;
+      const res = runPurchaseAutofill(pasted, { source: "paste", origin: input });
+      if (res.structured) {
+        // The labeled values were distributed to their fields; keep the raw
+        // blob out of this input.
+        try { event.preventDefault(); } catch (_) {}
+      }
+    });
+    input.addEventListener("input", () => {
+      if (autofillApplying) return;
+      clearTimeout(autofillTypingTimer);
+      autofillTypingTimer = setTimeout(() => {
+        autofillTypingTimer = null;
+        try {
+          runPurchaseAutofill(String(input.value || ""), { source: "input", origin: input });
+        } catch (_) {}
+      }, 350);
+    });
+  }
+
+  function preparePurchaseFieldControl(control, field = null) {
+    if (!control || isImageFieldControl(control)) return;
+    try { control.setAttribute("autocomplete", "off"); } catch (_) {}
+    try { control.autocomplete = "off"; } catch (_) {}
+    try { control.setAttribute("autocapitalize", "off"); } catch (_) {}
+    try { control.setAttribute("autocorrect", "off"); } catch (_) {}
+    try { control.spellcheck = false; } catch (_) {}
+    try {
+      const key = toSafeId(field?.key || control.dataset?.fieldKey || control.id || "field") || "field";
+      const scope = String(control.id || "").startsWith("modal") ? "modal" : "catalog";
+      control.name = `catalog_${scope}_${key}`;
+    } catch (_) {}
+    try { control.removeAttribute("pattern"); } catch (_) {}
+    if (control.dataset.purchaseSanitizeBound !== "1") {
+      control.dataset.purchaseSanitizeBound = "1";
+      control.addEventListener("beforeinput", (event) => {
+        if (event && event.isTrusted === false) return;
+        markPurchaseFieldUserIntent(control);
+      });
+      control.addEventListener("paste", (event) => {
+        if (event && event.isTrusted === false) return;
+        markPurchaseFieldUserIntent(control);
+      });
+      control.addEventListener("drop", (event) => {
+        if (event && event.isTrusted === false) return;
+        markPurchaseFieldUserIntent(control);
+      });
+      control.addEventListener("keydown", (event) => {
+        if (event && event.isTrusted === false) return;
+        markPurchaseFieldUserIntent(control);
+      });
+      control.addEventListener("compositionend", (event) => {
+        if (event && event.isTrusted === false) return;
+        markPurchaseFieldUserIntent(control);
+      });
+      control.addEventListener("input", () => {
+        sanitizeFieldInputInPlace(control);
+        try {
+          if (control.dataset.purchaseTrustedInputPending === "1") {
+            storeTrustedPurchaseFieldValue(control);
+            delete control.dataset.purchaseTrustedInputPending;
+          }
+        } catch (_) {}
+      });
+      control.addEventListener("blur", () => { sanitizeFieldInputInPlace(control); });
+      control.addEventListener("change", () => { sanitizeFieldInputInPlace(control); });
+    }
+  }
+
+  function clearFieldControlValues(root) {
+    if (!root) return;
+    root.querySelectorAll("[data-field-key]").forEach((control) => {
+      if (isImageFieldControl(control)) {
+        try { control.value = ""; } catch (_) {}
+        try { delete control.dataset.uploadedUrl; } catch (_) {}
+        return;
+      }
+      if (typeof control.value === "string") control.value = "";
+      storeTrustedPurchaseFieldValue(control);
+    });
+  }
+
   function buildFieldControl(field, id, className) {
     let control = null;
     const rawLabel = field.label || field.key || "";
@@ -16753,14 +17262,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
       control.placeholder = resolvePlaceholderText(translatedLabel || rawLabel, field.placeholder || "");
     }
     if (field.required) control.required = true;
-    control.autocomplete = "off";
-    control.autocapitalize = "off";
-    control.autocorrect = "off";
-    control.spellcheck = false;
-    if (!isImageFieldControl(control) && (control.tagName === "INPUT" || control.tagName === "TEXTAREA")) {
-      control.addEventListener("input", () => { normalizeInputDigitsInPlace(control); });
-      control.addEventListener("blur", () => { normalizeInputDigitsInPlace(control); });
-    }
+    preparePurchaseFieldControl(control, field);
     return control;
   }
 
@@ -16778,7 +17280,8 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
       const id = `${idPrefix}-${toSafeId(field.key)}-${idx}`;
       label.setAttribute("for", id);
       const control = buildFieldControl(field, id, "player-field-input");
-      if (values && values[field.key]) control.value = normalizeDigitsToEnglish(values[field.key]);
+      if (values && values[field.key]) control.value = sanitizeFieldValueForControl(control, values[field.key], field);
+      storeTrustedPurchaseFieldValue(control);
       row.append(label, control);
       container.appendChild(row);
     });
@@ -16803,8 +17306,8 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
       const file = input.files && input.files[0] ? input.files[0] : null;
       return file ? String(file.name || "selected-image").trim() : "";
     }
-    if (typeof input.value === "string") normalizeInputDigitsInPlace(input);
-    return normalizeDigitsToEnglish(String(input.value ?? "").trim());
+    if (typeof input.value === "string") sanitizeFieldInputInPlace(input);
+    return readTrustedPurchaseFieldValue(input);
   }
 
   function collectFieldValues(root) {
@@ -16819,8 +17322,8 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
         out[key] = uploadedUrl;
         return;
       }
-      if (typeof input.value === "string") normalizeInputDigitsInPlace(input);
-      const value = normalizeDigitsToEnglish(String(input.value ?? "").trim());
+      if (typeof input.value === "string") sanitizeFieldInputInPlace(input);
+      const value = readTrustedPurchaseFieldValue(input);
       if (value === "") return;
       out[key] = value;
     });
@@ -16834,7 +17337,8 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
       if (!key || !(key in values)) return;
       if (isImageFieldControl(input)) return;
       if (onlyEmpty && String(input.value ?? "").trim()) return;
-      input.value = normalizeDigitsToEnglish(values[key]);
+      input.value = sanitizeFieldValueForControl(input, values[key]);
+      storeTrustedPurchaseFieldValue(input);
     });
   }
 
@@ -17368,18 +17872,22 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
         dom.playerInput.placeholder = placeholderText;
         dom.playerInput.type = primaryField.inputType || "text";
         dom.playerInput.inputMode = primaryField.inputMode || "";
+        preparePurchaseFieldControl(dom.playerInput, primaryField);
         if (primaryField.required) dom.playerInput.setAttribute("required", "");
         else dom.playerInput.removeAttribute("required");
-        dom.playerInput.value = mergedValues[primaryField.key] || "";
+        dom.playerInput.value = sanitizeFieldValueForControl(dom.playerInput, mergedValues[primaryField.key] || "", primaryField);
+        storeTrustedPurchaseFieldValue(dom.playerInput);
       }
       if (dom.modalPlayerId) {
         dom.modalPlayerId.dataset.fieldKey = primaryField.key;
         dom.modalPlayerId.placeholder = placeholderText;
         dom.modalPlayerId.type = primaryField.inputType || "text";
         dom.modalPlayerId.inputMode = primaryField.inputMode || "";
+        preparePurchaseFieldControl(dom.modalPlayerId, primaryField);
         if (primaryField.required) dom.modalPlayerId.setAttribute("required", "");
         else dom.modalPlayerId.removeAttribute("required");
-        dom.modalPlayerId.value = mergedValues[primaryField.key] || "";
+        dom.modalPlayerId.value = sanitizeFieldValueForControl(dom.modalPlayerId, mergedValues[primaryField.key] || "", primaryField);
+        storeTrustedPurchaseFieldValue(dom.modalPlayerId);
       }
     } else {
       if (dom.playerInput) {
@@ -19407,6 +19915,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
         dom.modal.dataset.hideShellBehindModal = hideShellBehindModal ? "1" : "0";
       }
     } catch (_) {}
+    clearFieldControlValues(dom.modalPlayerRow || dom.modal);
     state.modalLock = {
       itemId: item?.id != null ? String(item.id) : "",
       item,
@@ -19451,6 +19960,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     const inlineBox = dom.playerInput ? dom.playerInput.closest(".player-id-box") : null;
     const inlineValues = collectFieldValues(inlineBox);
     applyFieldValues(dom.modalPlayerRow || dom.modal, inlineValues, { onlyEmpty: true });
+    schedulePurchaseFieldLeakGuard(dom.modalPlayerRow || dom.modal);
     syncNameValidationUI(item);
     updateModalPrice();
     updateModalFavoriteButton(item);
@@ -19501,6 +20011,8 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     closeQtyPickerMenu();
     try { document.body.classList.remove("modal-open"); } catch (_) {}
     resetTurnstileWidget({ remove: true });
+    clearFieldControlValues(dom.modalPlayerRow || dom.modal);
+    schedulePurchaseFieldLeakGuard(dom.modalPlayerRow || dom.modal);
     state.modalLock = null;
     clearNameValidationResult();
     state.modalPriceValue = null;
@@ -19553,6 +20065,42 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
       finalizeModalOnlyInlineClose();
     }
   }
+
+  // Route-exit cleanup: when the inline catalog page is closed by navigation
+  // the purchase modal must not leak its open state (body.modal-open hides
+  // the dock/support widgets site-wide) or its per-purchase lock/fields into
+  // the next visit. While a purchase request is pending the modal is kept
+  // as-is so the pending UI state stays authoritative.
+  try {
+    window.__catalogResetPurchaseModalOnRouteExit = function () {
+      try {
+        if (state.submitting) return;
+        const modal = dom.modal || document.getElementById("purchase-modal");
+        if (!modal) return;
+        const wasOpen = modal.classList.contains("show") || modal.classList.contains("closing");
+        if (state.modalCloseTimer) {
+          clearTimeout(state.modalCloseTimer);
+          state.modalCloseTimer = null;
+        }
+        modal.classList.remove("show", "closing");
+        try { document.body.classList.remove("modal-open"); } catch (_) {}
+        if (!wasOpen) return;
+        try { resetTurnstileWidget({ remove: true }); } catch (_) {}
+        try { clearFieldControlValues(dom.modalPlayerRow || modal); } catch (_) {}
+        try { closeQtyPickerMenu(); } catch (_) {}
+        state.modalLock = null;
+        state.modalPriceValue = null;
+        state.modalPriceDisplayText = "";
+        state.modalPriceAnimatingTarget = "";
+        try {
+          if (state.modalPriceAnimTimer) {
+            clearTimeout(state.modalPriceAnimTimer);
+            state.modalPriceAnimTimer = null;
+          }
+        } catch (_) {}
+      } catch (_) {}
+    };
+  } catch (_) {}
 
   function splitPriceForRolling(text) {
     const raw = String(text || "").trim();
@@ -19974,6 +20522,8 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
         });
         syncServerClockOffsetFromResponse(res);
         const data = await res.json().catch(() => ({}));
+        const siteDisabledError = handleSiteDisabledApiResponse(data, res, "catalog-game");
+        if (siteDisabledError) throw siteDisabledError;
         if (!res.ok || data?.success === false || data?.ok === false) {
           const err = data?.error || res.statusText || "failed";
           lastError = new Error(err);
@@ -20103,15 +20653,23 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     return updateCatalogBalanceView(next);
   }
 
+  // Synchronous re-entrancy guard: state.submitting is only set after the
+  // awaited login/validation steps, so without this a fast double-tap could
+  // pass the state.submitting check twice and POST the purchase twice.
+  let submitOrderInFlight = false;
+
   async function submitOrder() {
     if (!state.selected) {
       showToast("يرجى اختيار عرض.", "warning");
       return;
     }
-    if (state.submitting) {
+    if (state.submitting || submitOrderInFlight) {
       showToast("الطلب قيد المعالجة، يرجى الانتظار.", "warning");
       return;
     }
+    submitOrderInFlight = true;
+    if (dom.modalBuy) dom.modalBuy.disabled = true;
+    try {
 
     let currentUser = await requireCatalogPurchaseLogin();
     if (!currentUser) {
@@ -20275,10 +20833,21 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
       showToast("حدث خطأ غير متوقع أثناء تنفيذ الطلب.", "error");
       resetTurnstileWidget();
     } finally {
-      dom.modalBuy.disabled = false;
+      // Clear the pending state first: if the modal DOM was torn down by a
+      // navigation while the request was in flight, a throw here must not
+      // leave state.submitting stuck or the page loader held forever.
       state.submitting = false;
       try { window.__CATALOG_PURCHASE_ACTIVE__ = false; } catch(_) {}
+      try { if (dom.modalBuy) dom.modalBuy.disabled = false; } catch (_) {}
       releaseCatalogNetworkPageLoader();
+    }
+
+    } finally {
+      submitOrderInFlight = false;
+      // Early validation returns happen before state.submitting is set;
+      // restore the button for those paths (the inner finally already
+      // handles the request path).
+      try { if (dom.modalBuy && !state.submitting) dom.modalBuy.disabled = false; } catch (_) {}
     }
   }
 
@@ -20398,6 +20967,11 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     } catch (err) {
       if (isStale()) return;
       console.error("catalog load error:", err);
+      if (isSiteDisabledCatalogError(err)) {
+        try { renderOffers([]); } catch (_) {}
+        state.loadingOffers = false;
+        return;
+      }
       showToast("تعذر تحميل البيانات.", "error");
       try { window.__CATALOG_INLINE_FORCE_MODAL__ = ""; } catch (_) {}
       state.loadingOffers = false;
@@ -20486,6 +21060,8 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
       input.addEventListener("input", () => { normalizeInputDigitsInPlace(input); });
       input.addEventListener("blur", () => { normalizeInputDigitsInPlace(input); });
     });
+    bindPurchaseAutofillSource(dom.modalPlayerId);
+    bindPurchaseAutofillSource(dom.playerInput);
     if (dom.modalDesc) {
       dom.modalDesc.addEventListener("scroll", () => updateModalDescScrollIndicator(), { passive: true });
       dom.modalDesc.addEventListener("pointerdown", handleModalDescPointerDown);
@@ -20498,14 +21074,24 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
       if (!dom.modal?.classList.contains("show")) return;
       requestAnimationFrame(() => updateModalDescScrollIndicator());
     });
+    // currency:change / currency:rates:change / currency:ready often fire
+    // back-to-back; renderOffers rebuilds the whole grid, so coalesce the
+    // bursts into a single re-render per animation frame.
+    let currencyRefreshScheduled = false;
     const handleCatalogCurrencyChange = () => {
-      try {
-        if (Array.isArray(state.allItems) && state.allItems.length) {
-          renderOffers(state.allItems);
-        }
-      } catch (_) {}
-      try { updateSummary(); } catch (_) {}
-      try { updateModalPrice(); } catch (_) {}
+      if (currencyRefreshScheduled) return;
+      currencyRefreshScheduled = true;
+      const run = () => {
+        currencyRefreshScheduled = false;
+        try {
+          if (Array.isArray(state.allItems) && state.allItems.length) {
+            renderOffers(state.allItems);
+          }
+        } catch (_) {}
+        try { updateSummary(); } catch (_) {}
+        try { updateModalPrice(); } catch (_) {}
+      };
+      try { requestAnimationFrame(run); } catch (_) { setTimeout(run, 0); }
     };
     window.addEventListener("currency:change", handleCatalogCurrencyChange);
     window.addEventListener("currency:rates:change", handleCatalogCurrencyChange);
@@ -20681,7 +21267,14 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           showToast("لا يوجد حقل للصق.", "warning");
           return;
         }
-        if (txt) dom.playerInput.value = txt;
+        if (txt) {
+          const res = runPurchaseAutofill(txt, { source: "paste", origin: dom.playerInput });
+          if (!res.structured) {
+            dom.playerInput.value = txt;
+            try { sanitizeFieldInputInPlace(dom.playerInput); } catch (_) {}
+            try { storeTrustedPurchaseFieldValue(dom.playerInput); } catch (_) {}
+          }
+        }
         else showToast("لا يوجد نص في الحافظة.", "warning");
       } catch {
         showToast("تعذر قراءة الحافظة. يرجى الإدخال يدويًا.", "error");
@@ -23063,6 +23656,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           currentUid: null,
           profile: null,
           profileResolvedUid: '',
+          clientLevelsResolvedUid: '',
           initialReadyPromise: null,
           initialReadyResolve: null,
           initialReadySettled: true,
@@ -23520,6 +24114,39 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           });
         }
 
+        function applyClientLevelsProfileBalance(profile){
+          var source = (profile && typeof profile === 'object') ? profile : {};
+          var val = Number(source.balance != null ? source.balance : (source.balanceStr != null ? source.balanceStr : source.balance_str));
+          if (!Number.isFinite(val)) return false;
+          var formatted = (typeof window.__formatHeaderBalanceDisplay === 'function')
+            ? window.__formatHeaderBalanceDisplay(val)
+            : ((typeof window.formatCurrencyFromJOD === 'function')
+              ? window.formatCurrencyFromJOD(val)
+              : (val.toFixed(3) + ' USD'));
+          try { window.__BAL_BASE__ = val; window.__BALANCE__ = val; } catch(_){}
+          try {
+            if (typeof window.__setHeaderBalanceDisplay === 'function') {
+              window.__setHeaderBalanceDisplay(formatted);
+            } else {
+              var textEl = document.getElementById('headerBalanceText');
+              var currencyEl = document.getElementById('headerBalanceCurrency');
+              if (textEl) {
+                var parts = String(formatted || '').trim().split(/\s+/);
+                textEl.textContent = parts.shift() || formatted;
+                if (currencyEl) currencyEl.textContent = parts.join(' ') || '';
+              }
+            }
+          } catch(_){}
+          try {
+            window.dispatchEvent(new CustomEvent('balance:change', { detail: { value: val, formatted: formatted } }));
+          } catch(_){}
+          try {
+            var uid = getCurrentAuthUid();
+            if (uid && typeof writeBalanceMemory === 'function') writeBalanceMemory(uid, val);
+          } catch(_){}
+          return true;
+        }
+
         function readLevelsSessionInfo(){
           var out = { uid: '', sessionKey: '', idToken: '' };
           try {
@@ -23548,13 +24175,6 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           var user = getCurrentAuthUser();
           var uid = String((user && user.uid) || session.uid || state.currentUid || '').trim();
           var idToken = String(session.idToken || '').trim();
-          if (user && typeof user.getIdToken === 'function') {
-            try { idToken = String(await user.getIdToken(false) || '').trim(); }
-            catch (_) {
-              try { idToken = String(await user.getIdToken(true) || '').trim(); }
-              catch(__){}
-            }
-          }
           return {
             uid: uid,
             sessionKey: String(session.sessionKey || '').trim(),
@@ -23580,18 +24200,19 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
 
         async function fetchClientLevelsStateFromServer(){
           var auth = await resolveLevelsAuthContext();
-          if (!auth.uid || !auth.idToken || !auth.sessionKey) {
+          if (!auth.uid || !auth.sessionKey) {
             throw new Error('levels_auth_missing');
           }
           var requestUrl = buildClientLevelsRequestUrl(auth.uid);
+          var headers = {
+            'accept': 'application/json',
+            'X-SessionKey': auth.sessionKey
+          };
+          if (auth.idToken) headers.Authorization = 'Bearer ' + auth.idToken;
           var response = await fetch(requestUrl.toString(), {
             method: 'GET',
             cache: 'no-store',
-            headers: {
-              'accept': 'application/json',
-              'Authorization': 'Bearer ' + auth.idToken,
-              'X-SessionKey': auth.sessionKey
-            }
+            headers: headers
           });
           if (!response.ok) throw new Error('levels_http_' + String(response.status || 0));
           var payload = await response.json();
@@ -23602,6 +24223,8 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           if (payload && payload.profile && typeof payload.profile === 'object') {
             state.profile = Object.assign({}, state.profile || {}, payload.profile);
             state.profileResolvedUid = auth.uid;
+            state.clientLevelsResolvedUid = auth.uid;
+            applyClientLevelsProfileBalance(payload.profile);
             settleInitialLevelsReady();
           }
           return state.siteState;
@@ -23986,6 +24609,8 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
         function hasResolvedCurrentProfile(){
           var uid = getCurrentAuthUid();
           if (!uid) return false;
+          if (String(state.clientLevelsResolvedUid || '').trim() === uid) return true;
+          if (state.siteStateRefreshPromise) return false;
           return String(state.profileResolvedUid || '').trim() === uid;
         }
 
@@ -24060,6 +24685,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
             state.currentUid = null;
             state.profile = null;
             state.profileResolvedUid = '';
+            state.clientLevelsResolvedUid = '';
             renderLevels();
             settleInitialLevelsReady();
             setStatus('تعذر الوصول إلى بيانات الحساب.', 'err');
@@ -24074,6 +24700,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
               state.currentUid = null;
               state.profile = null;
               state.profileResolvedUid = '';
+              state.clientLevelsResolvedUid = '';
               renderLevels();
               settleInitialLevelsReady();
               try {
@@ -24084,6 +24711,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
             }
             state.currentUid = user.uid;
             state.profileResolvedUid = '';
+            state.clientLevelsResolvedUid = '';
             setStatus('جاري تحميل عضويات الحساب...', 'info');
             refreshCatalog(false);
             state.unsubProfile = function(){};
@@ -25492,6 +26120,14 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           if (!state.refs || !state.refs.status) return;
           state.refs.status.className = "security-status" + (type ? (" " + type) : "");
           state.refs.status.textContent = message || "";
+          try {
+            if (state.currentUser && state.enabled && type === "error" && message) {
+              state.refs.status.hidden = false;
+              state.refs.status.removeAttribute("hidden");
+              state.refs.status.removeAttribute("aria-hidden");
+              state.refs.status.style.removeProperty("display");
+            }
+          } catch(_){}
         }
 
         function getCurrentUserEmail(){
@@ -26638,6 +27274,60 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           renderSecurityQr(cleanSecret ? buildOtpAuthUrl(cleanSecret) : "");
         }
 
+        function setSecurityElementHidden(el, hidden){
+          if (!el) return;
+          if (hidden) {
+            try { el.setAttribute("aria-hidden", "true"); } catch(_){}
+            try { el.hidden = true; } catch(_){}
+            try { el.style.setProperty("display", "none", "important"); } catch(_){}
+            return;
+          }
+          try { el.hidden = false; } catch(_){}
+          try { el.removeAttribute("hidden"); } catch(_){}
+          try { el.removeAttribute("aria-hidden"); } catch(_){}
+          try { el.style.removeProperty("display"); } catch(_){}
+        }
+
+        function syncSecurityEnabledOnlyView(){
+          if (!state.refs) return;
+          var enabled = !!(state.currentUser && state.enabled);
+          if (state.root) state.root.setAttribute("data-security-enabled", enabled ? "true" : "false");
+          var primaryCard = state.root && state.root.querySelector ? state.root.querySelector(".security-card:not(.security-devices-card)") : null;
+          var header = state.root && state.root.querySelector ? state.root.querySelector(".security-header") : null;
+          var headerMeta = state.root && state.root.querySelector ? state.root.querySelector(".security-header-meta") : null;
+          var spacer = state.root && state.root.querySelector ? state.root.querySelector(".security-spacer") : null;
+          var disableActions = state.refs.disableBtn && state.refs.disableBtn.closest ? state.refs.disableBtn.closest(".security-actions") : null;
+          setSecurityElementHidden(spacer, enabled);
+          setSecurityElementHidden(header, enabled);
+          setSecurityElementHidden(headerMeta, enabled);
+          setSecurityElementHidden(state.refs.badge, enabled);
+          setSecurityElementHidden(state.refs.openMethodModalBtn, enabled);
+          setSecurityElementHidden(state.refs.status, enabled);
+          setSecurityElementHidden(state.refs.disableMethodHint, enabled);
+          if (enabled) {
+            if (primaryCard) primaryCard.style.setProperty("display", "contents", "important");
+            if (state.refs.enabledBox) state.refs.enabledBox.style.setProperty("display", "contents", "important");
+            if (disableActions) {
+              disableActions.style.setProperty("width", "min(100%, 420px)", "important");
+              disableActions.style.setProperty("margin", "24px auto 0", "important");
+            }
+            if (state.refs.enableMethodHint) state.refs.enableMethodHint.style.setProperty("display", "none", "important");
+            if (state.refs.telegramTools) state.refs.telegramTools.style.setProperty("display", "none", "important");
+            if (state.refs.appDetails) state.refs.appDetails.style.setProperty("display", "none", "important");
+            if (state.refs.otpWrap) state.refs.otpWrap.style.setProperty("display", "none", "important");
+            if (state.refs.enableBtn && state.refs.enableBtn.parentElement) {
+              state.refs.enableBtn.parentElement.style.setProperty("display", "none", "important");
+            }
+          } else {
+            if (primaryCard) primaryCard.style.removeProperty("display");
+            if (state.refs.enabledBox) state.refs.enabledBox.style.removeProperty("display");
+            if (disableActions) {
+              disableActions.style.removeProperty("width");
+              disableActions.style.removeProperty("margin");
+            }
+          }
+        }
+
         function updateUiLoggedOut(){
           updateBadge(false);
           if (!state.refs) return;
@@ -26689,6 +27379,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           renderDevices();
           setDeviceStatus("info", "سجّل الدخول لعرض الأجهزة.");
           setDevicesLoading(false);
+          syncSecurityEnabledOnlyView();
         }
 
         function updateUi(){
@@ -26727,6 +27418,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
             setStatus("info", "");
             maybeAutoOpenMethodModal();
           }
+          syncSecurityEnabledOnlyView();
           setConfigReady(true);
         }
 
@@ -31546,6 +32238,9 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
             if (catalogSectionLoaderHolds > 0) {
               return;
             }
+            if (Number(window.__SERVER_REQUEST_LOADER_PENDING_COUNT__ || 0) > 0) {
+              return;
+            }
           } catch(_){}
           try {
             if (typeof window.__resetPageLoaderHold === "function") {
@@ -31591,6 +32286,25 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
             return currentNode._loaded === true;
           }
           return true;
+        }
+        function isInlineRouteEmptyLocally(key, ctx){
+          var routeKey = String(key || "").toLowerCase();
+          if (!isCatalogInlineRouteKey(routeKey)) return false;
+          if (!Array.isArray(treeCache) || !treeCache.length) return false;
+          var providerMode = (typeof getCatalogMode === "function" && getCatalogMode() === "provider-games");
+          if (!providerMode) return false;
+          var parts = normalizeInlineRouteTreeParts(ctx);
+          if (!parts.length) return false;
+          var currentNode = findTreeNodeByPath(treeCache, parts);
+          if (!currentNode) {
+            try { currentNode = findBestExistingTreeNode(treeCache, parts); } catch(_){ currentNode = null; }
+          }
+          if (!currentNode) return false;
+          return !!(
+            treeNodeIsCategory(currentNode) &&
+            currentNode._loaded === true &&
+            !treeNodeHasBranches(currentNode)
+          );
         }
         function holdLoader(){
           try {
@@ -32021,6 +32735,31 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
         var deferredTreeWarmSeen = {};
         var deferredTreeWarmActivePath = [];
         var ROOT_TREE_WARM_LIMIT = 8;
+        function handleCatalogSiteDisabledResponse(data, res, reason){
+          try {
+            if (typeof window.__handleSiteDisabledApiResponse === "function") {
+              return window.__handleSiteDisabledApiResponse(data, res, reason || "catalog-load-categories");
+            }
+          } catch(_){}
+          return null;
+        }
+        function isCatalogSiteDisabledError(err){
+          try {
+            if (typeof window.__isSiteDisabledCatalogError === "function") {
+              return window.__isSiteDisabledCatalogError(err);
+            }
+          } catch(_){}
+          try {
+            if (!err) return false;
+            if (err.siteDisabled === true || err.code === "site_disabled") return true;
+            var payload = err.payload && typeof err.payload === "object" ? err.payload : null;
+            var code = payload ? String(payload.code || payload.error || payload.reason || payload.message || "").trim().toLowerCase() : "";
+            if (code === "site_disabled" || code === "site-disabled" || code === "site_locked") return true;
+            var text = String(err.message || "").trim().toLowerCase();
+            return text === "site_disabled" || text === "site-disabled" || text === "site_locked";
+          } catch(_){}
+          return false;
+        }
         function decodeCategoryText(codes){
           try {
             return String.fromCharCode.apply(String, Array.isArray(codes) ? codes : []);
@@ -32476,6 +33215,8 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           providerSyncInflight = fetchWithCatalogTimeout(syncUrl, { cache: "no-store" }, CATALOG_NETWORK_TIMEOUT_MS)
             .then(function(res){
               return res.json().catch(function(){ return {}; }).then(function(data){
+                var siteDisabledErr = handleCatalogSiteDisabledResponse(data, res, "catalog-provider-sync");
+                if (siteDisabledErr) throw siteDisabledErr;
                 return { ok: res.ok, data: data };
               });
             })
@@ -33366,6 +34107,7 @@ function normalizeCategory(value){
             if (Array.isArray(cachedTree)) {
               node.branches = cachedTree;
               node._loaded = true;
+              try { node._emptyTree = cachedTree.length === 0; } catch(_){}
               node._loading = false;
               try{
                 if (ensureCacheFromTree()) {
@@ -33393,6 +34135,8 @@ function normalizeCategory(value){
 
           node._fetchPromise = fetchWithCatalogTimeout(url.toString(), { cache: "no-store" }, CATALOG_CATEGORY_FETCH_TIMEOUT_MS).then(function(res){
             return res.json().catch(function(){ return {}; }).then(function(data){
+              var siteDisabledErr = handleCatalogSiteDisabledResponse(data, res, "catalog-category");
+              if (siteDisabledErr) throw siteDisabledErr;
               if (!res.ok) {
                 var err = new Error("catalog_category_fetch_failed");
                 err.payload = data;
@@ -33416,6 +34160,7 @@ function normalizeCategory(value){
             }
             node.branches = tree;
             node._loaded = true;
+            try { node._emptyTree = tree.length === 0; } catch(_){}
             node._loading = false;
             if (providerCategoryCache) providerCategoryCache.set(cacheKey, tree);
             if (forceFetch) {
@@ -33430,6 +34175,11 @@ function normalizeCategory(value){
             }catch(_){}
             return tree;
           }).catch(function(err){
+            if (isCatalogSiteDisabledError(err)) {
+              node._loading = false;
+              node._loaded = true;
+              return null;
+            }
             console.warn("Catalog category fetch error:", err);
             node._loading = false;
             node._loaded = true;
@@ -33950,7 +34700,15 @@ function normalizeCategory(value){
         function renderTreeLevel(section, nodes, routeKey, pathParts, anchor, message, parentKey, allowEmptyMessage){
           removeOldCards(section);
           if (!Array.isArray(nodes) || !nodes.length) {
-            if (message) message.style.display = allowEmptyMessage ? "" : "none";
+            var hasSelectedTreePath = Array.isArray(pathParts) && pathParts.length > 0;
+            if (message) {
+              message.textContent = "\u0644\u0627 \u062a\u0648\u062c\u062f \u0645\u0646\u062a\u062c\u0627\u062a \u0645\u062a\u0627\u062d\u0629 \u062d\u0627\u0644\u064a\u0627.";
+              message.style.display = (allowEmptyMessage || hasSelectedTreePath) ? "" : "none";
+            }
+            try { hideBranches(section); } catch(_){}
+            try { clearInlineRoutePrimeLoader(); } catch(_){}
+            try { drainCatalogSectionLoaders(); } catch(_){}
+            try { forceReleasePageLoader(); } catch(_){}
             try { applyCardsVisibility(); } catch(_){}
             return;
           }
@@ -34049,6 +34807,8 @@ function normalizeCategory(value){
             if (!requestUrl) return Promise.resolve({ games: [], categories: [], tree: [] });
             return fetchWithCatalogTimeout(requestUrl, { cache: "no-store" }, CATALOG_NETWORK_TIMEOUT_MS).then(async function(res){
               var data = await res.json().catch(function(){ return {}; });
+              var siteDisabledErr = handleCatalogSiteDisabledResponse(data, res, "catalog-load-categories");
+              if (siteDisabledErr) throw siteDisabledErr;
               if (!res.ok) {
                 var err = new Error("catalog_games_fetch_failed");
                 err.payload = data;
@@ -34083,8 +34843,10 @@ function normalizeCategory(value){
             }
 
             return fetchFrom(primary, targetMode).catch(function(err){
+              if (isCatalogSiteDisabledError(err)) throw err;
               if (fallbackDefault && fallbackDefault !== primary) {
                 return fetchFrom(fallbackDefault, targetMode).catch(function(lastErr){
+                  if (isCatalogSiteDisabledError(lastErr)) throw lastErr;
                   return tryOriginFallback(lastErr);
                 });
               }
@@ -34101,6 +34863,7 @@ function normalizeCategory(value){
           }
           inflight = syncPromise.then(function(){
             return fetchFromBase(base, primaryMode).catch(function(err){
+              if (isCatalogSiteDisabledError(err)) throw err;
               if (fallbackMode !== primaryMode) {
                 return fetchFromBase(base, fallbackMode);
               }
@@ -34208,6 +34971,9 @@ function normalizeCategory(value){
             return games;
           }).catch(function(err){
             console.error("Catalog games fetch error:", err);
+            if (isCatalogSiteDisabledError(err)) {
+              return [];
+            }
             if (catalogCachePayloadHasContent({
               games: cache,
               categories: categoriesCache,
@@ -36867,7 +37633,8 @@ function normalizeCategory(value){
           prewarm: prewarmCatalogTranslations,
           primeRouteLoader: primeInlineRouteLoader,
           clearRouteLoaderPrime: clearInlineRoutePrimeLoader,
-          canResolveRouteLocally: canResolveInlineRouteLocally
+          canResolveRouteLocally: canResolveInlineRouteLocally,
+          isRouteEmptyLocally: isInlineRouteEmptyLocally
         };
       })();
 
@@ -38818,7 +39585,18 @@ function normalizeCategory(value){
                 );
                 var currentHashIsCatalogBranch = /^#\/games\/.+/i.test(String(location.hash || ''));
                 var refreshKey = String(routeValue || (Array.isArray(routeParts) ? routeParts.join('/') : '') || '').trim();
-                if (section && hasCatalogBranchRoute && currentHashIsCatalogBranch && refreshKey) {
+                var routeKnownEmpty = false;
+                try {
+                  routeKnownEmpty = !!(
+                    catalogGamesInline &&
+                    typeof catalogGamesInline.isRouteEmptyLocally === 'function' &&
+                    catalogGamesInline.isRouteEmptyLocally('games', {
+                      routeValue: routeValue,
+                      routeParts: routeParts
+                    })
+                  );
+                } catch(_){ routeKnownEmpty = false; }
+                if (section && hasCatalogBranchRoute && currentHashIsCatalogBranch && refreshKey && !routeKnownEmpty) {
                   var lastBootRefreshKey = section.dataset.catalogBootRefreshKey || '';
                   if (lastBootRefreshKey !== refreshKey) {
                     section.dataset.catalogBootRefreshKey = refreshKey;
@@ -39062,10 +39840,10 @@ function normalizeCategory(value){
               if (typeof showPageLoader === 'function') showPageLoader({ hold: true, replay: true });
             } catch(_){}
           }
-          if (inlineWalletBootLoaderTimer) clearTimeout(inlineWalletBootLoaderTimer);
-          inlineWalletBootLoaderTimer = setTimeout(function(){
-            releaseInlineWalletBootLoader();
-          }, 15000);
+          if (inlineWalletBootLoaderTimer) {
+            clearTimeout(inlineWalletBootLoaderTimer);
+            inlineWalletBootLoaderTimer = null;
+          }
         } catch(_){}
       }
       try { window.__releaseInlineWalletBootLoader = releaseInlineWalletBootLoader; } catch(_){}
@@ -39374,6 +40152,16 @@ function normalizeCategory(value){
             modalOnlyFlow = !!(host && host.dataset && host.dataset.modalOnlyFlow === '1');
             if (host && host.dataset) delete host.dataset.modalOnlyFlow;
           } catch(_){ modalOnlyFlow = false; }
+          // Never leak the purchase modal (and body.modal-open) across routes.
+          try {
+            if (typeof window.__catalogResetPurchaseModalOnRouteExit === 'function') {
+              window.__catalogResetPurchaseModalOnRouteExit();
+            } else if (window.__CATALOG_PURCHASE_ACTIVE__ !== true) {
+              var leakedPm = document.getElementById('purchase-modal');
+              if (leakedPm) leakedPm.classList.remove('show', 'closing');
+              document.body.classList.remove('modal-open');
+            }
+          } catch(_){ }
           if (host) host.style.display = 'none';
           setModalOnlyClassSafe(false);
           try { window.__CATALOG_INLINE_MODAL_ONLY__ = ''; window.__CATALOG_INLINE_MODAL_ONLY_SOURCE__ = ''; window.__CATALOG_INLINE_KEEP_PAGE_FOR_FORCE_MODAL__ = ''; } catch(_){ }
@@ -40382,6 +41170,90 @@ function normalizeCategory(value){
         } catch(_){}
       }
 
+      function getInlineRouteFetchUrl(input){
+        try {
+          if (typeof input === 'string') return input;
+          if (input && typeof input.url === 'string') return input.url;
+        } catch(_){}
+        return '';
+      }
+
+      function isInlineRouteServerFetchUrl(input){
+        var url = getInlineRouteFetchUrl(input);
+        if (!url) return true;
+        var lower = String(url || '').toLowerCase();
+        if (/^(?:data|blob|file):/.test(lower)) return false;
+        if (/\.(?:js|mjs|css|png|jpe?g|webp|gif|svg|ico|woff2?|ttf|map)(?:[?#]|$)/i.test(lower)) return false;
+        return true;
+      }
+
+      function createInlineRouteServerFetchTracker(options){
+        var opts = options || {};
+        var originalFetch = null;
+        try { originalFetch = window.fetch; } catch(_){ originalFetch = null; }
+        if (typeof originalFetch !== 'function') {
+          return {
+            waitForIdle: function(){ return Promise.resolve(); },
+            stop: function(){},
+            hasTrackedFetch: function(){ return false; }
+          };
+        }
+        var active = true;
+        var pending = 0;
+        var trackedFetchStarted = false;
+        var idleResolvers = [];
+        function notifyIdle(){
+          if (pending > 0) return;
+          var resolvers = idleResolvers.splice(0);
+          resolvers.forEach(function(resolve){ try { resolve(); } catch(_){} });
+        }
+        function waitForIdle(){
+          if (pending <= 0) return Promise.resolve();
+          return new Promise(function(resolve){ idleResolvers.push(resolve); });
+        }
+        function trackedFetch(){
+          var shouldTrack = false;
+          try { shouldTrack = active && isInlineRouteServerFetchUrl(arguments[0]); } catch(_){ shouldTrack = false; }
+          if (!shouldTrack) return originalFetch.apply(this, arguments);
+          if (!trackedFetchStarted) {
+            trackedFetchStarted = true;
+            try {
+              if (typeof opts.onFirstFetch === 'function') opts.onFirstFetch(arguments[0]);
+            } catch(_){}
+          }
+          pending += 1;
+          var result;
+          try {
+            result = originalFetch.apply(this, arguments);
+          } catch(err) {
+            pending = Math.max(0, pending - 1);
+            notifyIdle();
+            throw err;
+          }
+          return Promise.resolve(result).then(function(response){
+            pending = Math.max(0, pending - 1);
+            notifyIdle();
+            return response;
+          }, function(err){
+            pending = Math.max(0, pending - 1);
+            notifyIdle();
+            throw err;
+          });
+        }
+        try { window.fetch = trackedFetch; } catch(_){}
+        return {
+          waitForIdle: waitForIdle,
+          hasTrackedFetch: function(){ return trackedFetchStarted; },
+          stop: function(){
+            active = false;
+            try {
+              if (window.fetch === trackedFetch) window.fetch = originalFetch;
+            } catch(_){}
+            notifyIdle();
+          }
+        };
+      }
+
       function setInlineRouteTransitionPending(active, meta){
         var next = !!active;
         var token = Number(meta && meta.token || 0) || 0;
@@ -40443,36 +41315,14 @@ function normalizeCategory(value){
       }
 
       function waitForInlineWalletRouteStep(value, maxMs, label){
-        var timeoutMs = Math.max(3000, Number(maxMs) || INLINE_WALLET_ROUTE_ONSHOW_MAX_MS);
-        return new Promise(function(resolve){
-          var done = false;
-          var timer = 0;
-          function finish(result){
-            if (done) return;
-            done = true;
-            try { if (timer) clearTimeout(timer); } catch(_){ }
-            resolve(result);
-          }
+        return Promise.resolve(value).catch(function(err){
           try {
-            timer = setTimeout(function(){
-              try {
-                console.warn('[inline-route] wallet route step timed out', {
-                  label: String(label || 'wallet_route_step'),
-                  timeoutMs: timeoutMs
-                });
-              } catch(_){ }
-              finish(null);
-            }, timeoutMs);
+            console.warn('[inline-route] wallet route step failed', {
+              label: String(label || 'wallet_route_step'),
+              error: err && err.message ? err.message : String(err || '')
+            });
           } catch(_){ }
-          Promise.resolve(value).then(finish).catch(function(err){
-            try {
-              console.warn('[inline-route] wallet route step failed', {
-                label: String(label || 'wallet_route_step'),
-                error: err && err.message ? err.message : String(err || '')
-              });
-            } catch(_){ }
-            finish(null);
-          });
+          return null;
         });
       }
 
@@ -40494,8 +41344,11 @@ function normalizeCategory(value){
             );
           } catch(_){ canResolveCatalogRouteLocally = false; }
         }
+        // Pure route switches should not flash the global loader. The loader
+        // starts only when an actual server fetch begins during inline load.
         var useNonWalletTransitionLoader = !isWalletFlowRoute && !canResolveCatalogRouteLocally;
         var nonWalletLoaderSettled = false;
+        var nonWalletLoaderStarted = false;
         var keyLower = String(key || '').toLowerCase();
         var activeInlineRouteKey = '';
         try { activeInlineRouteKey = String(document.body && document.body.getAttribute('data-inline-route') || '').toLowerCase(); } catch(_){ activeInlineRouteKey = ''; }
@@ -40510,6 +41363,17 @@ function normalizeCategory(value){
         if (isWalletFlowRoute && !Object.prototype.hasOwnProperty.call(ctx, '__enteredWalletRoute')) {
           ctx.__enteredWalletRoute = activeInlineRouteKey !== keyLower;
         }
+        function beginNonWalletLoader(){
+          if (!useNonWalletTransitionLoader || nonWalletLoaderStarted || nonWalletLoaderSettled) return;
+          nonWalletLoaderStarted = true;
+          holdInlineRoutePageLoader();
+          setInlineRouteTransitionPending(true, { token: routeLoadToken, key: key });
+          try {
+            if (typeof catalogGamesInline !== 'undefined' && catalogGamesInline && typeof catalogGamesInline.primeRouteLoader === 'function') {
+              catalogGamesInline.primeRouteLoader(key, ctx);
+            }
+          } catch(_){ }
+        }
         function settleNonWalletLoader(forceImmediate){
           if (!useNonWalletTransitionLoader || nonWalletLoaderSettled) return;
           nonWalletLoaderSettled = true;
@@ -40522,26 +41386,14 @@ function normalizeCategory(value){
           function finish(){
             if (!isCurrentRouteToken()) return;
             setInlineRouteTransitionPending(false, { token: routeLoadToken });
-            releaseInlineRoutePageLoader();
+            if (nonWalletLoaderStarted) releaseInlineRoutePageLoader();
           }
           if (forceImmediate === true) {
             finish();
             return;
           }
           try {
-            var elapsed = started ? (Date.now() - started) : Infinity;
-            var remain = 300 - elapsed;
-            if (remain > 0 && remain < 5000) {
-              setTimeout(function(){
-                try {
-                  requestAnimationFrame(function(){ requestAnimationFrame(finish); });
-                } catch(_){ finish(); }
-              }, remain);
-            } else {
-              try {
-                requestAnimationFrame(function(){ requestAnimationFrame(finish); });
-              } catch(_){ finish(); }
-            }
+            requestAnimationFrame(function(){ requestAnimationFrame(finish); });
           } catch(_){ finish(); }
         }
         var forceReload = !!ctx.__forceReload;
@@ -40590,17 +41442,16 @@ function normalizeCategory(value){
             });
           }
         }
+        var routeFetchTracker = null;
         var loadTask = (async function(){
         if (useNonWalletTransitionLoader) {
-          holdInlineRoutePageLoader();
-          setInlineRouteTransitionPending(true, { token: routeLoadToken, key: key });
+          routeFetchTracker = createInlineRouteServerFetchTracker({ onFirstFetch: beginNonWalletLoader });
         } else {
           try { clearInlineRouteTransitionPendingState(); } catch(_){ }
         }
         try {
           if (typeof catalogGamesInline !== 'undefined' && catalogGamesInline && typeof catalogGamesInline.primeRouteLoader === 'function') {
             if (isWalletFlowRoute) catalogGamesInline.clearRouteLoaderPrime();
-            else if (useNonWalletTransitionLoader) catalogGamesInline.primeRouteLoader(key, ctx);
             else if (typeof catalogGamesInline.clearRouteLoaderPrime === 'function') catalogGamesInline.clearRouteLoaderPrime();
           }
         } catch(_){ }
@@ -40639,6 +41490,12 @@ function normalizeCategory(value){
             await waitForInlineWalletRouteStep(onShowResult, INLINE_WALLET_ROUTE_ONSHOW_MAX_MS, 'onShow:' + String(key || ''));
           } else {
             try { await Promise.resolve(onShowResult); } catch(_){ }
+            if (routeFetchTracker) {
+              try {
+                await Promise.resolve();
+                await routeFetchTracker.waitForIdle();
+              } catch(_){ }
+            }
           }
           try{ if (typeof applyCardsVisibility === 'function') applyCardsVisibility(); }catch(_){ }
           try{ attachSearchBehavior(inlineBox); }catch(_){ }
@@ -40674,6 +41531,7 @@ function normalizeCategory(value){
           inlineWalletRouteLoadState.inFlightStartedAt = Date.now();
         }
         return Promise.resolve(loadTask).finally(function(){
+          try { if (routeFetchTracker) routeFetchTracker.stop(); } catch(_){}
           if (useNonWalletTransitionLoader) {
             try { settleNonWalletLoader(true); } catch(_){}
           }
@@ -40735,23 +41593,6 @@ function normalizeCategory(value){
         var hash = buildCategoryHash(key, hashPartsSource);
         var historyPath = routeValue || '';
         if (location.hash !== hash) { history.pushState({key:key, path: historyPath}, '', hash); }
-        var keyLowerLoader = String(key || '').toLowerCase();
-        var lightweightInlineRoutes = { games:1, favorites:1, privacy:1, terms:1 };
-        var walletFlowRoutes = { deposit:1, edaa:1 };
-        var shouldShowNavLoader = !lightweightInlineRoutes[keyLowerLoader];
-        var shouldPrimeInlineLoader = !!(
-          !walletFlowRoutes[keyLowerLoader] &&
-          /^(games)$/.test(keyLowerLoader) &&
-          (
-            (Array.isArray(effectiveParts) && effectiveParts.length) ||
-            (routeValue && String(routeValue).trim())
-          )
-        );
-        if (shouldShowNavLoader) {
-          try { if (typeof showPageLoader === 'function') showPageLoader(); } catch(_){ }
-        } else if (!walletFlowRoutes[keyLowerLoader] && !shouldPrimeInlineLoader) {
-          try { if (typeof hidePageLoader === 'function') hidePageLoader(); } catch(_){ }
-        }
         try { window.__INLINE_FORCE_ROUTE__ = key; } catch(_){ }
         try {
           loadInline(key, { routeValue: routeValue || '', routeParts: effectiveParts });

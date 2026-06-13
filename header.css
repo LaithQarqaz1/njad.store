@@ -1054,6 +1054,9 @@ body:has(#loginInline:not(.hidden)) #preloader { z-index: 200000 !important; }
   html.pre-login-route body.mobile-has-dock,
   body.mobile-has-dock.login-route-active,
   body.mobile-has-dock[data-inline-route="login"],
+  body.mobile-has-dock.mobile-dock-auth-hidden,
+  body.mobile-has-dock.mobile-dock-maintenance-hidden,
+  body.mobile-has-dock.maintenance-active,
   body.mobile-has-dock:has(#loginInline:not(.hidden)) {
     padding-bottom: 0 !important;
   }
@@ -1081,11 +1084,16 @@ body:has(#loginInline:not(.hidden)) #preloader { z-index: 200000 !important; }
   html.pre-login-route .mobile-dock,
   body.login-route-active .mobile-dock,
   body[data-inline-route="login"] .mobile-dock,
+  body.mobile-dock-auth-hidden .mobile-dock,
+  body.mobile-dock-maintenance-hidden .mobile-dock,
+  body.maintenance-active .mobile-dock,
   body:has(#loginInline:not(.hidden)) .mobile-dock {
     display: none !important;
   }
 
-  .mobile-dock.is-disabled {
+  .mobile-dock.is-disabled,
+  .mobile-dock.is-auth-hidden,
+  .mobile-dock.is-maintenance-hidden {
     display: none !important;
   }
 
@@ -1743,11 +1751,13 @@ body[data-inline-route="edaa"] #methodModal:not(.hidden) .modal-content {
   border: none;
   border-radius: 0;
   box-shadow: none;
+  cursor: pointer;
+  user-select: none;
 }
 
 .header-balance__metrics {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   gap: 4px;
   direction: ltr;
 }
@@ -1760,6 +1770,36 @@ body[data-inline-route="edaa"] #methodModal:not(.hidden) .modal-content {
   color: var(--balance-currency, var(--balance-text, #e2e8f0));
   direction: ltr;
   unicode-bidi: plaintext;
+}
+
+.header-balance__deposit-btn {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  border: 1px solid rgba(255,255,255,.32);
+  border-radius: 50%;
+  background: rgba(255,255,255,.10);
+  color: var(--balance-currency, var(--balance-text, #f8fafc));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+  font-size: 9px;
+  cursor: pointer;
+  opacity: .86;
+}
+
+.header-balance__deposit-btn i {
+  font-size: 9px;
+  line-height: 1;
+}
+
+.header-balance:focus-visible,
+.header-balance__deposit-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(var(--site-accent-rgb, 148, 163, 184), .35);
 }
 
 .header-balance__value {
@@ -1787,6 +1827,12 @@ body.light-mode .header-balance__value {
 html[data-theme="light"] .header-balance__currency,
 body.light-mode .header-balance__currency {
   color: var(--balance-currency-light, var(--balance-text-light, #0f172a));
+}
+html[data-theme="light"] .header-balance__deposit-btn,
+body.light-mode .header-balance__deposit-btn {
+  color: var(--balance-currency-light, var(--balance-text-light, #0f172a));
+  background: rgba(15,23,42,.04);
+  border-color: rgba(15,23,42,.18);
 }
 html[data-theme="light"] .header-balance,
 body.light-mode .header-balance {
@@ -1836,10 +1882,19 @@ body.light-mode .header-balance {
     line-height: 1;
   }
   .header-balance__metrics {
-    gap: 3px;
+    gap: 4px;
   }
   .header-balance__currency {
     font-size: 0.7rem;
+  }
+  .header-balance__deposit-btn {
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
+    font-size: 8px;
+  }
+  .header-balance__deposit-btn i {
+    font-size: 8px;
   }
   .header-balance__value {
     font-size: 0.95rem;

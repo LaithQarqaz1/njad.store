@@ -7,10 +7,10 @@
   <title>Njad store | نجاد ستور</title>
   
   
-  <link id="dynamicSiteManifestLink" rel="manifest" href="/manifest.webmanifest?v=20260528-01">
-  <link rel="icon" href="https://api.njad.store/site-icon.png?v=admin-20260518-02" type="image/png" sizes="any">
-  <link rel="shortcut icon" href="https://api.njad.store/site-icon.png?v=admin-20260518-02" type="image/png">
-  <link rel="apple-touch-icon" href="https://api.njad.store/site-icon.png?v=admin-20260518-02">
+  <link id="dynamicSiteManifestLink" rel="manifest" href="/manifest.webmanifest?v=20260613-share-preview-01">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1 1'%3E%3C/svg%3E" type="image/svg+xml" sizes="any">
+  <link rel="shortcut icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1 1'%3E%3C/svg%3E" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1 1'%3E%3C/svg%3E">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   
@@ -43,6 +43,8 @@
   <meta property="og:url" content="https://njad.store/">
   <meta property="og:title" content="Njad store | نجاد ستور">
   <meta property="og:description" content="Njad store | نجاد ستور للخدمات الرقمية وشحن الألعاب والاشتراكات بسرعة وأمان.">
+  <meta property="og:image" content="/site-preview.png">
+  <meta property="og:image:secure_url" content="/site-preview.png">
   <meta property="og:image:type" content="image/png">
   <meta property="og:image:alt" content="Njad store">
   <meta property="og:site_name" content="Njad store | نجاد ستور">
@@ -50,6 +52,8 @@
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Njad store | نجاد ستور">
   <meta name="twitter:description" content="Njad store | نجاد ستور للخدمات الرقمية وشحن الألعاب والاشتراكات بسرعة وأمان.">
+  <meta name="twitter:image" content="/site-preview.png">
+  <meta name="twitter:image:src" content="/site-preview.png">
   <meta name="twitter:image:alt" content="Njad store">
 
   <!-- Structured data for rich sitelinks + brand card -->
@@ -72,7 +76,7 @@
   <link rel="preconnect" href="https://cdn.qrcode-ai.com" crossorigin>
   <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" as="style" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'">
   <noscript><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" crossorigin="anonymous"></noscript>
-  <link rel="stylesheet" href="site-bundle.css?v=20260606-catalog-empty-cache-01">
+  <link rel="stylesheet" href="site-bundle.css?v=20260609-catalog-empty-route-01">
 
   <!-- End unified startup assets -->
   
@@ -504,7 +508,7 @@
           <div class="player-id-box">
             <label id="catalogPlayerLabel" for="catalogPlayerId">&#1575;&#1610;&#1583;&#1610;&#32;&#1575;&#1604;&#1604;&#1575;&#1593;&#1576;</label>
             <div class="player-input-row">
-            <input id="catalogPlayerId" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" lang="en" placeholder="&#1575;&#1583;&#1582;&#1604;&#32;&#1575;&#1604;&#1575;&#1610;&#1583;&#1610;&#32;&#1607;&#1606;&#1575;" />
+            <input id="catalogPlayerId" name="catalog_player_id" type="text" inputmode="numeric" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" lang="en" placeholder="&#1575;&#1583;&#1582;&#1604;&#32;&#1575;&#1604;&#1575;&#1610;&#1583;&#1610;&#32;&#1607;&#1606;&#1575;" />
               <button id="catalogPasteBtn" type="button" data-i18n="catalog.paste">&#1604;&#1589;&#1602;</button>
             </div>
             <div id="catalogExtraFields" class="player-extra-fields"></div>
@@ -547,7 +551,7 @@
           </div>
           <div class="pm-input" id="modal-player-row">
             <label id="modal-player-label" for="modal-player-id">&#1575;&#1610;&#1583;&#1610;&#32;&#1575;&#1604;&#1604;&#1575;&#1593;&#1576;</label>
-            <input id="modal-player-id" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" lang="en" placeholder="&#1575;&#1583;&#1582;&#1604;&#32;&#1575;&#1604;&#1575;&#1610;&#1583;&#1610;&#32;&#1607;&#1606;&#1575;" />
+            <input id="modal-player-id" name="catalog_modal_player_id" type="text" inputmode="numeric" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" lang="en" placeholder="&#1575;&#1583;&#1582;&#1604;&#32;&#1575;&#1604;&#1575;&#1610;&#1583;&#1610;&#32;&#1607;&#1606;&#1575;" />
             <div id="modalExtraFields" class="pm-extra-fields"></div>
           </div>
           <div class="pm-input pm-name-validation" id="modal-name-validation" style="display:none;">
@@ -774,8 +778,7 @@
     "@context": "https://schema.org",
     "@type": "Organization",
     "name": "Njad store",
-    "url": "https://njad.store/",
-    "logo": "https://api.njad.store/site-icon.png?v=admin-20260518-02"
+    "url": "https://njad.store/"
   }
   </script>
   <script id="siteNavigationJsonLd" type="application/ld+json">
@@ -786,8 +789,8 @@
     "url": ["https://njad.store/", "https://njad.store/#/login", "https://njad.store/#/orders", "https://njad.store/#/wallet"]
   }
   </script>
-  <script src="site_settings.js?v=20260518-03"></script>
-  <script src="site-bundle.js?v=20260606-catalog-empty-cache-01"></script>
+  <script src="site_settings.js?v=20260613-share-preview-01"></script>
+  <script src="site-bundle.js?v=20260613-share-preview-01"></script>
   <!-- End runtime scripts -->
 </body>
 </html>

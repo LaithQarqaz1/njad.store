@@ -1186,6 +1186,12 @@ html[dir="ltr"] #sidebar ul li a {
 /* اجعل التوست واللودر فوق النافذة المنبثقة */
 #toast { z-index: 13000 !important; }
 #preloader { z-index: 1700 !important; }
+
+/* تمييز مؤقت للحقول التي تم تعبئتها تلقائيًا من نص الشراء */
+[data-field-key] { transition: box-shadow .25s ease; }
+[data-field-key].autofill-flash {
+  box-shadow: 0 0 0 2px rgba(var(--site-accent-rgb, 107, 114, 128), .55);
+}
 html.pre-login-route #preloader,
 body.login-route-active #preloader,
 body[data-inline-route="login"] #preloader,
@@ -1209,6 +1215,9 @@ body:has(#loginInline:not(.hidden)) #preloader { z-index: 200000 !important; }
   html.pre-login-route body.mobile-has-dock,
   body.mobile-has-dock.login-route-active,
   body.mobile-has-dock[data-inline-route="login"],
+  body.mobile-has-dock.mobile-dock-auth-hidden,
+  body.mobile-has-dock.mobile-dock-maintenance-hidden,
+  body.mobile-has-dock.maintenance-active,
   body.mobile-has-dock:has(#loginInline:not(.hidden)) {
     padding-bottom: 0 !important;
   }
@@ -1236,11 +1245,16 @@ body:has(#loginInline:not(.hidden)) #preloader { z-index: 200000 !important; }
   html.pre-login-route .mobile-dock,
   body.login-route-active .mobile-dock,
   body[data-inline-route="login"] .mobile-dock,
+  body.mobile-dock-auth-hidden .mobile-dock,
+  body.mobile-dock-maintenance-hidden .mobile-dock,
+  body.maintenance-active .mobile-dock,
   body:has(#loginInline:not(.hidden)) .mobile-dock {
     display: none !important;
   }
 
-  .mobile-dock.is-disabled {
+  .mobile-dock.is-disabled,
+  .mobile-dock.is-auth-hidden,
+  .mobile-dock.is-maintenance-hidden {
     display: none !important;
   }
 
@@ -1898,11 +1912,13 @@ body[data-inline-route="edaa"] #methodModal:not(.hidden) .modal-content {
   border: none;
   border-radius: 0;
   box-shadow: none;
+  cursor: pointer;
+  user-select: none;
 }
 
 .header-balance__metrics {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   gap: 4px;
   direction: ltr;
 }
@@ -1915,6 +1931,36 @@ body[data-inline-route="edaa"] #methodModal:not(.hidden) .modal-content {
   color: var(--balance-currency, var(--balance-text, #e2e8f0));
   direction: ltr;
   unicode-bidi: plaintext;
+}
+
+.header-balance__deposit-btn {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  border: 1px solid rgba(255,255,255,.32);
+  border-radius: 50%;
+  background: rgba(255,255,255,.10);
+  color: var(--balance-currency, var(--balance-text, #f8fafc));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+  font-size: 9px;
+  cursor: pointer;
+  opacity: .86;
+}
+
+.header-balance__deposit-btn i {
+  font-size: 9px;
+  line-height: 1;
+}
+
+.header-balance:focus-visible,
+.header-balance__deposit-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(var(--site-accent-rgb, 148, 163, 184), .35);
 }
 
 .header-balance__value {
@@ -1942,6 +1988,12 @@ body.light-mode .header-balance__value {
 html[data-theme="light"] .header-balance__currency,
 body.light-mode .header-balance__currency {
   color: var(--balance-currency-light, var(--balance-text-light, #0f172a));
+}
+html[data-theme="light"] .header-balance__deposit-btn,
+body.light-mode .header-balance__deposit-btn {
+  color: var(--balance-currency-light, var(--balance-text-light, #0f172a));
+  background: rgba(15,23,42,.04);
+  border-color: rgba(15,23,42,.18);
 }
 html[data-theme="light"] .header-balance,
 body.light-mode .header-balance {
@@ -1991,10 +2043,19 @@ body.light-mode .header-balance {
     line-height: 1;
   }
   .header-balance__metrics {
-    gap: 3px;
+    gap: 4px;
   }
   .header-balance__currency {
     font-size: 0.7rem;
+  }
+  .header-balance__deposit-btn {
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
+    font-size: 8px;
+  }
+  .header-balance__deposit-btn i {
+    font-size: 8px;
   }
   .header-balance__value {
     font-size: 0.95rem;
@@ -3106,34 +3167,45 @@ html.google-redirect-pending,
       --c1:var(--site-accent-runtime, #6b7280);
       --c2:var(--site-accent-runtime-light, #94a3b8);
       --c3:var(--site-accent-runtime-strong, #cbd5e1);
+      box-sizing:border-box;
+      overflow:visible;
+      border:0;
+      background:none;
+      filter:none;
       display:grid;
       place-items:center;
       opacity:1 !important;
-      transform:scale(1) !important;
+      transform:translateZ(0) scale(1) !important;
+      -webkit-transform:translateZ(0) scale(1) !important;
       animation:loader-pulse 1.2s ease-in-out infinite;
-      filter:drop-shadow(0 6px 18px rgba(var(--site-accent-rgb, 107, 114, 128), .35));
+      -webkit-animation:loader-pulse 1.2s ease-in-out infinite;
     }
-    html.google-redirect-pending #preloader .loader::before,
-    html.google-redirect-pending #preloader .loader::after{
+    /* Mask-free border arcs: WebKit (iOS Safari) does not composite
+       transform animations on masked elements, which froze the spinner
+       whenever the main thread was busy. Border arcs stay on the GPU. */
+    html.google-redirect-pending #preloader .loader::before{
       content:"";
       position:absolute;
       inset:0;
       border-radius:50%;
-      -webkit-mask:radial-gradient(farthest-side, transparent calc(100% - 8px), #000 calc(100% - 7px));
-              mask:radial-gradient(farthest-side, transparent calc(100% - 8px), #000 calc(100% - 7px));
+      border:7px solid transparent;
+      box-sizing:border-box;
+      pointer-events:none;
+      backface-visibility:hidden;
+      -webkit-backface-visibility:hidden;
+      transform:translateZ(0);
+      -webkit-transform:translateZ(0);
+      will-change:transform;
     }
     html.google-redirect-pending #preloader .loader::before{
-      background:conic-gradient(from 0deg, var(--c1) 0 140deg, transparent 140deg 360deg);
-      animation:ring-spin-a .8s linear infinite;
+      border-top-color:var(--c1);
+      border-right-color:var(--c2);
+      animation:ring-spin-a .82s linear infinite;
+      -webkit-animation:ring-spin-a .82s linear infinite;
     }
-    html.google-redirect-pending #preloader .loader::after{
-      inset:10px;
-      background:conic-gradient(from 180deg, var(--c3) 0 110deg, transparent 110deg 360deg);
-      animation:ring-spin-b .9s linear infinite reverse;
-    }
-    @keyframes loader-pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
-    @keyframes ring-spin-a{to{transform:rotate(1turn);}}
-    @keyframes ring-spin-b{to{transform:rotate(1turn);}}
+    @keyframes loader-pulse{0%,100%{opacity:1;}50%{opacity:.93;}}
+    @-webkit-keyframes ring-spin-a{to{-webkit-transform:translateZ(0) rotate(1turn);transform:translateZ(0) rotate(1turn);}}
+    @keyframes ring-spin-a{to{-webkit-transform:translateZ(0) rotate(1turn);transform:translateZ(0) rotate(1turn);}}
 
 /* #site-no-black-background-gradients */
 html[data-theme="dark"],
@@ -3260,6 +3332,8 @@ html[data-theme="dark"],
       display:flex;
       align-items:center;
       justify-content:center;
+      width:100vw;
+      height:100dvh;
       --overlay:rgba(246,247,255,.65);
       background:var(--overlay);
       -webkit-backdrop-filter:blur(6px);
@@ -3278,6 +3352,22 @@ html[data-theme="dark"],
       opacity:0;
       visibility:hidden;
       pointer-events:none;
+    }
+    html.deposit-inline-loading #depositInlineApp .no-results,
+    body.deposit-inline-loading #depositInlineApp .no-results,
+    html.deposit-inline-loading #depositInlineApp #noResults,
+    body.deposit-inline-loading #depositInlineApp #noResults,
+    html.deposit-countries-loader-pending #depositInlineApp .no-results,
+    body.deposit-countries-loader-pending #depositInlineApp .no-results,
+    html.deposit-countries-loader-pending #depositInlineApp #noResults,
+    body.deposit-countries-loader-pending #depositInlineApp #noResults,
+    html.inline-wallet-route-pending #depositInlineApp .no-results,
+    body.inline-wallet-route-pending #depositInlineApp .no-results,
+    html.inline-wallet-route-pending #depositInlineApp #noResults,
+    body.inline-wallet-route-pending #depositInlineApp #noResults,
+    #depositInlineApp.deposit-inline-loading .no-results,
+    #depositInlineApp.deposit-inline-loading #noResults{
+      display:none !important;
     }
     html.deposit-countries-loader-pending #preloader,
     body.deposit-countries-loader-pending #preloader,
@@ -3317,8 +3407,10 @@ html[data-theme="dark"],
       border-radius:50% !important;
       opacity:1 !important;
       visibility:visible !important;
-      transform:scale(1) !important;
+      transform:translateZ(0) scale(1) !important;
+      -webkit-transform:translateZ(0) scale(1) !important;
       animation:startup-loader-pulse 1.2s ease-in-out infinite !important;
+      -webkit-animation:startup-loader-pulse 1.2s ease-in-out infinite !important;
     }
     html.catalog-loader-pending #preloader .loader,
     body.catalog-loader-pending #preloader .loader,
@@ -3334,8 +3426,10 @@ html[data-theme="dark"],
       border-radius:50% !important;
       opacity:1 !important;
       visibility:visible !important;
-      transform:scale(1) !important;
+      transform:translateZ(0) scale(1) !important;
+      -webkit-transform:translateZ(0) scale(1) !important;
       animation:startup-loader-pulse 1.2s ease-in-out infinite !important;
+      -webkit-animation:startup-loader-pulse 1.2s ease-in-out infinite !important;
     }
     #preloader .loader{
       position:relative;
@@ -3345,37 +3439,63 @@ html[data-theme="dark"],
       --c1:var(--site-accent-runtime,#6b7280);
       --c2:var(--site-accent-runtime-light,#94a3b8);
       --c3:var(--site-accent-runtime-strong,#475569);
+      box-sizing:border-box;
+      overflow:visible;
+      border:0;
+      background:none;
       display:grid;
       place-items:center;
-      filter:drop-shadow(0 6px 18px rgba(var(--site-accent-rgb,107,114,128),.35));
+      filter:none;
       animation:startup-loader-pulse 1.2s ease-in-out infinite;
+      -webkit-animation:startup-loader-pulse 1.2s ease-in-out infinite;
+      transform:translateZ(0) scale(1);
+      -webkit-transform:translateZ(0) scale(1);
     }
     html[data-theme="dark"] #preloader .loader,
     body.dark-mode #preloader .loader{
       --c1:var(--site-accent-runtime,#6b7280);
       --c2:var(--site-accent-runtime-light,#cbd5e1);
       --c3:var(--site-accent-runtime-light,#cbd5e1);
+      filter:none;
     }
-    #preloader .loader::before,
-    #preloader .loader::after{
+    /* Mask-free border arcs: WebKit (iOS Safari) does not composite
+       transform animations on masked elements, which froze the spinner
+       whenever the main thread was busy (e.g. while the bundle parses).
+       Border arcs animate on the compositor and keep spinning. */
+    #preloader .loader::before{
       content:"";
       position:absolute;
       inset:0;
       border-radius:50%;
-      -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 8px),#000 calc(100% - 7px));
-              mask:radial-gradient(farthest-side,transparent calc(100% - 8px),#000 calc(100% - 7px));
+      border:7px solid transparent;
+      box-sizing:border-box;
+      pointer-events:none;
+      backface-visibility:hidden;
+      -webkit-backface-visibility:hidden;
+      transform:translateZ(0);
+      -webkit-transform:translateZ(0);
+      will-change:transform;
     }
     #preloader .loader::before{
-      background:conic-gradient(from 0deg,var(--c1) 0 140deg,transparent 140deg 360deg);
-      animation:startup-loader-spin .8s linear infinite;
+      border-top-color:var(--c1);
+      border-right-color:var(--c2);
+      animation:startup-loader-spin .82s linear infinite;
+      -webkit-animation:startup-loader-spin .82s linear infinite;
     }
-    #preloader .loader::after{
-      inset:10px;
-      background:conic-gradient(from 180deg,var(--c3) 0 110deg,transparent 110deg 360deg);
-      animation:startup-loader-spin .9s linear infinite reverse;
+    @-webkit-keyframes startup-loader-spin{to{-webkit-transform:translateZ(0) rotate(1turn);transform:translateZ(0) rotate(1turn);}}
+    @keyframes startup-loader-spin{to{-webkit-transform:translateZ(0) rotate(1turn);transform:translateZ(0) rotate(1turn);}}
+    @keyframes startup-loader-pulse{0%,100%{opacity:1;}50%{opacity:.93;}}
+    @media (prefers-reduced-motion: reduce){
+      /* Keep a calm compositor-only spin so the loading state is still obvious on iOS. */
+      :is(html, html.google-redirect-pending, html.catalog-loader-pending, html.deposit-countries-loader-pending, html.inline-route-pending, html.inline-wallet-route-pending) #preloader .loader,
+      :is(body, body.catalog-loader-pending, body.deposit-countries-loader-pending, body.inline-route-pending, body.inline-wallet-route-pending) #preloader .loader{
+        animation:none !important;
+      }
+      #preloader .loader::before{
+        animation:startup-loader-spin 1.65s linear infinite !important;
+        -webkit-animation:startup-loader-spin 1.65s linear infinite !important;
+      }
     }
-    @keyframes startup-loader-spin{to{transform:rotate(1turn);}}
-    @keyframes startup-loader-pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
 
 /* #critical-theme */
 :root { color-scheme: light; }

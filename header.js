@@ -279,7 +279,7 @@ const SITE_ICON_CANDIDATE_KEYS = [
 ];
 const SITE_HEADER_CANDIDATE_KEYS = ['headerLogo', 'header_logo', 'logo', 'logoUrl', 'logo_url'];
 const SITE_LOADER_CANDIDATE_KEYS = ['loaderLogo', 'loader_logo', 'loaderImage', 'loader_image', 'preloaderLogo', 'preloader_logo', 'loader'];
-const SITE_LOADER_FALLBACK_CANDIDATE_KEYS = SITE_LOADER_CANDIDATE_KEYS.concat(SITE_ICON_CANDIDATE_KEYS, SITE_HEADER_CANDIDATE_KEYS);
+const SITE_LOADER_FALLBACK_CANDIDATE_KEYS = SITE_LOADER_CANDIDATE_KEYS.concat(SITE_HEADER_CANDIDATE_KEYS);
 function resolveSiteMediaFallbackUrl(kind, label){
   const candidates = [];
   if (kind === 'loader') {
@@ -290,7 +290,6 @@ function resolveSiteMediaFallbackUrl(kind, label){
     candidates.push(readCachedSiteMediaCandidate(SITE_HEADER_CANDIDATE_KEYS));
   } else if (kind === 'icon') {
     candidates.push(window.__SITE_ICON__);
-    candidates.push(readCachedSiteMediaCandidate(SITE_ICON_CANDIDATE_KEYS));
   } else if (kind === 'catalog') {
     candidates.push("");
   }
@@ -318,7 +317,6 @@ function resolveSiteLoaderLogoCandidates(primary){
   push(primary);
   try { push(window.__SITE_LOADER_IMAGE__); } catch {}
   push(readCachedSiteMediaCandidate(SITE_LOADER_CANDIDATE_KEYS));
-  try { push(window.__SITE_ICON__); } catch {}
   try { push(window.__SITE_HEADER_LOGO__); } catch {}
   push(readCachedSiteMediaCandidate(SITE_LOADER_FALLBACK_CANDIDATE_KEYS));
   return out;
@@ -364,8 +362,6 @@ function resolveSiteLoaderLogoCandidates(primary){
   will-change: opacity, visibility;
 }
 
-@keyframes preloaderAutoHide { to { opacity: 0; visibility: hidden; } }
-#preloader.auto-hide { animation: preloaderAutoHide 0s linear 1.2s forwards; }
 #preloader.preparing-intro {
   opacity: 1 !important;
   visibility: visible !important;
@@ -543,7 +539,7 @@ body.inline-wallet-route-pending #depositInlineApp {
 #preloader.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
 #preloader.closing { opacity: 0; visibility: hidden; pointer-events: none; }
 
-.loader {
+#preloader .loader {
   position: relative;
   width: 128px;
   height: 128px;
@@ -551,17 +547,19 @@ body.inline-wallet-route-pending #depositInlineApp {
   --c1: var(--site-accent-runtime, #6b7280);
   --c2: var(--site-accent-runtime-light, #94a3b8);
   --c3: var(--site-accent-runtime-strong, #475569);
-  filter: drop-shadow(0 6px 18px rgba(var(--site-accent-rgb, 107, 114, 128), 0.35));
+  box-sizing: border-box;
+  overflow: visible;
+  border: 0;
+  background: none;
+  filter: none;
   transition: transform 0.4s ease, opacity 0.4s ease;
   opacity: 1;
-  transform: scale(1);
+  transform: translateZ(0) scale(1);
+  -webkit-transform: translateZ(0) scale(1);
   animation: loader-pulse 1.2s ease-in-out infinite;
+  -webkit-animation: loader-pulse 1.2s ease-in-out infinite;
   display: grid;
   place-items: center;
-  background-image: none;
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: 72px 72px;
 }
 
 #preloader.entering .loader {
@@ -580,32 +578,37 @@ body.inline-wallet-route-pending #depositInlineApp {
   animation: loader-pop-out 0.22s cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 
-html[data-theme="dark"] .loader,
-body.dark-mode .loader {
+html[data-theme="dark"] #preloader .loader,
+body.dark-mode #preloader .loader {
   --c1: var(--site-accent-runtime, #6b7280);
   --c2: var(--site-accent-runtime-light, #cbd5e1);
   --c3: var(--site-accent-runtime-light, #cbd5e1);
+  filter: none;
 }
 
-.loader::before,
-.loader::after {
+/* Mask-free border arcs: WebKit (iOS Safari) does not composite transform
+   animations on masked elements, which froze the spinner whenever the main
+   thread was busy. Border arcs animate on the compositor and keep spinning. */
+#preloader .loader::before {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 8px), #000 calc(100% - 7px));
-          mask: radial-gradient(farthest-side, transparent calc(100% - 8px), #000 calc(100% - 7px));
+  border: 7px solid transparent;
+  box-sizing: border-box;
+  pointer-events: none;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  will-change: transform;
 }
 
-.loader::before {
-  background: conic-gradient(from 0deg, var(--c1) 0 140deg, transparent 140deg 360deg);
-  animation: ring-spin-a 0.8s linear infinite;
-}
-
-.loader::after {
-  inset: 10px;
-  background: conic-gradient(from 180deg, var(--c3) 0 110deg, transparent 110deg 360deg);
-  animation: ring-spin-b 0.9s linear infinite reverse;
+#preloader .loader::before {
+  border-top-color: var(--c1);
+  border-right-color: var(--c2);
+  animation: ring-spin-a 0.82s linear infinite;
+  -webkit-animation: ring-spin-a 0.82s linear infinite;
 }
 
 #preloader.hidden .loader {
@@ -627,39 +630,47 @@ body.dark-mode .loader {
 
 @keyframes loader-pulse {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
+  50% { opacity: 0.93; }
 }
 
-@keyframes ring-spin-a { to { transform: rotate(1turn); } }
-@keyframes ring-spin-b { to { transform: rotate(1turn); } }
+@-webkit-keyframes ring-spin-a { to { -webkit-transform: translateZ(0) rotate(1turn); transform: translateZ(0) rotate(1turn); } }
+@keyframes ring-spin-a { to { -webkit-transform: translateZ(0) rotate(1turn); transform: translateZ(0) rotate(1turn); } }
 
 @media (prefers-reduced-motion: reduce) {
+  /* Keep a calm compositor-only spin so the loading state is still obvious on iOS. */
   #preloader.entering { animation: none; }
-  .loader { animation: none; }
+  :is(html, html.google-redirect-pending, html.catalog-loader-pending, html.deposit-countries-loader-pending, html.inline-route-pending, html.inline-wallet-route-pending) #preloader .loader,
+  :is(body, body.catalog-loader-pending, body.deposit-countries-loader-pending, body.inline-route-pending, body.inline-wallet-route-pending) #preloader .loader,
+  #preloader .loader,
   #preloader.entering .loader,
-  #preloader.closing .loader { animation: none; }
-  .loader::before { animation-duration: 1.4s; }
-  .loader::after  { animation-duration: 1.6s; }
+  #preloader.closing .loader {
+    animation: none !important;
+  }
+  #preloader .loader::before {
+    animation: ring-spin-a 1.45s linear infinite !important;
+    -webkit-animation: ring-spin-a 1.45s linear infinite !important;
+  }
 }
 
-.loader img.loader-logo {
+#preloader .loader img.loader-logo {
   position: relative;
-  z-index: 1;
-  width: 72px;
-  height: 72px;
+  z-index: 2;
+  width: 84px;
+  height: 84px;
   object-fit: contain;
-  border-radius: 12px;
+  border-radius: 18px;
   pointer-events: none;
   user-select: none;
   -webkit-user-drag: none;
+  filter: none;
 }
-.loader img.loader-logo[hidden] {
+#preloader .loader img.loader-logo[hidden] {
   display: none !important;
 }
 
 @media (max-width: 480px) {
   #preloader { -webkit-backdrop-filter: none; backdrop-filter: none; }
-  .loader { filter: none; }
+  #preloader .loader { filter: none; }
 }
     `;
     (document.head || document.documentElement).appendChild(style);
@@ -825,23 +836,18 @@ function primePageLoaderIntro(el){
 function schedulePageLoaderHideDisplay(el, delay){
   try {
     cancelPageLoaderHideTimer();
-    window.__PAGE_LOADER_HIDE_TIMER__ = setTimeout(function(){
-      try {
-        if (el) {
-          try {
-            if (typeof shouldKeepPageLoaderVisible === 'function' && shouldKeepPageLoaderVisible()) {
-              if (typeof isCatalogPageLoaderActive === 'function' && isCatalogPageLoaderActive() && typeof window.__catalogForcePageLoaderVisible === 'function') {
-                window.__catalogForcePageLoaderVisible();
-              }
-              return;
-            }
-          } catch(_){}
-          el.classList.remove('entering', 'closing');
-          el.classList.add('hidden');
-          el.style.display = 'none';
+    if (!el) return;
+    try {
+      if (typeof shouldKeepPageLoaderVisible === 'function' && shouldKeepPageLoaderVisible()) {
+        if (typeof isCatalogPageLoaderActive === 'function' && isCatalogPageLoaderActive() && typeof window.__catalogForcePageLoaderVisible === 'function') {
+          window.__catalogForcePageLoaderVisible();
         }
-      } catch(_){}
-    }, delay);
+        return;
+      }
+    } catch(_){}
+    el.classList.remove('entering', 'closing');
+    el.classList.add('hidden');
+    el.style.display = 'none';
   } catch {}
 }
 try { window.__cancelPageLoaderHideTimer = cancelPageLoaderHideTimer; } catch {}
@@ -878,13 +884,9 @@ function showPageLoader(opts){
       el.style.opacity = '1';
     }
     try {
-      clearTimeout(window.__NAV_LOADER_TIMEOUT__);
-      const autoHide = !!(opts && opts.autoHide);
-      if (!hold && autoHide) {
-        window.__NAV_LOADER_TIMEOUT__ = setTimeout(function(){
-          try { sessionStorage.removeItem('nav:loader:expected'); sessionStorage.removeItem('nav:loader:showAt'); } catch(_){ }
-          try { hidePageLoader(); } catch(_){ }
-        }, 1200);
+      if (window.__NAV_LOADER_HASH_WAITER__) {
+        try { window.removeEventListener('hashchange', window.__NAV_LOADER_HASH_WAITER__); } catch(_){ }
+        window.__NAV_LOADER_HASH_WAITER__ = null;
       }
     } catch {}
   } catch {}
@@ -901,6 +903,7 @@ function isCatalogPageLoaderActive(){
 function shouldKeepPageLoaderVisible(){
   try {
     try {
+      if (isServerRequestLoaderPending()) return true;
       if (isCatalogPageLoaderActive()) return true;
       if (window.__AUTH_POST_LOGIN_NAV_PENDING__ === true) return true;
       if (window.__DEPOSIT_INLINE_COUNTRIES_LOADING__ === true) return true;
@@ -935,9 +938,18 @@ function shouldKeepPageLoaderVisible(){
   } catch {}
   return false;
 }
+function isServerRequestLoaderPending(){
+  try {
+    return Number(window.__SERVER_REQUEST_LOADER_PENDING_COUNT__ || 0) > 0;
+  } catch {}
+  return false;
+}
 function hidePageLoader(opts){
   try {
     const allowForceHide = !!(opts && opts.force);
+    if (isServerRequestLoaderPending() && !(opts && opts.ignoreServerRequestLoading === true)) {
+      return;
+    }
     if (allowForceHide) {
       try {
         if (isCatalogPageLoaderActive() && !(opts && opts.ignoreCatalogLoading === true)) return;
@@ -968,105 +980,77 @@ function hidePageLoader(opts){
   } catch {}
 }
 
-(function setupPageLoaderFailsafe(){
-  function getCurrentInlineRouteKey(){
-    try {
-      const fromBody = String(document.body && document.body.getAttribute('data-inline-route') || '').trim().toLowerCase();
-      if (fromBody) return fromBody;
-    } catch {}
-    try {
-      const raw = String(location.hash || '').replace(/^#\/?/, '').trim().toLowerCase();
-      return raw.split('/').filter(Boolean)[0] || '';
-    } catch {}
-    return '';
-  }
-  function isProtectedLoaderRoute(){
-    const key = getCurrentInlineRouteKey();
-    return key === 'deposit' || key === 'edaa' || key === 'security';
-  }
-  function canClearGoogleRedirectLoader(){
-    try {
-      const root = document.documentElement;
-      if (!root || !root.classList.contains('google-redirect-pending')) return true;
-      const startedAt = Number(window.__GOOGLE_REDIRECT_EARLY_STARTED_AT__ || 0) || 0;
-      return !startedAt || (Date.now() - startedAt) > 2500;
-    } catch {}
-    return true;
-  }
-  function clearStaleLoaderState(reason){
-    const hardClearReason = reason === 'startup-long';
-    try {
-      if (!hardClearReason && window.__LOADER_HOLD_ACTIVE__ === true) return;
-    } catch {}
-    try {
-      if (isProtectedLoaderRoute() && !hardClearReason) return;
-    } catch {}
-    try {
-      if (typeof shouldKeepPageLoaderVisible === 'function' && shouldKeepPageLoaderVisible() && isProtectedLoaderRoute()) return;
-    } catch {}
-    try {
-      if (!hardClearReason && typeof shouldKeepPageLoaderVisible === 'function' && shouldKeepPageLoaderVisible()) return;
-    } catch {}
-    if (!canClearGoogleRedirectLoader()) return;
-    try { window.__LOADER_HOLD_ACTIVE__ = false; } catch {}
-    try { window.__INLINE_WALLET_ROUTE_PENDING__ = false; } catch {}
-    try { window.__DEPOSIT_INLINE_LOADING__ = false; } catch {}
-    if (hardClearReason) {
-      try { window.__CATALOG_INLINE_LOADING__ = false; } catch {}
-      try { window.__CATALOG_PAGE_LOADER_ACTIVE_COUNT__ = 0; } catch {}
+(function setupServerRequestLoaderFetchTracker(){
+  try {
+    if (window.__SERVER_REQUEST_LOADER_FETCH_TRACKER_INSTALLED__ === true) return;
+    const originalFetch = window.fetch;
+    if (typeof originalFetch !== 'function') return;
+    window.__SERVER_REQUEST_LOADER_FETCH_TRACKER_INSTALLED__ = true;
+    let pending = Math.max(0, Number(window.__SERVER_REQUEST_LOADER_PENDING_COUNT__ || 0) || 0);
+    function getFetchUrl(input){
       try {
-        if (window.__CATALOG_PAGE_LOADER_KEEPALIVE_TIMER__) {
-          clearInterval(window.__CATALOG_PAGE_LOADER_KEEPALIVE_TIMER__);
-          window.__CATALOG_PAGE_LOADER_KEEPALIVE_TIMER__ = null;
-        }
+        if (typeof input === 'string') return input;
+        if (input && typeof input.url === 'string') return input.url;
       } catch {}
-      try {
-        if (document.documentElement) document.documentElement.classList.remove('catalog-loader-pending');
-        if (document.body) document.body.classList.remove('catalog-loader-pending');
-      } catch {}
+      return '';
     }
-    try {
-      sessionStorage.removeItem('nav:loader:expected');
-      sessionStorage.removeItem('nav:loader:showAt');
-    } catch {}
-    try {
-      const root = document.documentElement;
-      if (root) {
-        root.classList.remove('google-redirect-pending', 'auth-request-loader-pending', 'pre-inline-route', 'pre-login-route', 'inline-wallet-route-pending', 'inline-route-pending');
+    function shouldTrack(input){
+      const raw = getFetchUrl(input);
+      if (!raw) return false;
+      try {
+        const url = new URL(raw, location.href);
+        const mode = String(url.searchParams.get('mode') || '').trim().toLowerCase();
+        if (/^client-/.test(mode)) return true;
+      } catch {
+        if (/[?&]mode=client-/i.test(String(raw))) return true;
       }
-      if (document.body) {
-        document.body.classList.remove('auth-request-loader-pending', 'login-route-active', 'inline-wallet-route-pending', 'inline-route-pending');
+      return false;
+    }
+    function setPending(next){
+      pending = Math.max(0, Number(next || 0) || 0);
+      try { window.__SERVER_REQUEST_LOADER_PENDING_COUNT__ = pending; } catch {}
+      try { window.__SERVER_REQUEST_LOADER_ACTIVE__ = pending > 0; } catch {}
+    }
+    function begin(input){
+      setPending(pending + 1);
+      try { window.__SERVER_REQUEST_LOADER_LAST_URL__ = String(getFetchUrl(input) || '').slice(0, 400); } catch {}
+      try { showPageLoader({ replay: pending === 1 }); } catch {}
+    }
+    function end(){
+      setPending(pending - 1);
+      if (pending > 0) return;
+      try { hidePageLoader({ ignoreServerRequestLoading: true }); } catch {}
+    }
+    window.__isServerRequestLoaderPending = function(){ return pending > 0; };
+    window.__shouldTrackServerRequestLoaderFetch = shouldTrack;
+    window.fetch = function serverRequestLoaderFetch(){
+      let track = false;
+      try { track = shouldTrack(arguments[0]); } catch {}
+      if (!track) return originalFetch.apply(this, arguments);
+      begin(arguments[0]);
+      let result;
+      try {
+        result = originalFetch.apply(this, arguments);
+      } catch (err) {
+        end();
+        throw err;
       }
-    } catch {}
-    try { hidePageLoader({ force: true }); } catch {}
-    try {
-      const el = document.getElementById('preloader');
-      if (el && reason) el.dataset.failsafeCleared = String(reason).slice(0, 60);
-    } catch {}
-  }
-  function schedule(reason, delay){
-    try {
-      setTimeout(function(){ clearStaleLoaderState(reason); }, delay);
-    } catch {}
-  }
-  try {
-    if (document.readyState === 'complete') schedule('complete', 900);
-    else window.addEventListener('load', function(){ schedule('load', 900); }, { once: true });
+      return Promise.resolve(result).then(function(response){
+        end();
+        return response;
+      }, function(err){
+        end();
+        throw err;
+      });
+    };
   } catch {}
-  try { window.addEventListener('pageshow', function(){ schedule('pageshow', 900); }); } catch {}
-  try { window.addEventListener('error', function(){ schedule('error', 0); }, true); } catch {}
-  try { window.addEventListener('unhandledrejection', function(){ schedule('unhandledrejection', 0); }); } catch {}
-  schedule('startup', 7500);
-  schedule('startup-long', 30000);
 })();
-window.addEventListener('pageshow', (event) => {
-  try {
-    const expected = sessionStorage.getItem('nav:loader:expected') === '1';
-    const startedAt = Number(sessionStorage.getItem('nav:loader:showAt') || 0) || 0;
-    const isFresh = startedAt > 0 && (Date.now() - startedAt) < 2200;
-    if (expected && isFresh && !(event && event.persisted)) return;
-  } catch {}
-  hidePageLoader({ force: true });
+
+(function setupPageLoaderFailsafe(){
+  try { window.__pageLoaderTimedFailsafeDisabled = true; } catch {}
+})();
+window.addEventListener('pageshow', () => {
+  try { sessionStorage.removeItem('nav:loader:expected'); sessionStorage.removeItem('nav:loader:showAt'); } catch {}
 });
 
 // Suppress hover URL badge and block native dragging for links/images/buttons.
@@ -1074,9 +1058,14 @@ window.addEventListener('pageshow', (event) => {
   const HOVER_HREF_ATTR = 'data-hover-href-suppressed';
   const DRAG_BLOCK_SELECTOR = 'a,button,img,[role="button"]';
 
+  // Cached: this runs on every mouseover/mouseout; constructing a new
+  // MediaQueryList per event is needless main-thread churn.
+  let fineHoverMql = null;
   function supportsFineHover(){
     try {
-      return !!(window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches);
+      if (!window.matchMedia) return false;
+      if (!fineHoverMql) fineHoverMql = window.matchMedia('(hover: hover) and (pointer: fine)');
+      return !!fineHoverMql.matches;
     } catch {}
     return false;
   }
@@ -1193,7 +1182,7 @@ window.addEventListener('pageshow', (event) => {
   }
 })();
 
-// Show loader during navigation for internal links
+// Keep pure route navigation loader-free; request-backed flows show the loader explicitly.
 (function setupNavLoader(){
   function hasNoLoader(link){
     try {
@@ -1224,13 +1213,17 @@ window.addEventListener('pageshow', (event) => {
       try { url = new URL(href, location.href); } catch { return; }
       if (!sameOrigin(url)) return;
       if (url.pathname === location.pathname && url.search === location.search && url.hash === location.hash) return;
-      const hashRoute = url.pathname === location.pathname && url.search === location.search && /^#\//.test(url.hash || '');
-      showPageLoader(hashRoute ? { replay: true, autoHide: true } : undefined);
+      return;
     } catch {}
   }
   document.addEventListener('pointerdown', handleNav, true);
   document.addEventListener('click', handleNav, true);
-  window.addEventListener('beforeunload', function(){ try { showPageLoader(); } catch {} });
+  window.addEventListener('beforeunload', function(){
+    try {
+      sessionStorage.removeItem('nav:loader:expected');
+      sessionStorage.removeItem('nav:loader:showAt');
+    } catch {}
+  });
 })();
 
 // Device fingerprint helpers (per-device session id)
@@ -1694,6 +1687,55 @@ function watchSessionDocForDevice(user){
       const src = entry && typeof entry === 'object' ? entry : {};
       return normalizeCurrencyCode(src.code || src.currencyCode || src.currency || fallback || '');
     }
+    const CURRENCY_SYMBOL_FALLBACKS = Object.freeze({
+      USD: '$',
+      EUR: '\u20ac',
+      GBP: '\u00a3',
+      JOD: '\u062f.\u0623',
+      SAR: '\u0631.\u0633',
+      AED: '\u062f.\u0625',
+      KWD: '\u062f.\u0643',
+      QAR: '\u0631.\u0642',
+      BHD: '\u062f.\u0628',
+      OMR: '\u0631.\u0639',
+      EGP: '\u062c.\u0645'
+    });
+    function normalizeCurrencyDisplayText(value){
+      return String(value == null ? '' : value).replace(/\s+/g, ' ').trim();
+    }
+    function looksLikeCurrencyName(value, entry, code){
+      const text = normalizeCurrencyDisplayText(value);
+      if (!text) return false;
+      const codeText = normalizeCurrencyCode(code);
+      if (codeText && text.toUpperCase() === codeText) return false;
+      const src = entry && typeof entry === 'object' ? entry : {};
+      const knownNames = [
+        src.nameAr, src.arName, src.name, src.label, src.title,
+        src.currencyName, src.currency_name
+      ].map(normalizeCurrencyDisplayText).filter(Boolean);
+      if (knownNames.some((name) => name.toLowerCase() === text.toLowerCase())) return true;
+      if (/\s/.test(text)) return true;
+      if (/[\u0600-\u06ff]/.test(text) && !/[.$\u20ac\u00a3]/.test(text) && text.replace(/[.\s]/g, '').length > 3) return true;
+      return false;
+    }
+    function getCurrencyEntrySymbol(entry, fallback){
+      const src = entry && typeof entry === 'object' ? entry : {};
+      const code = getCurrencyEntryCode(src, fallback) || normalizeCurrencyCode(fallback);
+      const raw = normalizeCurrencyDisplayText(
+        src.symbol ?? src.displaySymbol ?? src.sign ?? src.shortSymbol ?? src.currencySymbol ?? ''
+      );
+      if (raw && !looksLikeCurrencyName(raw, src, code)) return raw;
+      return CURRENCY_SYMBOL_FALLBACKS[code] || code || '';
+    }
+    function getCurrencyEntryName(entry, fallback){
+      const src = entry && typeof entry === 'object' ? entry : {};
+      const code = getCurrencyEntryCode(src, fallback) || normalizeCurrencyCode(fallback);
+      const raw = normalizeCurrencyDisplayText(
+        src.nameAr ?? src.arName ?? src.name ?? src.label ?? src.title ?? src.currencyName ?? src.currency_name ?? ''
+      );
+      if (raw && !normalizeCurrencyCode(raw)) return raw;
+      return raw || code || normalizeCurrencyDisplayText(fallback);
+    }
     function buildCurrencyEntryKey(entry, fallbackCode, used){
       const src = entry && typeof entry === 'object' ? entry : {};
       const explicit = normalizeCurrencyEntryKey(
@@ -1878,7 +1920,7 @@ function watchSessionDocForDevice(user){
       const key = (MAP && MAP[requested] && isSelectableCurrency(requested, MAP)) ? requested : resolveFallbackCurrency(MAP);
       const cur = MAP[key] || MAP[getBaseCurrencyKey(MAP)] || {};
       const val = convertFromJOD(amountJOD, key);
-      const symbol = cur.symbol || cur.code || key || '$';
+      const symbol = getCurrencyEntrySymbol(cur, key) || '$';
       return Number(val).toFixed(3) + ' ' + symbol;
     }
 
@@ -2061,8 +2103,8 @@ function watchSessionDocForDevice(user){
         }
         function optionText(key, cur){
           const code = getCurrencyEntryCode(cur, key) || key;
-          const name = (cur && (cur.nameAr || cur.name)) ? (cur.nameAr || cur.name) : code;
-          const symbol = (cur && (cur.symbol || cur.code)) ? (cur.symbol || cur.code) : code;
+          const name = getCurrencyEntryName(cur, code) || code;
+          const symbol = getCurrencyEntrySymbol(cur, code) || code;
           return `${name} (${symbol})`;
         }
 
@@ -2496,12 +2538,7 @@ function watchSessionDocForDevice(user){
 })();
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return;
-  try {
-    const expected = sessionStorage.getItem('nav:loader:expected') === '1';
-    const startedAt = Number(sessionStorage.getItem('nav:loader:showAt') || 0) || 0;
-    if (expected && startedAt > 0 && (Date.now() - startedAt) < 2200) return;
-  } catch {}
-  hidePageLoader({ force: true });
+  try { sessionStorage.removeItem('nav:loader:expected'); sessionStorage.removeItem('nav:loader:showAt'); } catch {}
 });
 
 // i18n compatibility stubs only. Translation is disabled site-wide.
@@ -6200,10 +6237,12 @@ if (!document.getElementById('header-balance-style')) {
         letter-spacing: 0.15px;
         padding: 0;
         margin: 0;
+        cursor: pointer;
+        user-select: none;
       }
       .header-balance__metrics {
         display: inline-flex;
-        align-items: baseline;
+        align-items: center;
         gap: 4px;
         direction: ltr;
       }
@@ -6282,6 +6321,33 @@ if (!document.getElementById('header-balance-style')) {
         direction: ltr;
         unicode-bidi: plaintext;
       }
+      .header-balance__deposit-btn {
+        appearance: none;
+        width: 18px;
+        height: 18px;
+        min-width: 18px;
+        border: 1px solid rgba(255,255,255,.32);
+        border-radius: 50%;
+        background: rgba(255,255,255,.10);
+        color: var(--balance-currency, var(--balance-text, #f8fafc));
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        line-height: 1;
+        font-size: 9px;
+        cursor: pointer;
+        opacity: .86;
+      }
+      .header-balance__deposit-btn i {
+        font-size: 9px;
+        line-height: 1;
+      }
+      .header-balance:focus-visible,
+      .header-balance__deposit-btn:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(var(--site-accent-rgb, 148, 163, 184), .35);
+      }
       #sidebarCurrencyTrigger,
       #sidebarCurrencyTrigger .sidebar-currency-pill__label,
       #sidebarCurrencyTrigger i {
@@ -6319,6 +6385,12 @@ if (!document.getElementById('header-balance-style')) {
       body.light-mode .header-balance__currency {
         color: var(--balance-currency-light, var(--balance-text-light, #0f172a));
       }
+      html[data-theme="light"] .header-balance__deposit-btn,
+      body.light-mode .header-balance__deposit-btn {
+        color: var(--balance-currency-light, var(--balance-text-light, #0f172a));
+        background: rgba(15,23,42,.04);
+        border-color: rgba(15,23,42,.18);
+      }
       html[data-theme="light"] .header-balance,
       body.light-mode .header-balance {
         color: var(--balance-text-light, #0f172a);
@@ -6333,6 +6405,10 @@ if (!document.getElementById('header-balance-style')) {
       html[data-theme="dark"] .header-balance__currency {
         color: var(--balance-currency-dark, var(--balance-text-dark, #f8fafc));
       }
+      body.dark-mode .header-balance__deposit-btn,
+      html[data-theme="dark"] .header-balance__deposit-btn {
+        color: var(--balance-currency-dark, var(--balance-text-dark, #f8fafc));
+      }
       html[data-theme="light"] .header-levels-btn,
       body.light-mode .header-levels-btn {
         color: var(--balance-text-light, #0f172a);
@@ -6341,7 +6417,7 @@ if (!document.getElementById('header-balance-style')) {
       }
       @media (max-width: 600px) {
         .header-balance__metrics {
-          gap: 3px;
+          gap: 4px;
         }
         .header-levels-btn {
           width:30px;
@@ -6350,6 +6426,15 @@ if (!document.getElementById('header-balance-style')) {
         }
         .header-balance__currency {
           font-size: 10px;
+        }
+        .header-balance__deposit-btn {
+          width:16px;
+          height:16px;
+          min-width:16px;
+          font-size:8px;
+        }
+        .header-balance__deposit-btn i {
+          font-size:8px;
         }
         .header-balance__value {
           font-size: 17px;
@@ -6370,6 +6455,7 @@ balanceSpan.style.padding = '0';
 balanceSpan.style.minWidth = '0';
 balanceSpan.innerHTML = `
   <span class="header-balance__metrics">
+    <button type="button" class="header-balance__deposit-btn" id="headerBalanceDepositBtn" aria-label="فتح الإيداع" title="فتح الإيداع"><i class="fa-solid fa-plus" aria-hidden="true"></i></button>
     <span class="header-balance__currency" id="headerBalanceCurrency">â€”</span>
     <span class="header-balance__value" id="headerBalanceText">â€¦</span>
   </span>
@@ -6640,6 +6726,63 @@ function headerResolveCurrencyEntry(value, rates){
   }
   return null;
 }
+function headerNormalizeCurrencyCodeValue(value){
+  const raw = String(value || '').trim().toUpperCase();
+  return /^[A-Z0-9]{2,8}$/.test(raw) ? raw : '';
+}
+const HEADER_CURRENCY_SYMBOL_FALLBACKS = Object.freeze({
+  USD: '$',
+  EUR: '\u20ac',
+  GBP: '\u00a3',
+  JOD: '\u062f.\u0623',
+  SAR: '\u0631.\u0633',
+  AED: '\u062f.\u0625',
+  KWD: '\u062f.\u0643',
+  QAR: '\u0631.\u0642',
+  BHD: '\u062f.\u0628',
+  OMR: '\u0631.\u0639',
+  EGP: '\u062c.\u0645'
+});
+function headerNormalizeCurrencyDisplayText(value){
+  return String(value == null ? '' : value).replace(/\s+/g, ' ').trim();
+}
+function headerLooksLikeCurrencyName(value, entry, code){
+  const text = headerNormalizeCurrencyDisplayText(value);
+  if (!text) return false;
+  const normalizedCode = headerNormalizeCurrencyCodeValue(code);
+  if (normalizedCode && text.toUpperCase() === normalizedCode) return false;
+  const src = entry && typeof entry === 'object' ? entry : {};
+  const knownNames = [
+    src.nameAr, src.arName, src.name, src.label, src.title,
+    src.currencyName, src.currency_name
+  ].map(headerNormalizeCurrencyDisplayText).filter(Boolean);
+  if (knownNames.some((name) => name.toLowerCase() === text.toLowerCase())) return true;
+  if (/\s/.test(text)) return true;
+  if (/[\u0600-\u06ff]/.test(text) && !/[.$\u20ac\u00a3]/.test(text) && text.replace(/[.\s]/g, '').length > 3) return true;
+  return false;
+}
+function headerGetCurrencyDisplaySymbol(entry, fallbackCode){
+  const src = entry && typeof entry === 'object' ? entry : {};
+  const code = headerNormalizeCurrencyCodeValue(
+    src.code || src.currencyCode || src.currency || fallbackCode || ''
+  );
+  const raw = headerNormalizeCurrencyDisplayText(
+    src.symbol ?? src.displaySymbol ?? src.sign ?? src.shortSymbol ?? src.currencySymbol ?? ''
+  );
+  if (raw && !headerLooksLikeCurrencyName(raw, src, code)) return raw;
+  return HEADER_CURRENCY_SYMBOL_FALLBACKS[code] || code || '';
+}
+function headerGetCurrencyDisplayName(entry, fallbackCode){
+  const src = entry && typeof entry === 'object' ? entry : {};
+  const code = headerNormalizeCurrencyCodeValue(
+    src.code || src.currencyCode || src.currency || fallbackCode || ''
+  );
+  const raw = headerNormalizeCurrencyDisplayText(
+    src.nameAr ?? src.arName ?? src.name ?? src.label ?? src.title ?? src.currencyName ?? src.currency_name ?? ''
+  );
+  if (raw && !headerNormalizeCurrencyCodeValue(raw)) return raw;
+  return raw || code || headerNormalizeCurrencyDisplayText(fallbackCode);
+}
 function headerGetSelectedCurrencyText(rawCode){
   let rates = null;
   try { rates = window.__CURRENCIES__ || null; } catch {}
@@ -6647,25 +6790,32 @@ function headerGetSelectedCurrencyText(rawCode){
   try {
     if (!rawCode && typeof window.getSelectedCurrencyKey === 'function') selectedKey = String(window.getSelectedCurrencyKey() || '').trim();
   } catch {}
-  const rateEntry = headerResolveCurrencyEntry(rawCode || selectedKey || headerGetSelectedCurrencyCode(), rates);
-  const code = String((rateEntry && rateEntry.code) || rawCode || headerGetSelectedCurrencyCode() || '').trim().toUpperCase();
-  if (!code) return '';
-  const symbol = String(rateEntry && (rateEntry.symbol || rateEntry.displaySymbol || rateEntry.sign) || '').trim();
-  if (symbol) return symbol;
-  const fallbackMap = {
-    USD: '$',
-    EUR: 'â‚¬',
-    GBP: 'آ£',
-    JOD: 'د.أ',
-    SAR: 'ر.س',
-    AED: 'د.إ',
-    KWD: 'د.ك',
-    QAR: 'ر.ق',
-    BHD: 'د.ب',
-    OMR: 'ر.ع',
-    EGP: 'EGP'
-  };
-  return fallbackMap[code] || String(rateEntry && (rateEntry.code || code) || code).trim().toUpperCase();
+  const selectedCode = headerNormalizeCurrencyCodeValue(headerGetSelectedCurrencyCode());
+  const rateEntry =
+    headerResolveCurrencyEntry(rawCode || selectedKey || selectedCode, rates) ||
+    headerResolveCurrencyEntry(selectedCode || selectedKey, rates) ||
+    {};
+  const code = headerNormalizeCurrencyCodeValue(
+    (rateEntry && (rateEntry.code || rateEntry.currencyCode || rateEntry.currency)) || selectedCode || rawCode || selectedKey
+  );
+  return headerGetCurrencyDisplaySymbol(rateEntry, code || selectedKey || rawCode) || code;
+}
+function headerGetSelectedCurrencyNameText(rawCode){
+  let rates = null;
+  try { rates = window.__CURRENCIES__ || null; } catch {}
+  let selectedKey = '';
+  try {
+    if (!rawCode && typeof window.getSelectedCurrencyKey === 'function') selectedKey = String(window.getSelectedCurrencyKey() || '').trim();
+  } catch {}
+  const selectedCode = headerNormalizeCurrencyCodeValue(headerGetSelectedCurrencyCode());
+  const rateEntry =
+    headerResolveCurrencyEntry(rawCode || selectedKey || selectedCode, rates) ||
+    headerResolveCurrencyEntry(selectedCode || selectedKey, rates) ||
+    {};
+  const code = headerNormalizeCurrencyCodeValue(
+    (rateEntry && (rateEntry.code || rateEntry.currencyCode || rateEntry.currency)) || selectedCode || rawCode || selectedKey
+  );
+  return headerGetCurrencyDisplayName(rateEntry, code || selectedKey || rawCode) || code;
 }
 function headerNormalizeBalanceValue(value){
   const numeric = Number(value);
@@ -6849,7 +6999,7 @@ function setHeaderBalance(text){
   const parts = splitHeaderBalanceParts(trimmed);
   if (parts) {
     valueEl.textContent = parts.value || trimmed;
-    if (currencyEl) currencyEl.textContent = parts.currency || headerGetSelectedCurrencyText() || 'â€”';
+    if (currencyEl) currencyEl.textContent = headerGetSelectedCurrencyText(parts.currency) || headerGetSelectedCurrencyText() || 'â€”';
     enforceFixedSidebarCurrencyBadgeColor();
     return;
   }
@@ -7302,7 +7452,7 @@ function applyAuthUi(user){
 }
 try { window.__applyAuthUi = applyAuthUi; } catch {}
 
-const SITE_PWA_SW_URL = "sw.js?v=20260519-04";
+const SITE_PWA_SW_URL = "sw.js?v=20260609-catalog-empty-route-01";
 const SITE_PWA_CACHE_DISABLED = true;
 let deferredSiteInstallPrompt = null;
 let activeSiteManifestUrl = "";
@@ -7650,7 +7800,7 @@ function setSiteManifestLinkHref(manifestUrl, isObjectUrl){
   return href;
 }
 function setStaticSiteManifestLink(){
-  const manifestUrl = "/manifest.webmanifest?v=20260519-04";
+  const manifestUrl = "/manifest.webmanifest?v=20260613-share-preview-01";
   setSiteManifestLinkHref(manifestUrl, false);
   revokeSiteManifestUrl();
   return manifestUrl;
@@ -8660,7 +8810,6 @@ function navigateHomeHash(targetHash, routeKey){
         return;
       }
     } catch {}
-    try { if (typeof showPageLoader === 'function') showPageLoader({ replay: true, autoHide: true }); } catch {}
     const currentHash = String(location.hash || '').toLowerCase();
     const nextHash = String(target || '').toLowerCase();
     try {
@@ -8685,6 +8834,33 @@ function navigateHomeHash(targetHash, routeKey){
   run();
 }
 try { window.navigateHomeHash = navigateHomeHash; } catch {}
+
+function openHeaderDepositShortcut(ev){
+  try {
+    if (ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (typeof ev.stopImmediatePropagation === 'function') ev.stopImmediatePropagation();
+    }
+  } catch {}
+  navigateHomeHash('#/deposit', 'deposit');
+}
+try {
+  balanceSpan.tabIndex = 0;
+  balanceSpan.setAttribute('role', 'button');
+  balanceSpan.setAttribute('aria-label', 'فتح الإيداع');
+  balanceSpan.setAttribute('title', 'فتح الإيداع');
+  balanceSpan.addEventListener('click', openHeaderDepositShortcut);
+  balanceSpan.addEventListener('keydown', function(ev){
+    try {
+      if (ev.key === 'Enter' || ev.key === ' ') openHeaderDepositShortcut(ev);
+    } catch {}
+  });
+  const headerBalanceDepositBtn = balanceSpan.querySelector('#headerBalanceDepositBtn');
+  if (headerBalanceDepositBtn) {
+    headerBalanceDepositBtn.addEventListener('click', openHeaderDepositShortcut);
+  }
+} catch {}
 
 try {
   headerLevelsBtn.addEventListener('click', function(ev){
@@ -9204,8 +9380,7 @@ function syncSidebarCurrencyLabel(){
       : '';
     const entry = headerResolveCurrencyEntry(selectedKey, rates) || headerResolveCurrencyEntry(headerGetSelectedCurrencyCode(), rates) || {};
     const code = String(entry.code || headerGetSelectedCurrencyCode() || '').trim().toUpperCase();
-    const symbol = String(entry.symbol || entry.displaySymbol || entry.sign || '').trim();
-    label.textContent = symbol || code || 'USD';
+    label.textContent = headerGetCurrencyDisplayName(entry, code || selectedKey) || code || 'USD';
     const menu = sidebarTop.querySelector('#sidebarCurrencyMenu') || document.getElementById('sidebarCurrencyMenu');
     if (menu) {
       menu.querySelectorAll('.sidebar-currency-option').forEach((btn) => {
@@ -9244,10 +9419,10 @@ function rebuildSidebarCurrencyMenu(){
       btn.className = 'sidebar-currency-option';
       btn.setAttribute('role', 'option');
       btn.dataset.value = String(key || '').trim();
-      const code = String(curr.code || key || '').trim().toUpperCase();
-      const name = String(curr.nameAr || curr.name || '').trim();
-      const symbol = String(curr.symbol || curr.displaySymbol || curr.sign || curr.code || code || '').trim();
-      btn.textContent = name ? `${name} (${code})` : (symbol ? `${code} (${symbol})` : code);
+      const code = headerNormalizeCurrencyCodeValue(curr.code || curr.currencyCode || curr.currency || key) || String(key || '').trim().toUpperCase();
+      const name = headerGetCurrencyDisplayName(curr, code || key);
+      const symbol = headerGetCurrencyDisplaySymbol(curr, code || key);
+      btn.textContent = name && name !== code ? `${name} (${symbol || code})` : (symbol && symbol !== code ? `${code} (${symbol})` : code);
       btn.addEventListener('click', (ev) => {
         try { ev.preventDefault(); ev.stopPropagation(); } catch {}
         try {
@@ -9588,7 +9763,6 @@ function attachHeaderShell(){
     }
   } catch {}
   try { document.documentElement.classList.add('site-header-attached'); } catch {}
-  try { hidePageLoader({ force: true }); } catch {}
   return true;
 }
 if (!attachHeaderShell()) {
@@ -10296,12 +10470,32 @@ function initMobileDock(){
       }
       return true;
     }
+    function isMobileDockMaintenanceHidden(){
+      try { if (document.body && document.body.classList.contains('maintenance-active')) return true; } catch {}
+      try { if (document.getElementById('maintenance-overlay')) return true; } catch {}
+      return false;
+    }
     function syncMobileDockVisibility(user){
       try {
+        const effectiveUser = resolveEffectiveSidebarUser(user);
+        const logged = isSidebarLoggedIn(effectiveUser);
+        const hiddenForAuth = !logged;
+        const hiddenForMaintenance = isMobileDockMaintenanceHidden();
+        const dockAllowed = !hiddenForAuth && !hiddenForMaintenance;
+        try {
+          if (document.body) {
+            document.body.classList.toggle('mobile-dock-auth-hidden', hiddenForAuth);
+            document.body.classList.toggle('mobile-dock-maintenance-hidden', hiddenForMaintenance);
+          }
+        } catch {}
+        try {
+          dock.classList.toggle('is-auth-hidden', hiddenForAuth);
+          dock.classList.toggle('is-maintenance-hidden', hiddenForMaintenance);
+        } catch {}
         dock.querySelectorAll('.dock-item').forEach((el) => {
           const key = normalizeKey(el.dataset && el.dataset.key, 'home');
           const custom = !!(el.dataset && el.dataset.custom === '1');
-          setSidebarNodeVisibility(el, custom ? true : isItemVisible(key, user), '');
+          setSidebarNodeVisibility(el, dockAllowed && (custom ? true : isItemVisible(key, effectiveUser)), '');
         });
       } catch {}
     }
@@ -17554,6 +17748,8 @@ function wirePageBalanceBox(){
 
     let maintTimer = null;
     let siteMaintenanceActive = false;
+    let siteMaintenanceStateActive = false;
+    let siteAccessLockActive = false;
     let siteNoticeConfig = { enabled:false, title:"", message:"", requiredViews:1, autoHideSeconds:0, version:"" };
     let siteNoticeDismissedOnce = false;
     let siteNoticeModalBound = false;
@@ -18329,6 +18525,8 @@ function wirePageBalanceBox(){
     }
 
     function applyMaintenance(state){
+      const source = String(state && (state.source || state.reason || state.kind) || "").trim().toLowerCase();
+      const fromAccessLock = source === "site-lock" || source === "site_disabled" || source === "site-disabled" || (state && state.siteLock === true);
       const on = state && state.on === true;
       const untilMs = state && state.until ? Date.parse(state.until) : null;
       // If maintenance expired, turn it off immediately.
@@ -18337,10 +18535,22 @@ function wirePageBalanceBox(){
         applyMaintenance({ on:false });
         return;
       }
+      if (!fromAccessLock) siteMaintenanceStateActive = !!on;
       if (!on) {
+        if (!fromAccessLock && siteAccessLockActive) {
+          applyMaintenance({
+            on: true,
+            source: "site-lock",
+            title: "الموقع غير متوفر حالياً",
+            message: "الرجاء العودة لاحقاً."
+          });
+          return;
+        }
+        if (fromAccessLock && siteMaintenanceStateActive) return;
         siteMaintenanceActive = false;
         try { document.body?.classList.remove("maintenance-active"); } catch {}
         document.getElementById("maintenance-overlay")?.remove();
+        try { if (typeof window.__syncMobileDockVisibility === "function") window.__syncMobileDockVisibility(window.__AUTH_LAST_USER__ || null); } catch {}
         if (maintTimer) { clearInterval(maintTimer); maintTimer = null; }
         applySiteNotice(siteNoticeConfig);
         log("maintenance off");
@@ -18348,7 +18558,10 @@ function wirePageBalanceBox(){
       }
       siteMaintenanceActive = true;
       try { document.body?.classList.add("maintenance-active"); } catch {}
+      try { if (typeof window.__syncMobileDockVisibility === "function") window.__syncMobileDockVisibility(window.__AUTH_LAST_USER__ || null); } catch {}
       let overlay = document.getElementById("maintenance-overlay");
+      const titleText = String((state && (state.title || state.heading || state.headline)) || (fromAccessLock ? "الموقع غير متوفر حالياً" : "مغلق للصيانة")).trim();
+      const copyText = String((state && (state.message || state.copy || state.text)) || "الرجاء العودة لاحقاً.").trim();
       if (!overlay) {
         const host = getTransientUiHost();
         if (!host) return;
@@ -18386,6 +18599,10 @@ function wirePageBalanceBox(){
       syncMaintenanceTheme(overlay);
       syncMaintenanceScene(overlay);
       syncMaintenanceLogo(overlay);
+      const titleEl = overlay.querySelector(".maintenance-title");
+      const copyEl = overlay.querySelector(".maintenance-copy");
+      if (titleEl) titleEl.textContent = titleText || (fromAccessLock ? "الموقع غير متوفر حالياً" : "مغلق للصيانة");
+      if (copyEl) copyEl.textContent = copyText || "الرجاء العودة لاحقاً.";
       const cd = overlay.querySelector(".countdown");
       const status = overlay.querySelector(".maintenance-status");
       const renderCountdown = () => {
@@ -18980,13 +19197,13 @@ html[data-theme="dark"] #depositInlineApp .categories .card h2{
   --c1: ${palette.base} !important;
   --c2: ${palette.light} !important;
   --c3: ${palette.strong} !important;
-  filter: drop-shadow(0 6px 18px rgba(${palette.rgb}, 0.35)) !important;
+  filter: none !important;
 }
 #preloader .loader::before{
-  background: conic-gradient(from 0deg, ${palette.base} 0 140deg, transparent 140deg 360deg) !important;
-}
-#preloader .loader::after{
-  background: conic-gradient(from 180deg, ${palette.strong} 0 110deg, transparent 110deg 360deg) !important;
+  background: none !important;
+  border-top-color: ${palette.base} !important;
+  border-right-color: ${palette.light} !important;
+  box-shadow: none !important;
 }
 .reviews-page .user-name,
 .reviews-page .review-header .username,
@@ -20453,7 +20670,7 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
     const SITE_APPEARANCE_CACHE_KEY = "site:appearance:v1";
     const DEFAULT_SITE_LOADER_LOGO = resolveSiteMediaFallbackUrl("loader");
     const DEFAULT_SITE_HEADER_LOGO = resolveSiteMediaFallbackUrl("header");
-    const DEFAULT_SITE_ICON = resolveSiteMediaFallbackUrl("icon");
+    const DEFAULT_SITE_ICON = "";
     const DEFAULT_SITE_BRAND = (() => {
       try {
         return window.__getSiteBrandConfig ? window.__getSiteBrandConfig() : {};
@@ -21057,19 +21274,11 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
     }
 
     function resolveSiteSharePreviewUrl(fallbackUrl){
-      try {
-        const fromWindow = trimSiteMediaUrl(window.__SITE_SHARE_PREVIEW__);
-        if (fromWindow && !isBlockedSiteSharePreviewUrl(fromWindow)) return new URL(fromWindow, window.location.href).href;
-      } catch {}
-      try {
-        const fromSettings = window.__getSiteSetting ? trimSiteMediaUrl(window.__getSiteSetting("media.sitePreview", "")) : "";
-        if (fromSettings && !isBlockedSiteSharePreviewUrl(fromSettings)) return new URL(fromSettings, window.location.href).href;
-      } catch {}
-      return trimSiteMediaUrl(fallbackUrl);
+      return "";
     }
 
     function applySiteIcon(url){
-      const next = normalizeSiteMediaUrl(url) || DEFAULT_SITE_ICON;
+      const next = normalizeSiteMediaUrl(url);
       if (!next) return;
       try { window.__SITE_ICON__ = next; } catch {}
       const type = guessSiteMediaMimeType(next);
@@ -21096,20 +21305,6 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
         appleIcon.type = type;
         appleIcon.setAttribute("sizes", "180x180");
       }
-      const sharePreview = resolveSiteSharePreviewUrl(next);
-      if (isBlockedSiteSharePreviewUrl(sharePreview)) return;
-      try { window.__SITE_SHARE_PREVIEW__ = sharePreview; } catch {}
-      setMetaContent('meta[property="og:image"]', sharePreview);
-      setMetaContent('meta[property="og:image:secure_url"]', sharePreview);
-      setMetaContent('meta[property="og:image:type"]', guessSiteMediaMimeType(sharePreview));
-      setMetaContent('meta[property="og:image:alt"]', window.__getCurrentStoreName ? window.__getCurrentStoreName() : "Njad store");
-      setMetaContent('meta[name="twitter:image"]', sharePreview);
-      setMetaContent('meta[name="twitter:image:src"]', sharePreview);
-      setMetaContent('meta[name="twitter:image:alt"]', window.__getCurrentStoreName ? window.__getCurrentStoreName() : "Njad store");
-      setMetaContent('meta[name="msapplication-TileImage"]', next);
-      setMetaContent('meta[itemprop="image"]', sharePreview);
-      preloadImageAsset(next);
-      preloadImageAsset(sharePreview);
       try {
         window.dispatchEvent(new CustomEvent("site:icon", { detail: { url: next } }));
       } catch {}
@@ -21122,7 +21317,7 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
         const loaderNodes = document.querySelectorAll("#preloader .loader");
         loaderNodes.forEach((node) => {
           if (!(node instanceof HTMLElement)) return;
-          node.style.backgroundImage = "none";
+          try { node.style.removeProperty("background-image"); } catch {}
           const logo = ensureSiteLoaderLogoNode(node);
           if (!(logo instanceof HTMLImageElement)) return;
           if (!next) {
@@ -21246,6 +21441,7 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
 
     function applySiteAccessLock(raw){
       const state = normalizeSiteAccessLockState(raw || {});
+      siteAccessLockActive = state.enabled === true;
       try { window.__SITE_ACCESS_LOCK__ = { ...state }; } catch {}
       try {
         if (state.enabled) {
@@ -21262,10 +21458,37 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
       } catch {}
       if (!state.enabled) {
         siteLockRedirected = false;
+        if (!siteMaintenanceStateActive) {
+          applyMaintenance({ on: false, source: "site-lock" });
+        }
         return;
       }
+      applyMaintenance({
+        on: true,
+        source: "site-lock",
+        title: "الموقع غير متوفر حالياً",
+        message: "الرجاء العودة لاحقاً."
+      });
       siteLockRedirected = false;
     }
+
+    function showSiteUnavailableFromApi(options){
+      const opts = (options && typeof options === "object") ? options : {};
+      applySiteAccessLock({
+        enabled: true,
+        updatedAt: new Date().toISOString()
+      });
+      if (opts.refresh !== false) {
+        try {
+          refreshSiteStateFromNetwork(String(opts.reason || "api-site-disabled")).catch(function(){ return false; });
+        } catch (_) {}
+      }
+      return true;
+    }
+
+    try {
+      window.__showSiteUnavailableNow = showSiteUnavailableFromApi;
+    } catch {}
 
     function decodeFirestoreValue(val){
       if (!val || typeof val !== "object") return null;

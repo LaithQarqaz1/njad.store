@@ -1357,7 +1357,14 @@ function convertAmountWithRates(amount, fromCode, toCode, rates, base){
 function getCurrencySymbol(code, rates){
   if (!code) return "";
   const cur = rates && rates[code];
-  return (cur && (cur.symbol || cur.code)) ? (cur.symbol || cur.code) : code;
+  const raw = String(cur && (cur.symbol ?? cur.displaySymbol ?? cur.sign ?? "") || "").replace(/\s+/g, " ").trim();
+  const name = String(cur && (cur.nameAr ?? cur.arName ?? cur.name ?? cur.label ?? cur.title ?? "") || "").replace(/\s+/g, " ").trim();
+  const looksLikeName = raw && (
+    (name && raw.toLowerCase() === name.toLowerCase()) ||
+    /\s/.test(raw) ||
+    (/[\u0600-\u06ff]/.test(raw) && !/[.$\u20ac\u00a3]/.test(raw) && raw.replace(/[.\s]/g, "").length > 3)
+  );
+  return raw && !looksLikeName ? raw : code;
 }
 
 function formatAmountDisplay(totalStr, total, currency){
