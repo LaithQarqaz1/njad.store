@@ -279,7 +279,7 @@ const SITE_ICON_CANDIDATE_KEYS = [
 ];
 const SITE_HEADER_CANDIDATE_KEYS = ['headerLogo', 'header_logo', 'logo', 'logoUrl', 'logo_url'];
 const SITE_LOADER_CANDIDATE_KEYS = ['loaderLogo', 'loader_logo', 'loaderImage', 'loader_image', 'preloaderLogo', 'preloader_logo', 'loader'];
-const SITE_LOADER_FALLBACK_CANDIDATE_KEYS = SITE_LOADER_CANDIDATE_KEYS.concat(SITE_HEADER_CANDIDATE_KEYS);
+const SITE_LOADER_FALLBACK_CANDIDATE_KEYS = SITE_LOADER_CANDIDATE_KEYS.concat(SITE_ICON_CANDIDATE_KEYS, SITE_HEADER_CANDIDATE_KEYS);
 function resolveSiteMediaFallbackUrl(kind, label){
   const candidates = [];
   if (kind === 'loader') {
@@ -290,6 +290,7 @@ function resolveSiteMediaFallbackUrl(kind, label){
     candidates.push(readCachedSiteMediaCandidate(SITE_HEADER_CANDIDATE_KEYS));
   } else if (kind === 'icon') {
     candidates.push(window.__SITE_ICON__);
+    candidates.push(readCachedSiteMediaCandidate(SITE_ICON_CANDIDATE_KEYS));
   } else if (kind === 'catalog') {
     candidates.push("");
   }
@@ -317,6 +318,7 @@ function resolveSiteLoaderLogoCandidates(primary){
   push(primary);
   try { push(window.__SITE_LOADER_IMAGE__); } catch {}
   push(readCachedSiteMediaCandidate(SITE_LOADER_CANDIDATE_KEYS));
+  try { push(window.__SITE_ICON__); } catch {}
   try { push(window.__SITE_HEADER_LOGO__); } catch {}
   push(readCachedSiteMediaCandidate(SITE_LOADER_FALLBACK_CANDIDATE_KEYS));
   return out;
@@ -589,7 +591,8 @@ body.dark-mode #preloader .loader {
 /* Mask-free border arcs: WebKit (iOS Safari) does not composite transform
    animations on masked elements, which froze the spinner whenever the main
    thread was busy. Border arcs animate on the compositor and keep spinning. */
-#preloader .loader::before {
+#preloader .loader::before,
+#preloader .loader::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -609,6 +612,15 @@ body.dark-mode #preloader .loader {
   border-right-color: var(--c2);
   animation: ring-spin-a 0.82s linear infinite;
   -webkit-animation: ring-spin-a 0.82s linear infinite;
+}
+
+#preloader .loader::after {
+  inset: 13px;
+  border-width: 6px;
+  border-bottom-color: var(--c3);
+  border-left-color: rgba(var(--site-accent-rgb, 107, 114, 128), 0.34);
+  animation: ring-spin-b 1.08s linear infinite reverse;
+  -webkit-animation: ring-spin-b 1.08s linear infinite reverse;
 }
 
 #preloader.hidden .loader {
@@ -635,6 +647,8 @@ body.dark-mode #preloader .loader {
 
 @-webkit-keyframes ring-spin-a { to { -webkit-transform: translateZ(0) rotate(1turn); transform: translateZ(0) rotate(1turn); } }
 @keyframes ring-spin-a { to { -webkit-transform: translateZ(0) rotate(1turn); transform: translateZ(0) rotate(1turn); } }
+@-webkit-keyframes ring-spin-b { to { -webkit-transform: translateZ(0) rotate(1turn); transform: translateZ(0) rotate(1turn); } }
+@keyframes ring-spin-b { to { -webkit-transform: translateZ(0) rotate(1turn); transform: translateZ(0) rotate(1turn); } }
 
 @media (prefers-reduced-motion: reduce) {
   /* Keep a calm compositor-only spin so the loading state is still obvious on iOS. */
@@ -649,6 +663,10 @@ body.dark-mode #preloader .loader {
   #preloader .loader::before {
     animation: ring-spin-a 1.45s linear infinite !important;
     -webkit-animation: ring-spin-a 1.45s linear infinite !important;
+  }
+  #preloader .loader::after {
+    animation: ring-spin-b 1.8s linear infinite reverse !important;
+    -webkit-animation: ring-spin-b 1.8s linear infinite reverse !important;
   }
 }
 
@@ -7800,7 +7818,7 @@ function setSiteManifestLinkHref(manifestUrl, isObjectUrl){
   return href;
 }
 function setStaticSiteManifestLink(){
-  const manifestUrl = "/manifest.webmanifest?v=20260613-share-preview-01";
+  const manifestUrl = "/manifest.webmanifest?v=20260519-04";
   setSiteManifestLinkHref(manifestUrl, false);
   revokeSiteManifestUrl();
   return manifestUrl;
@@ -19205,6 +19223,11 @@ html[data-theme="dark"] #depositInlineApp .categories .card h2{
   border-right-color: ${palette.light} !important;
   box-shadow: none !important;
 }
+#preloader .loader::after{
+  background: none !important;
+  border-bottom-color: ${palette.strong} !important;
+  border-left-color: ${palette.light} !important;
+}
 .reviews-page .user-name,
 .reviews-page .review-header .username,
 .reviews-page .reply-link,
@@ -20670,7 +20693,7 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
     const SITE_APPEARANCE_CACHE_KEY = "site:appearance:v1";
     const DEFAULT_SITE_LOADER_LOGO = resolveSiteMediaFallbackUrl("loader");
     const DEFAULT_SITE_HEADER_LOGO = resolveSiteMediaFallbackUrl("header");
-    const DEFAULT_SITE_ICON = "";
+    const DEFAULT_SITE_ICON = resolveSiteMediaFallbackUrl("icon");
     const DEFAULT_SITE_BRAND = (() => {
       try {
         return window.__getSiteBrandConfig ? window.__getSiteBrandConfig() : {};
@@ -21274,11 +21297,19 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
     }
 
     function resolveSiteSharePreviewUrl(fallbackUrl){
-      return "";
+      try {
+        const fromWindow = trimSiteMediaUrl(window.__SITE_SHARE_PREVIEW__);
+        if (fromWindow && !isBlockedSiteSharePreviewUrl(fromWindow)) return new URL(fromWindow, window.location.href).href;
+      } catch {}
+      try {
+        const fromSettings = window.__getSiteSetting ? trimSiteMediaUrl(window.__getSiteSetting("media.sitePreview", "")) : "";
+        if (fromSettings && !isBlockedSiteSharePreviewUrl(fromSettings)) return new URL(fromSettings, window.location.href).href;
+      } catch {}
+      return trimSiteMediaUrl(fallbackUrl);
     }
 
     function applySiteIcon(url){
-      const next = normalizeSiteMediaUrl(url);
+      const next = normalizeSiteMediaUrl(url) || DEFAULT_SITE_ICON;
       if (!next) return;
       try { window.__SITE_ICON__ = next; } catch {}
       const type = guessSiteMediaMimeType(next);
@@ -21305,6 +21336,20 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
         appleIcon.type = type;
         appleIcon.setAttribute("sizes", "180x180");
       }
+      const sharePreview = resolveSiteSharePreviewUrl(next);
+      if (isBlockedSiteSharePreviewUrl(sharePreview)) return;
+      try { window.__SITE_SHARE_PREVIEW__ = sharePreview; } catch {}
+      setMetaContent('meta[property="og:image"]', sharePreview);
+      setMetaContent('meta[property="og:image:secure_url"]', sharePreview);
+      setMetaContent('meta[property="og:image:type"]', guessSiteMediaMimeType(sharePreview));
+      setMetaContent('meta[property="og:image:alt"]', window.__getCurrentStoreName ? window.__getCurrentStoreName() : "Njad store");
+      setMetaContent('meta[name="twitter:image"]', sharePreview);
+      setMetaContent('meta[name="twitter:image:src"]', sharePreview);
+      setMetaContent('meta[name="twitter:image:alt"]', window.__getCurrentStoreName ? window.__getCurrentStoreName() : "Njad store");
+      setMetaContent('meta[name="msapplication-TileImage"]', next);
+      setMetaContent('meta[itemprop="image"]', sharePreview);
+      preloadImageAsset(next);
+      preloadImageAsset(sharePreview);
       try {
         window.dispatchEvent(new CustomEvent("site:icon", { detail: { url: next } }));
       } catch {}

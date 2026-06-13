@@ -3183,7 +3183,8 @@ html.google-redirect-pending,
     /* Mask-free border arcs: WebKit (iOS Safari) does not composite
        transform animations on masked elements, which froze the spinner
        whenever the main thread was busy. Border arcs stay on the GPU. */
-    html.google-redirect-pending #preloader .loader::before{
+    html.google-redirect-pending #preloader .loader::before,
+    html.google-redirect-pending #preloader .loader::after{
       content:"";
       position:absolute;
       inset:0;
@@ -3203,9 +3204,19 @@ html.google-redirect-pending,
       animation:ring-spin-a .82s linear infinite;
       -webkit-animation:ring-spin-a .82s linear infinite;
     }
+    html.google-redirect-pending #preloader .loader::after{
+      inset:13px;
+      border-width:6px;
+      border-bottom-color:var(--c3);
+      border-left-color:rgba(var(--site-accent-rgb, 107, 114, 128), .34);
+      animation:ring-spin-b 1.08s linear infinite reverse;
+      -webkit-animation:ring-spin-b 1.08s linear infinite reverse;
+    }
     @keyframes loader-pulse{0%,100%{opacity:1;}50%{opacity:.93;}}
     @-webkit-keyframes ring-spin-a{to{-webkit-transform:translateZ(0) rotate(1turn);transform:translateZ(0) rotate(1turn);}}
     @keyframes ring-spin-a{to{-webkit-transform:translateZ(0) rotate(1turn);transform:translateZ(0) rotate(1turn);}}
+    @-webkit-keyframes ring-spin-b{to{-webkit-transform:translateZ(0) rotate(1turn);transform:translateZ(0) rotate(1turn);}}
+    @keyframes ring-spin-b{to{-webkit-transform:translateZ(0) rotate(1turn);transform:translateZ(0) rotate(1turn);}}
 
 /* #site-no-black-background-gradients */
 html[data-theme="dark"],
@@ -3462,7 +3473,8 @@ html[data-theme="dark"],
        transform animations on masked elements, which froze the spinner
        whenever the main thread was busy (e.g. while the bundle parses).
        Border arcs animate on the compositor and keep spinning. */
-    #preloader .loader::before{
+    #preloader .loader::before,
+    #preloader .loader::after{
       content:"";
       position:absolute;
       inset:0;
@@ -3482,6 +3494,14 @@ html[data-theme="dark"],
       animation:startup-loader-spin .82s linear infinite;
       -webkit-animation:startup-loader-spin .82s linear infinite;
     }
+    #preloader .loader::after{
+      inset:13px;
+      border-width:6px;
+      border-bottom-color:var(--c3);
+      border-left-color:rgba(var(--site-accent-rgb,107,114,128),.34);
+      animation:startup-loader-spin 1.08s linear infinite reverse;
+      -webkit-animation:startup-loader-spin 1.08s linear infinite reverse;
+    }
     @-webkit-keyframes startup-loader-spin{to{-webkit-transform:translateZ(0) rotate(1turn);transform:translateZ(0) rotate(1turn);}}
     @keyframes startup-loader-spin{to{-webkit-transform:translateZ(0) rotate(1turn);transform:translateZ(0) rotate(1turn);}}
     @keyframes startup-loader-pulse{0%,100%{opacity:1;}50%{opacity:.93;}}
@@ -3494,6 +3514,10 @@ html[data-theme="dark"],
       #preloader .loader::before{
         animation:startup-loader-spin 1.65s linear infinite !important;
         -webkit-animation:startup-loader-spin 1.65s linear infinite !important;
+      }
+      #preloader .loader::after{
+        animation:startup-loader-spin 1.9s linear infinite reverse !important;
+        -webkit-animation:startup-loader-spin 1.9s linear infinite reverse !important;
       }
     }
 
