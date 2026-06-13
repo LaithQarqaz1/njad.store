@@ -16905,8 +16905,51 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     return String(control.dataset?.fieldKind || "").toLowerCase() === "image";
   }
 
+  // Resolve the effective keyboard/input mode of a purchase control so values
+  // can be sanitized to what that keyboard could actually have produced.
+  function purchaseFieldInputMode(control, field) {
+    let mode = field && field.inputMode != null ? String(field.inputMode) : "";
+    if (!mode && control) {
+      try { mode = String(control.inputMode || ""); } catch (_) { mode = ""; }
+      if (!mode && typeof control.getAttribute === "function") {
+        try { mode = String(control.getAttribute("inputmode") || ""); } catch (_) {}
+      }
+    }
+    mode = mode.toLowerCase();
+    if (!mode && control) {
+      let type = "";
+      try { type = String(control.type || "").toLowerCase(); } catch (_) {}
+      if (type === "tel") mode = "tel";
+      else if (type === "number") mode = "numeric";
+      else if (type === "email") mode = "email";
+      else if (type === "url") mode = "url";
+    }
+    return mode;
+  }
+
   function sanitizeFieldValueForControl(control, value, field = null) {
-    return normalizeDigitsToEnglish(String(value ?? "").trim());
+    let text = normalizeDigitsToEnglish(String(value ?? "")).trim();
+    if (!text) return "";
+    // Drop characters that the field's own keyboard can never emit. iOS Safari
+    // autofill (and some keyboards) inject nearby button/label/description text
+    // into numeric ID/quantity inputs; since those keyboards only produce
+    // digits, any letters/punctuation are never user-typed and are removed on
+    // the spot. Free-text/email/url fields are left untouched.
+    const mode = purchaseFieldInputMode(control, field);
+    if (mode === "numeric") {
+      text = text.replace(/\D+/g, "");
+    } else if (mode === "tel") {
+      const hasPlus = /^\+/.test(text);
+      text = text.replace(/\D+/g, "");
+      if (hasPlus) text = "+" + text;
+    } else if (mode === "decimal") {
+      text = text.replace(/[^0-9.]+/g, "");
+      const dot = text.indexOf(".");
+      if (dot >= 0) {
+        text = text.slice(0, dot + 1) + text.slice(dot + 1).replace(/\./g, "");
+      }
+    }
+    return text;
   }
 
   function isTextPurchaseFieldControl(control) {
@@ -16959,6 +17002,28 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
         if (current !== trusted) control.value = trusted;
       } catch (_) {}
     });
+  }
+
+  // Revert a single control to its last trusted value (empty when none was
+  // ever stored). Undoes autofill/suggestion text injected without any user
+  // keystroke; the caret is moved to the end so the next real keystroke is not
+  // dropped at a stale position.
+  function revertUntrustedPurchaseFieldValue(control) {
+    if (!isTextPurchaseFieldControl(control)) return false;
+    try {
+      const trusted = control.dataset.purchaseTrustedValueSet === "1"
+        ? sanitizeFieldValueForControl(control, control.dataset.purchaseTrustedValue || "")
+        : "";
+      const current = sanitizeFieldValueForControl(control, control.value);
+      if (current === trusted) return false;
+      control.value = trusted;
+      try {
+        if (typeof control.setSelectionRange === "function") {
+          control.setSelectionRange(trusted.length, trusted.length);
+        }
+      } catch (_) {}
+      return true;
+    } catch (_) { return false; }
   }
 
   function schedulePurchaseFieldLeakGuard(root) {
@@ -17187,6 +17252,13 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           if (control.dataset.purchaseTrustedInputPending === "1") {
             storeTrustedPurchaseFieldValue(control);
             delete control.dataset.purchaseTrustedInputPending;
+          } else if (!autofillApplying) {
+            // No user gesture (keydown/beforeinput/paste/drop/composition)
+            // preceded this input event, so it is browser autofill / suggestion
+            // text dropped into the field — iOS Safari injects nearby
+            // button/label/description text on focus. Undo it so the field is
+            // not silently pre-filled with text the user must delete first.
+            revertUntrustedPurchaseFieldValue(control);
           }
         } catch (_) {}
       });
@@ -21060,8 +21132,10 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
       input.addEventListener("input", () => { normalizeInputDigitsInPlace(input); });
       input.addEventListener("blur", () => { normalizeInputDigitsInPlace(input); });
     });
-    bindPurchaseAutofillSource(dom.modalPlayerId);
-    bindPurchaseAutofillSource(dom.playerInput);
+    // Purchase text autofill removed by request: fields must only ever change
+    // from the customer's own direct entry into that field. No typed/pasted
+    // text is parsed or distributed across fields. (Browser/iOS autofill is
+    // still neutralized by the trusted-value revert in preparePurchaseFieldControl.)
     if (dom.modalDesc) {
       dom.modalDesc.addEventListener("scroll", () => updateModalDescScrollIndicator(), { passive: true });
       dom.modalDesc.addEventListener("pointerdown", handleModalDescPointerDown);
@@ -21268,12 +21342,11 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           return;
         }
         if (txt) {
-          const res = runPurchaseAutofill(txt, { source: "paste", origin: dom.playerInput });
-          if (!res.structured) {
-            dom.playerInput.value = txt;
-            try { sanitizeFieldInputInPlace(dom.playerInput); } catch (_) {}
-            try { storeTrustedPurchaseFieldValue(dom.playerInput); } catch (_) {}
-          }
+          // Direct paste into this one field only — the clipboard text is not
+          // parsed and is never distributed to other fields.
+          dom.playerInput.value = txt;
+          try { sanitizeFieldInputInPlace(dom.playerInput); } catch (_) {}
+          try { storeTrustedPurchaseFieldValue(dom.playerInput); } catch (_) {}
         }
         else showToast("لا يوجد نص في الحافظة.", "warning");
       } catch {
