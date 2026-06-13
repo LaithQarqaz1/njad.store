@@ -1155,15 +1155,7 @@
       }
 
       function getRuntimeSharePreviewUrl(fallbackUrl){
-        try {
-          var fromWindow = resolveRuntimeSiteUrl(window.__SITE_SHARE_PREVIEW__ || '');
-          if (fromWindow && !isBlockedRuntimeSharePreviewUrl(fromWindow)) return fromWindow;
-        } catch(_){}
-        try {
-          var fromSettings = window.__getSiteSetting ? resolveRuntimeSiteUrl(window.__getSiteSetting('media.sitePreview', '')) : '';
-          if (fromSettings && !isBlockedRuntimeSharePreviewUrl(fromSettings)) return fromSettings;
-        } catch(_){}
-        return resolveRuntimeSiteUrl(fallbackUrl || '');
+        return '';
       }
 
       function applyRuntimeSharePreviewMeta(url){
@@ -1183,7 +1175,7 @@
 
       function updateStructuredData(iconUrl, storeName){
         var logoUrl = String(iconUrl || '').trim();
-        var imageUrl = getRuntimeSharePreviewUrl(logoUrl);
+        var imageUrl = getRuntimeSharePreviewUrl('');
         var currentStoreName = String(storeName || DEFAULT_STORE_NAME).trim();
         var seoStoreTitle = buildRuntimeSeoStoreTitle(currentStoreName);
         var currentOrigin = '';
@@ -1234,7 +1226,7 @@
               "url": canonicalUrl,
               "alternateName": [SITE_ARABIC_STORE_NAME, "Njad store", currentHost].filter(Boolean),
               "inLanguage": "ar",
-              "image": imageUrl,
+              "image": imageUrl || undefined,
               "potentialAction": {
                 "@type": "SearchAction",
                 "target": searchUrl,
@@ -1244,12 +1236,12 @@
                 "@type": "Organization",
                 "name": organizationName,
                 "alternateName": [SITE_ARABIC_STORE_NAME, "Njad store", currentHost].filter(Boolean),
-                "logo": {
+                "logo": logoUrl ? {
                   "@type": "ImageObject",
-                  "url": logoUrl || imageUrl,
+                  "url": logoUrl,
                   "width": "512",
                   "height": "512"
-                }
+                } : undefined
               }
             }, null, 2);
           }
@@ -1279,7 +1271,7 @@
               "name": currentStoreName || currentHost,
               "alternateName": [SITE_ARABIC_STORE_NAME, "Njad store", currentHost].filter(Boolean),
               "url": canonicalUrl,
-              "logo": logoUrl || imageUrl,
+              "logo": logoUrl || undefined,
               "sameAs": canonicalUrl ? [canonicalUrl] : []
             }, null, 2);
           }
@@ -1301,8 +1293,6 @@
             window.__refreshDynamicSiteManifestHead();
           }
         } catch(_){}
-        applyRuntimeSharePreviewMeta(getRuntimeSharePreviewUrl(nextIcon));
-        setMetaContent('meta[name="msapplication-TileImage"]', nextIcon);
         updateStructuredData(nextIcon, window.__getCurrentStoreName ? window.__getCurrentStoreName() : DEFAULT_STORE_NAME);
       }
 
@@ -16915,8 +16905,51 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     return String(control.dataset?.fieldKind || "").toLowerCase() === "image";
   }
 
+  // Resolve the effective keyboard/input mode of a purchase control so values
+  // can be sanitized to what that keyboard could actually have produced.
+  function purchaseFieldInputMode(control, field) {
+    let mode = field && field.inputMode != null ? String(field.inputMode) : "";
+    if (!mode && control) {
+      try { mode = String(control.inputMode || ""); } catch (_) { mode = ""; }
+      if (!mode && typeof control.getAttribute === "function") {
+        try { mode = String(control.getAttribute("inputmode") || ""); } catch (_) {}
+      }
+    }
+    mode = mode.toLowerCase();
+    if (!mode && control) {
+      let type = "";
+      try { type = String(control.type || "").toLowerCase(); } catch (_) {}
+      if (type === "tel") mode = "tel";
+      else if (type === "number") mode = "numeric";
+      else if (type === "email") mode = "email";
+      else if (type === "url") mode = "url";
+    }
+    return mode;
+  }
+
   function sanitizeFieldValueForControl(control, value, field = null) {
-    return normalizeDigitsToEnglish(String(value ?? "").trim());
+    let text = normalizeDigitsToEnglish(String(value ?? "")).trim();
+    if (!text) return "";
+    // Drop characters that the field's own keyboard can never emit. iOS Safari
+    // autofill (and some keyboards) inject nearby button/label/description text
+    // into numeric ID/quantity inputs; since those keyboards only produce
+    // digits, any letters/punctuation are never user-typed and are removed on
+    // the spot. Free-text/email/url fields are left untouched.
+    const mode = purchaseFieldInputMode(control, field);
+    if (mode === "numeric") {
+      text = text.replace(/\D+/g, "");
+    } else if (mode === "tel") {
+      const hasPlus = /^\+/.test(text);
+      text = text.replace(/\D+/g, "");
+      if (hasPlus) text = "+" + text;
+    } else if (mode === "decimal") {
+      text = text.replace(/[^0-9.]+/g, "");
+      const dot = text.indexOf(".");
+      if (dot >= 0) {
+        text = text.slice(0, dot + 1) + text.slice(dot + 1).replace(/\./g, "");
+      }
+    }
+    return text;
   }
 
   function isTextPurchaseFieldControl(control) {
@@ -16931,19 +16964,6 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
       control.dataset.purchaseTrustedValue = sanitizeFieldValueForControl(control, control.value);
       control.dataset.purchaseTrustedValueSet = "1";
     } catch (_) {}
-  }
-
-  function scheduleTrustedPurchaseFieldValueStore(control) {
-    if (!isTextPurchaseFieldControl(control)) return;
-    const store = () => storeTrustedPurchaseFieldValue(control);
-    try { Promise.resolve().then(store); } catch (_) {}
-    try { setTimeout(store, 0); } catch (_) {}
-  }
-
-  function markPurchaseFieldUserIntent(control) {
-    if (!isTextPurchaseFieldControl(control)) return;
-    try { control.dataset.purchaseTrustedInputPending = "1"; } catch (_) {}
-    scheduleTrustedPurchaseFieldValueStore(control);
   }
 
   function readTrustedPurchaseFieldValue(control) {
@@ -16994,167 +17014,16 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     return true;
   }
 
-  /* ---------------- Purchase text autofill ---------------- */
-  /* Parses typed/pasted purchase text (Arabic/English labels and numerals)
-     and distributes the detected values across the purchase fields. Parsing
-     lives in the standalone PurchaseAutofill utility (purchase-autofill.js);
-     this block only owns DOM wiring. */
-  const AUTOFILL_FLASH_MS = 1600;
-  let autofillApplying = false;
-  let autofillTypingTimer = null;
-
-  function purchaseAutofillApi() {
-    try {
-      const api = window.PurchaseAutofill;
-      return api && typeof api.parsePurchaseText === "function" ? api : null;
-    } catch (_) { return null; }
-  }
-
-  function autofillRoots() {
-    const roots = [];
-    const modalRoot = dom.modalPlayerRow || dom.modal;
-    if (modalRoot) roots.push(modalRoot);
-    const inlineBox = dom.playerInput ? dom.playerInput.closest(".player-id-box") : null;
-    if (inlineBox && inlineBox !== modalRoot) roots.push(inlineBox);
-    return roots;
-  }
-
-  function collectAutofillControls() {
-    const byKey = new Map();
-    autofillRoots().forEach((root) => {
-      root.querySelectorAll("[data-field-key]").forEach((control) => {
-        if (!isTextPurchaseFieldControl(control)) return;
-        const key = control.dataset.fieldKey;
-        if (!key) return;
-        if (!byKey.has(key)) byKey.set(key, []);
-        byKey.get(key).push(control);
-      });
-    });
-    return byKey;
-  }
-
-  function markControlAutofilled(control) {
-    try {
-      control.dataset.autofillValue = String(control.value || "");
-      control.classList.add("autofill-flash");
-      setTimeout(() => { try { control.classList.remove("autofill-flash"); } catch (_) {} }, AUTOFILL_FLASH_MS);
-    } catch (_) {}
-  }
-
-  function controlAutofillState(control, key) {
-    const value = String(control.value || "");
-    const autofilled = !!value && control.dataset.autofillValue === value;
-    return { key, value, autofilled, manualEdit: !!value && !autofilled };
-  }
-
-  function applyParsedQuantityToModal(qty) {
-    const item = (state.modalLock && state.modalLock.item) || (state.selected && state.selected.item) || null;
-    if (!item || !shouldShowQtyInput(item)) return false;
-    const qtyMeta = (state.modalLock && state.modalLock.qtyMeta) ? state.modalLock.qtyMeta : getItemQtyMeta(item);
-    const validation = validateQty(qty, qtyMeta.min, qtyMeta.max, qtyMeta.options);
-    if (!validation.ok) return false;
-    const currentRaw = readModalQtyRaw(qtyMeta);
-    if (Number.isFinite(currentRaw) && currentRaw === qty) return false;
-    writeModalQtyValue(qty);
-    if (state.selected) state.selected.quantity = qty;
-    try {
-      const control = hasFixedQtyOptions(qtyMeta) ? (dom.modalQtySelect || dom.modalQty) : (dom.modalQty || dom.modalQtySelect);
-      if (control) {
-        control.dispatchEvent(new Event("input", { bubbles: true }));
-        markControlAutofilled(control);
-      }
-    } catch (_) {}
-    return true;
-  }
-
-  // Returns { applied, structured }. "structured" means the text carried
-  // explicit labeled values (or a quantity), i.e. it is safe to consume the
-  // paste instead of dumping the raw blob into one input.
-  function runPurchaseAutofill(rawText, { source = "input", origin = null } = {}) {
-    const none = { applied: false, structured: false };
-    if (autofillApplying) return none;
-    const api = purchaseAutofillApi();
-    if (!api) return none;
-    const text = String(rawText == null ? "" : rawText);
-    if (!text.trim()) return none;
-    const lock = state.modalLock;
-    const item = (lock && lock.item) || (state.selected && state.selected.item) || null;
-    const fields = (lock && Array.isArray(lock.fields) && lock.fields.length)
-      ? lock.fields
-      : (Array.isArray(state.selectedFields) && state.selectedFields.length
-        ? state.selectedFields
-        : (item ? resolveItemInputFields(item) : []));
-    if (!fields.length) return none;
-    let parsed = null;
-    try { parsed = api.parsePurchaseText(text, fields); } catch (_) { parsed = null; }
-    if (!parsed || !parsed.matchedAny) return none;
-    const structured = parsed.quantity != null ||
-      Object.keys(parsed.labeled || {}).some((key) => parsed.labeled[key] === true);
-
-    const controlsByKey = collectAutofillControls();
-    const states = [];
-    controlsByKey.forEach((controls, key) => {
-      const reference = controls.find((control) => String(control.value || "").trim()) || controls[0];
-      states.push(controlAutofillState(reference, key));
-    });
-    let actions = [];
-    try { actions = api.planAutofill(parsed, states, { source }); } catch (_) { actions = []; }
-
-    let applied = false;
-    autofillApplying = true;
-    try {
-      actions.forEach((action) => {
-        const controls = controlsByKey.get(action.key) || [];
-        controls.forEach((control) => {
-          if (!structured && origin && control === origin) return;
-          control.value = sanitizeFieldValueForControl(control, action.value);
-          storeTrustedPurchaseFieldValue(control);
-          markControlAutofilled(control);
-          applied = true;
-        });
-      });
-      if (parsed.quantity != null) {
-        applied = applyParsedQuantityToModal(parsed.quantity) || applied;
-      }
-    } finally {
-      autofillApplying = false;
-    }
-    if (applied) {
-      try { clearNameValidationResult(); } catch (_) {}
-      try { syncNameValidationUI(item); } catch (_) {}
-      try { updateModalPrice(); } catch (_) {}
-      try { updateSummary(); } catch (_) {}
-    }
-    return { applied, structured };
-  }
-
-  function bindPurchaseAutofillSource(input) {
-    if (!input || input.dataset.autofillBound === "1") return;
-    input.dataset.autofillBound = "1";
-    input.addEventListener("paste", (event) => {
-      let pasted = "";
-      try {
-        pasted = event.clipboardData ? String(event.clipboardData.getData("text") || "") : "";
-      } catch (_) { pasted = ""; }
-      if (!pasted || !pasted.trim()) return;
-      const res = runPurchaseAutofill(pasted, { source: "paste", origin: input });
-      if (res.structured) {
-        // The labeled values were distributed to their fields; keep the raw
-        // blob out of this input.
-        try { event.preventDefault(); } catch (_) {}
-      }
-    });
-    input.addEventListener("input", () => {
-      if (autofillApplying) return;
-      clearTimeout(autofillTypingTimer);
-      autofillTypingTimer = setTimeout(() => {
-        autofillTypingTimer = null;
-        try {
-          runPurchaseAutofill(String(input.value || ""), { source: "input", origin: input });
-        } catch (_) {}
-      }, 350);
-    });
-  }
+  // Insert types `beforeinput` reports for the customer's own direct editing
+  // (typing, IME composition, paste, drop). Anything else that inserts content
+  // — insertReplacementText, insertFromYank, autofill/suggestion inserts — is
+  // rejected so neighbouring text (the description, another field, or a value
+  // the browser remembered) can never be dropped into a purchase field.
+  var DIRECT_PURCHASE_INSERTS = (typeof Set === "function") ? new Set([
+    "insertText", "insertCompositionText", "insertFromComposition",
+    "insertFromPaste", "insertFromPasteAsQuotation", "insertFromDrop",
+    "insertLineBreak", "insertParagraph", "insertTranspose"
+  ]) : null;
 
   function preparePurchaseFieldControl(control, field = null) {
     if (!control || isImageFieldControl(control)) return;
@@ -17163,42 +17032,37 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     try { control.setAttribute("autocapitalize", "off"); } catch (_) {}
     try { control.setAttribute("autocorrect", "off"); } catch (_) {}
     try { control.spellcheck = false; } catch (_) {}
+    // Password managers / extensions ignore hints.
+    try { control.setAttribute("data-1p-ignore", "true"); } catch (_) {}
+    try { control.setAttribute("data-lpignore", "true"); } catch (_) {}
+    try { control.setAttribute("data-form-type", "other"); } catch (_) {}
     try {
-      const key = toSafeId(field?.key || control.dataset?.fieldKey || control.id || "field") || "field";
-      const scope = String(control.id || "").startsWith("modal") ? "modal" : "catalog";
-      control.name = `catalog_${scope}_${key}`;
+      // A per-instance random name stops the browser from matching — and
+      // autofilling — a value it remembered for this field on a previous visit.
+      // App logic addresses fields by data-field-key, so the name is cosmetic.
+      if (!control.dataset.purchaseNameNonce) {
+        control.dataset.purchaseNameNonce = Math.random().toString(36).slice(2, 10);
+      }
+      control.name = `pf_${control.dataset.purchaseNameNonce}`;
     } catch (_) {}
     try { control.removeAttribute("pattern"); } catch (_) {}
     if (control.dataset.purchaseSanitizeBound !== "1") {
       control.dataset.purchaseSanitizeBound = "1";
+      // Block autofill / suggestion / replacement inserts at the source so the
+      // field stays isolated. beforeinput is cancelable; real typing, IME and
+      // paste/drop are in the allow-list and pass through untouched.
       control.addEventListener("beforeinput", (event) => {
-        if (event && event.isTrusted === false) return;
-        markPurchaseFieldUserIntent(control);
-      });
-      control.addEventListener("paste", (event) => {
-        if (event && event.isTrusted === false) return;
-        markPurchaseFieldUserIntent(control);
-      });
-      control.addEventListener("drop", (event) => {
-        if (event && event.isTrusted === false) return;
-        markPurchaseFieldUserIntent(control);
-      });
-      control.addEventListener("keydown", (event) => {
-        if (event && event.isTrusted === false) return;
-        markPurchaseFieldUserIntent(control);
-      });
-      control.addEventListener("compositionend", (event) => {
-        if (event && event.isTrusted === false) return;
-        markPurchaseFieldUserIntent(control);
+        if (!event) return;
+        const type = String(event.inputType || "");
+        if (!type || type.indexOf("insert") !== 0) return; // deletions/formatting
+        if (DIRECT_PURCHASE_INSERTS && DIRECT_PURCHASE_INSERTS.has(type)) return;
+        try { event.preventDefault(); } catch (_) {}
       });
       control.addEventListener("input", () => {
         sanitizeFieldInputInPlace(control);
-        try {
-          if (control.dataset.purchaseTrustedInputPending === "1") {
-            storeTrustedPurchaseFieldValue(control);
-            delete control.dataset.purchaseTrustedInputPending;
-          }
-        } catch (_) {}
+        // Whatever the customer typed/pasted/dropped is the trusted value;
+        // nothing reverts it, so paste works on every platform.
+        try { storeTrustedPurchaseFieldValue(control); } catch (_) {}
       });
       control.addEventListener("blur", () => { sanitizeFieldInputInPlace(control); });
       control.addEventListener("change", () => { sanitizeFieldInputInPlace(control); });
@@ -21070,8 +20934,10 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
       input.addEventListener("input", () => { normalizeInputDigitsInPlace(input); });
       input.addEventListener("blur", () => { normalizeInputDigitsInPlace(input); });
     });
-    bindPurchaseAutofillSource(dom.modalPlayerId);
-    bindPurchaseAutofillSource(dom.playerInput);
+    // Purchase text autofill removed by request: fields must only ever change
+    // from the customer's own direct entry into that field. No typed/pasted
+    // text is parsed or distributed across fields. (Browser/iOS autofill is
+    // still neutralized by the trusted-value revert in preparePurchaseFieldControl.)
     if (dom.modalDesc) {
       dom.modalDesc.addEventListener("scroll", () => updateModalDescScrollIndicator(), { passive: true });
       dom.modalDesc.addEventListener("pointerdown", handleModalDescPointerDown);
@@ -21278,12 +21144,11 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           return;
         }
         if (txt) {
-          const res = runPurchaseAutofill(txt, { source: "paste", origin: dom.playerInput });
-          if (!res.structured) {
-            dom.playerInput.value = txt;
-            try { sanitizeFieldInputInPlace(dom.playerInput); } catch (_) {}
-            try { storeTrustedPurchaseFieldValue(dom.playerInput); } catch (_) {}
-          }
+          // Direct paste into this one field only — the clipboard text is not
+          // parsed and is never distributed to other fields.
+          dom.playerInput.value = txt;
+          try { sanitizeFieldInputInPlace(dom.playerInput); } catch (_) {}
+          try { storeTrustedPurchaseFieldValue(dom.playerInput); } catch (_) {}
         }
         else showToast("لا يوجد نص في الحافظة.", "warning");
       } catch {
