@@ -30,7 +30,7 @@
       waBadgeBrand: ""
     },
     media: {
-      siteIcon: "https://api.njad.store/site-icon.png?v=admin-20260518-02",
+      siteIcon: "",
       sitePreview: ""
     },
     pwa: {
@@ -94,9 +94,8 @@
   global.__SITE_FIREBASE_HELPER_ORIGIN__ = getByPath(settings, "auth.firebaseHelperOrigin", "");
   global.__SITE_GOOGLE_REDIRECT_ORIGIN__ = getByPath(settings, "auth.googleRedirectOrigin", "");
   global.__SITE_GOOGLE_REDIRECT_URI__ = getByPath(settings, "auth.googleRedirectUri", "");
-  global.__SITE_ICON__ = global.__SITE_ICON__ || getByPath(settings, "media.siteIcon", "");
-  if (isBlockedSitePreviewUrl(global.__SITE_SHARE_PREVIEW__)) global.__SITE_SHARE_PREVIEW__ = "";
-  global.__SITE_SHARE_PREVIEW__ = global.__SITE_SHARE_PREVIEW__ || getByPath(settings, "media.sitePreview", "");
+  global.__SITE_ICON__ = "";
+  global.__SITE_SHARE_PREVIEW__ = "";
 
   global.__getSiteSettings = function () {
     return clone(settings);

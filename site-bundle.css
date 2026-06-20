@@ -1186,6 +1186,12 @@ html[dir="ltr"] #sidebar ul li a {
 /* اجعل التوست واللودر فوق النافذة المنبثقة */
 #toast { z-index: 13000 !important; }
 #preloader { z-index: 1700 !important; }
+
+/* تمييز مؤقت للحقول التي تم تعبئتها تلقائيًا من نص الشراء */
+[data-field-key] { transition: box-shadow .25s ease; }
+[data-field-key].autofill-flash {
+  box-shadow: 0 0 0 2px rgba(var(--site-accent-rgb, 107, 114, 128), .55);
+}
 html.pre-login-route #preloader,
 body.login-route-active #preloader,
 body[data-inline-route="login"] #preloader,
@@ -3161,34 +3167,45 @@ html.google-redirect-pending,
       --c1:var(--site-accent-runtime, #6b7280);
       --c2:var(--site-accent-runtime-light, #94a3b8);
       --c3:var(--site-accent-runtime-strong, #cbd5e1);
+      box-sizing:border-box;
+      overflow:visible;
+      border:0;
+      background:none;
+      filter:none;
       display:grid;
       place-items:center;
       opacity:1 !important;
-      transform:scale(1) !important;
+      transform:translateZ(0) scale(1) !important;
+      -webkit-transform:translateZ(0) scale(1) !important;
       animation:loader-pulse 1.2s ease-in-out infinite;
-      filter:drop-shadow(0 6px 18px rgba(var(--site-accent-rgb, 107, 114, 128), .35));
+      -webkit-animation:loader-pulse 1.2s ease-in-out infinite;
     }
-    html.google-redirect-pending #preloader .loader::before,
-    html.google-redirect-pending #preloader .loader::after{
+    /* Mask-free border arcs: WebKit (iOS Safari) does not composite
+       transform animations on masked elements, which froze the spinner
+       whenever the main thread was busy. Border arcs stay on the GPU. */
+    html.google-redirect-pending #preloader .loader::before{
       content:"";
       position:absolute;
       inset:0;
       border-radius:50%;
-      -webkit-mask:radial-gradient(farthest-side, transparent calc(100% - 8px), #000 calc(100% - 7px));
-              mask:radial-gradient(farthest-side, transparent calc(100% - 8px), #000 calc(100% - 7px));
+      border:7px solid transparent;
+      box-sizing:border-box;
+      pointer-events:none;
+      backface-visibility:hidden;
+      -webkit-backface-visibility:hidden;
+      transform:translateZ(0);
+      -webkit-transform:translateZ(0);
+      will-change:transform;
     }
     html.google-redirect-pending #preloader .loader::before{
-      background:conic-gradient(from 0deg, var(--c1) 0 140deg, transparent 140deg 360deg);
-      animation:ring-spin-a .8s linear infinite;
+      border-top-color:var(--c1);
+      border-right-color:var(--c2);
+      animation:ring-spin-a .82s linear infinite;
+      -webkit-animation:ring-spin-a .82s linear infinite;
     }
-    html.google-redirect-pending #preloader .loader::after{
-      inset:10px;
-      background:conic-gradient(from 180deg, var(--c3) 0 110deg, transparent 110deg 360deg);
-      animation:ring-spin-b .9s linear infinite reverse;
-    }
-    @keyframes loader-pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
-    @keyframes ring-spin-a{to{transform:rotate(1turn);}}
-    @keyframes ring-spin-b{to{transform:rotate(1turn);}}
+    @keyframes loader-pulse{0%,100%{opacity:1;}50%{opacity:.93;}}
+    @-webkit-keyframes ring-spin-a{to{-webkit-transform:translateZ(0) rotate(1turn);transform:translateZ(0) rotate(1turn);}}
+    @keyframes ring-spin-a{to{-webkit-transform:translateZ(0) rotate(1turn);transform:translateZ(0) rotate(1turn);}}
 
 /* #site-no-black-background-gradients */
 html[data-theme="dark"],
@@ -3315,6 +3332,8 @@ html[data-theme="dark"],
       display:flex;
       align-items:center;
       justify-content:center;
+      width:100vw;
+      height:100dvh;
       --overlay:rgba(246,247,255,.65);
       background:var(--overlay);
       -webkit-backdrop-filter:blur(6px);
@@ -3388,8 +3407,10 @@ html[data-theme="dark"],
       border-radius:50% !important;
       opacity:1 !important;
       visibility:visible !important;
-      transform:scale(1) !important;
+      transform:translateZ(0) scale(1) !important;
+      -webkit-transform:translateZ(0) scale(1) !important;
       animation:startup-loader-pulse 1.2s ease-in-out infinite !important;
+      -webkit-animation:startup-loader-pulse 1.2s ease-in-out infinite !important;
     }
     html.catalog-loader-pending #preloader .loader,
     body.catalog-loader-pending #preloader .loader,
@@ -3405,8 +3426,10 @@ html[data-theme="dark"],
       border-radius:50% !important;
       opacity:1 !important;
       visibility:visible !important;
-      transform:scale(1) !important;
+      transform:translateZ(0) scale(1) !important;
+      -webkit-transform:translateZ(0) scale(1) !important;
       animation:startup-loader-pulse 1.2s ease-in-out infinite !important;
+      -webkit-animation:startup-loader-pulse 1.2s ease-in-out infinite !important;
     }
     #preloader .loader{
       position:relative;
@@ -3416,37 +3439,63 @@ html[data-theme="dark"],
       --c1:var(--site-accent-runtime,#6b7280);
       --c2:var(--site-accent-runtime-light,#94a3b8);
       --c3:var(--site-accent-runtime-strong,#475569);
+      box-sizing:border-box;
+      overflow:visible;
+      border:0;
+      background:none;
       display:grid;
       place-items:center;
-      filter:drop-shadow(0 6px 18px rgba(var(--site-accent-rgb,107,114,128),.35));
+      filter:none;
       animation:startup-loader-pulse 1.2s ease-in-out infinite;
+      -webkit-animation:startup-loader-pulse 1.2s ease-in-out infinite;
+      transform:translateZ(0) scale(1);
+      -webkit-transform:translateZ(0) scale(1);
     }
     html[data-theme="dark"] #preloader .loader,
     body.dark-mode #preloader .loader{
       --c1:var(--site-accent-runtime,#6b7280);
       --c2:var(--site-accent-runtime-light,#cbd5e1);
       --c3:var(--site-accent-runtime-light,#cbd5e1);
+      filter:none;
     }
-    #preloader .loader::before,
-    #preloader .loader::after{
+    /* Mask-free border arcs: WebKit (iOS Safari) does not composite
+       transform animations on masked elements, which froze the spinner
+       whenever the main thread was busy (e.g. while the bundle parses).
+       Border arcs animate on the compositor and keep spinning. */
+    #preloader .loader::before{
       content:"";
       position:absolute;
       inset:0;
       border-radius:50%;
-      -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 8px),#000 calc(100% - 7px));
-              mask:radial-gradient(farthest-side,transparent calc(100% - 8px),#000 calc(100% - 7px));
+      border:7px solid transparent;
+      box-sizing:border-box;
+      pointer-events:none;
+      backface-visibility:hidden;
+      -webkit-backface-visibility:hidden;
+      transform:translateZ(0);
+      -webkit-transform:translateZ(0);
+      will-change:transform;
     }
     #preloader .loader::before{
-      background:conic-gradient(from 0deg,var(--c1) 0 140deg,transparent 140deg 360deg);
-      animation:startup-loader-spin .8s linear infinite;
+      border-top-color:var(--c1);
+      border-right-color:var(--c2);
+      animation:startup-loader-spin .82s linear infinite;
+      -webkit-animation:startup-loader-spin .82s linear infinite;
     }
-    #preloader .loader::after{
-      inset:10px;
-      background:conic-gradient(from 180deg,var(--c3) 0 110deg,transparent 110deg 360deg);
-      animation:startup-loader-spin .9s linear infinite reverse;
+    @-webkit-keyframes startup-loader-spin{to{-webkit-transform:translateZ(0) rotate(1turn);transform:translateZ(0) rotate(1turn);}}
+    @keyframes startup-loader-spin{to{-webkit-transform:translateZ(0) rotate(1turn);transform:translateZ(0) rotate(1turn);}}
+    @keyframes startup-loader-pulse{0%,100%{opacity:1;}50%{opacity:.93;}}
+    @media (prefers-reduced-motion: reduce){
+      /* Keep a calm compositor-only spin so the loading state is still obvious on iOS. */
+      :is(html, html.google-redirect-pending, html.catalog-loader-pending, html.deposit-countries-loader-pending, html.inline-route-pending, html.inline-wallet-route-pending) #preloader .loader,
+      :is(body, body.catalog-loader-pending, body.deposit-countries-loader-pending, body.inline-route-pending, body.inline-wallet-route-pending) #preloader .loader{
+        animation:none !important;
+      }
+      #preloader .loader::before{
+        animation:startup-loader-spin 1.65s linear infinite !important;
+        -webkit-animation:startup-loader-spin 1.65s linear infinite !important;
+      }
     }
-    @keyframes startup-loader-spin{to{transform:rotate(1turn);}}
-    @keyframes startup-loader-pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
 
 /* #critical-theme */
 :root { color-scheme: light; }
@@ -14877,7 +14926,7 @@ body.light-mode :is(#telegramLinkCodeModal,#securityEmailCodeModal,#totpLoginMod
 }
 .zconfirm-header .zbadge{display:none !important;}
 .zconfirm-title{
-  color:var(--text, #18233f) !important;
+  color:var(--site-accent-runtime-strong, var(--site-accent-runtime, var(--accent-theme, #5c5ebf))) !important;
   font-size:clamp(20px, 3vw, 28px) !important;
   font-weight:900 !important;
   text-align:center !important;
@@ -14895,13 +14944,13 @@ body.light-mode :is(#telegramLinkCodeModal,#securityEmailCodeModal,#totpLoginMod
   direction:ltr !important;
 }
 .zlabel{
-  color:var(--muted, #8b8f9c) !important;
+  color:var(--site-accent-runtime-strong, var(--site-accent-runtime, var(--accent-theme, #5c5ebf))) !important;
   font-size:clamp(14px, 2vw, 17px) !important;
   font-weight:800 !important;
   text-align:right !important;
 }
 .zvalue{
-  color:var(--text, #18233f) !important;
+  color:var(--site-accent-runtime-strong, var(--site-accent-runtime, var(--accent-theme, #5c5ebf))) !important;
   font-size:clamp(15px, 2.2vw, 18px) !important;
   font-weight:900 !important;
   text-align:left !important;
@@ -14909,7 +14958,7 @@ body.light-mode :is(#telegramLinkCodeModal,#securityEmailCodeModal,#totpLoginMod
 }
 .zfx{
   margin:12px 0 0 !important;
-  color:var(--muted, #8b8f9c) !important;
+  color:var(--site-accent-runtime-strong, var(--site-accent-runtime, var(--accent-theme, #5c5ebf))) !important;
   text-align:center !important;
   font-size:13px !important;
 }
@@ -14930,9 +14979,22 @@ body.light-mode :is(#telegramLinkCodeModal,#securityEmailCodeModal,#totpLoginMod
   color:var(--bg-app, #fff) !important;
 }
 .zbtn:not(.zbtn-primary){
-  background:transparent !important;
-  color:var(--text, #18233f) !important;
-  border:1px solid rgba(127,132,150,.42) !important;
+  background:linear-gradient(135deg,
+    var(--site-accent-runtime, var(--accent-theme, #5c5ebf)),
+    var(--site-accent-runtime-strong, var(--accent-theme, #4a4cc4))) !important;
+  color:#fff !important;
+  border:0 !important;
+  outline:0 !important;
+  box-shadow:none !important;
+}
+.zbtn:not(.zbtn-primary):is(:hover,:focus,:focus-visible){
+  border:0 !important;
+  outline:0 !important;
+  box-shadow:none !important;
+}
+html[data-theme="dark"] :is(.zconfirm-title,.zconfirm-row,.zconfirm-label,.zlabel,.zvalue,.zfx),
+body.dark-mode :is(.zconfirm-title,.zconfirm-row,.zconfirm-label,.zlabel,.zvalue,.zfx){
+  color:var(--site-accent-runtime-light, var(--site-accent-runtime, var(--accent-theme, #9c9ede))) !important;
 }
 
 .categories > .catalog-games-empty.is-visible,

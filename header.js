@@ -279,7 +279,7 @@ const SITE_ICON_CANDIDATE_KEYS = [
 ];
 const SITE_HEADER_CANDIDATE_KEYS = ['headerLogo', 'header_logo', 'logo', 'logoUrl', 'logo_url'];
 const SITE_LOADER_CANDIDATE_KEYS = ['loaderLogo', 'loader_logo', 'loaderImage', 'loader_image', 'preloaderLogo', 'preloader_logo', 'loader'];
-const SITE_LOADER_FALLBACK_CANDIDATE_KEYS = SITE_LOADER_CANDIDATE_KEYS.concat(SITE_ICON_CANDIDATE_KEYS, SITE_HEADER_CANDIDATE_KEYS);
+const SITE_LOADER_FALLBACK_CANDIDATE_KEYS = SITE_LOADER_CANDIDATE_KEYS.concat(SITE_HEADER_CANDIDATE_KEYS);
 function resolveSiteMediaFallbackUrl(kind, label){
   const candidates = [];
   if (kind === 'loader') {
@@ -290,7 +290,6 @@ function resolveSiteMediaFallbackUrl(kind, label){
     candidates.push(readCachedSiteMediaCandidate(SITE_HEADER_CANDIDATE_KEYS));
   } else if (kind === 'icon') {
     candidates.push(window.__SITE_ICON__);
-    candidates.push(readCachedSiteMediaCandidate(SITE_ICON_CANDIDATE_KEYS));
   } else if (kind === 'catalog') {
     candidates.push("");
   }
@@ -318,7 +317,6 @@ function resolveSiteLoaderLogoCandidates(primary){
   push(primary);
   try { push(window.__SITE_LOADER_IMAGE__); } catch {}
   push(readCachedSiteMediaCandidate(SITE_LOADER_CANDIDATE_KEYS));
-  try { push(window.__SITE_ICON__); } catch {}
   try { push(window.__SITE_HEADER_LOGO__); } catch {}
   push(readCachedSiteMediaCandidate(SITE_LOADER_FALLBACK_CANDIDATE_KEYS));
   return out;
@@ -364,8 +362,6 @@ function resolveSiteLoaderLogoCandidates(primary){
   will-change: opacity, visibility;
 }
 
-@keyframes preloaderAutoHide { to { opacity: 0; visibility: hidden; } }
-#preloader.auto-hide { animation: preloaderAutoHide 0s linear 1.2s forwards; }
 #preloader.preparing-intro {
   opacity: 1 !important;
   visibility: visible !important;
@@ -543,7 +539,7 @@ body.inline-wallet-route-pending #depositInlineApp {
 #preloader.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
 #preloader.closing { opacity: 0; visibility: hidden; pointer-events: none; }
 
-.loader {
+#preloader .loader {
   position: relative;
   width: 128px;
   height: 128px;
@@ -551,17 +547,19 @@ body.inline-wallet-route-pending #depositInlineApp {
   --c1: var(--site-accent-runtime, #6b7280);
   --c2: var(--site-accent-runtime-light, #94a3b8);
   --c3: var(--site-accent-runtime-strong, #475569);
-  filter: drop-shadow(0 6px 18px rgba(var(--site-accent-rgb, 107, 114, 128), 0.35));
+  box-sizing: border-box;
+  overflow: visible;
+  border: 0;
+  background: none;
+  filter: none;
   transition: transform 0.4s ease, opacity 0.4s ease;
   opacity: 1;
-  transform: scale(1);
+  transform: translateZ(0) scale(1);
+  -webkit-transform: translateZ(0) scale(1);
   animation: loader-pulse 1.2s ease-in-out infinite;
+  -webkit-animation: loader-pulse 1.2s ease-in-out infinite;
   display: grid;
   place-items: center;
-  background-image: none;
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: 72px 72px;
 }
 
 #preloader.entering .loader {
@@ -580,32 +578,37 @@ body.inline-wallet-route-pending #depositInlineApp {
   animation: loader-pop-out 0.22s cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 
-html[data-theme="dark"] .loader,
-body.dark-mode .loader {
+html[data-theme="dark"] #preloader .loader,
+body.dark-mode #preloader .loader {
   --c1: var(--site-accent-runtime, #6b7280);
   --c2: var(--site-accent-runtime-light, #cbd5e1);
   --c3: var(--site-accent-runtime-light, #cbd5e1);
+  filter: none;
 }
 
-.loader::before,
-.loader::after {
+/* Mask-free border arcs: WebKit (iOS Safari) does not composite transform
+   animations on masked elements, which froze the spinner whenever the main
+   thread was busy. Border arcs animate on the compositor and keep spinning. */
+#preloader .loader::before {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 8px), #000 calc(100% - 7px));
-          mask: radial-gradient(farthest-side, transparent calc(100% - 8px), #000 calc(100% - 7px));
+  border: 7px solid transparent;
+  box-sizing: border-box;
+  pointer-events: none;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  will-change: transform;
 }
 
-.loader::before {
-  background: conic-gradient(from 0deg, var(--c1) 0 140deg, transparent 140deg 360deg);
-  animation: ring-spin-a 0.8s linear infinite;
-}
-
-.loader::after {
-  inset: 10px;
-  background: conic-gradient(from 180deg, var(--c3) 0 110deg, transparent 110deg 360deg);
-  animation: ring-spin-b 0.9s linear infinite reverse;
+#preloader .loader::before {
+  border-top-color: var(--c1);
+  border-right-color: var(--c2);
+  animation: ring-spin-a 0.82s linear infinite;
+  -webkit-animation: ring-spin-a 0.82s linear infinite;
 }
 
 #preloader.hidden .loader {
@@ -627,39 +630,47 @@ body.dark-mode .loader {
 
 @keyframes loader-pulse {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
+  50% { opacity: 0.93; }
 }
 
-@keyframes ring-spin-a { to { transform: rotate(1turn); } }
-@keyframes ring-spin-b { to { transform: rotate(1turn); } }
+@-webkit-keyframes ring-spin-a { to { -webkit-transform: translateZ(0) rotate(1turn); transform: translateZ(0) rotate(1turn); } }
+@keyframes ring-spin-a { to { -webkit-transform: translateZ(0) rotate(1turn); transform: translateZ(0) rotate(1turn); } }
 
 @media (prefers-reduced-motion: reduce) {
+  /* Keep a calm compositor-only spin so the loading state is still obvious on iOS. */
   #preloader.entering { animation: none; }
-  .loader { animation: none; }
+  :is(html, html.google-redirect-pending, html.catalog-loader-pending, html.deposit-countries-loader-pending, html.inline-route-pending, html.inline-wallet-route-pending) #preloader .loader,
+  :is(body, body.catalog-loader-pending, body.deposit-countries-loader-pending, body.inline-route-pending, body.inline-wallet-route-pending) #preloader .loader,
+  #preloader .loader,
   #preloader.entering .loader,
-  #preloader.closing .loader { animation: none; }
-  .loader::before { animation-duration: 1.4s; }
-  .loader::after  { animation-duration: 1.6s; }
+  #preloader.closing .loader {
+    animation: none !important;
+  }
+  #preloader .loader::before {
+    animation: ring-spin-a 1.45s linear infinite !important;
+    -webkit-animation: ring-spin-a 1.45s linear infinite !important;
+  }
 }
 
-.loader img.loader-logo {
+#preloader .loader img.loader-logo {
   position: relative;
-  z-index: 1;
-  width: 72px;
-  height: 72px;
+  z-index: 2;
+  width: 84px;
+  height: 84px;
   object-fit: contain;
-  border-radius: 12px;
+  border-radius: 18px;
   pointer-events: none;
   user-select: none;
   -webkit-user-drag: none;
+  filter: none;
 }
-.loader img.loader-logo[hidden] {
+#preloader .loader img.loader-logo[hidden] {
   display: none !important;
 }
 
 @media (max-width: 480px) {
   #preloader { -webkit-backdrop-filter: none; backdrop-filter: none; }
-  .loader { filter: none; }
+  #preloader .loader { filter: none; }
 }
     `;
     (document.head || document.documentElement).appendChild(style);
@@ -825,23 +836,18 @@ function primePageLoaderIntro(el){
 function schedulePageLoaderHideDisplay(el, delay){
   try {
     cancelPageLoaderHideTimer();
-    window.__PAGE_LOADER_HIDE_TIMER__ = setTimeout(function(){
-      try {
-        if (el) {
-          try {
-            if (typeof shouldKeepPageLoaderVisible === 'function' && shouldKeepPageLoaderVisible()) {
-              if (typeof isCatalogPageLoaderActive === 'function' && isCatalogPageLoaderActive() && typeof window.__catalogForcePageLoaderVisible === 'function') {
-                window.__catalogForcePageLoaderVisible();
-              }
-              return;
-            }
-          } catch(_){}
-          el.classList.remove('entering', 'closing');
-          el.classList.add('hidden');
-          el.style.display = 'none';
+    if (!el) return;
+    try {
+      if (typeof shouldKeepPageLoaderVisible === 'function' && shouldKeepPageLoaderVisible()) {
+        if (typeof isCatalogPageLoaderActive === 'function' && isCatalogPageLoaderActive() && typeof window.__catalogForcePageLoaderVisible === 'function') {
+          window.__catalogForcePageLoaderVisible();
         }
-      } catch(_){}
-    }, delay);
+        return;
+      }
+    } catch(_){}
+    el.classList.remove('entering', 'closing');
+    el.classList.add('hidden');
+    el.style.display = 'none';
   } catch {}
 }
 try { window.__cancelPageLoaderHideTimer = cancelPageLoaderHideTimer; } catch {}
@@ -878,13 +884,9 @@ function showPageLoader(opts){
       el.style.opacity = '1';
     }
     try {
-      clearTimeout(window.__NAV_LOADER_TIMEOUT__);
-      const autoHide = !!(opts && opts.autoHide);
-      if (!hold && autoHide) {
-        window.__NAV_LOADER_TIMEOUT__ = setTimeout(function(){
-          try { sessionStorage.removeItem('nav:loader:expected'); sessionStorage.removeItem('nav:loader:showAt'); } catch(_){ }
-          try { hidePageLoader(); } catch(_){ }
-        }, 1200);
+      if (window.__NAV_LOADER_HASH_WAITER__) {
+        try { window.removeEventListener('hashchange', window.__NAV_LOADER_HASH_WAITER__); } catch(_){ }
+        window.__NAV_LOADER_HASH_WAITER__ = null;
       }
     } catch {}
   } catch {}
@@ -901,6 +903,7 @@ function isCatalogPageLoaderActive(){
 function shouldKeepPageLoaderVisible(){
   try {
     try {
+      if (isServerRequestLoaderPending()) return true;
       if (isCatalogPageLoaderActive()) return true;
       if (window.__AUTH_POST_LOGIN_NAV_PENDING__ === true) return true;
       if (window.__DEPOSIT_INLINE_COUNTRIES_LOADING__ === true) return true;
@@ -935,9 +938,18 @@ function shouldKeepPageLoaderVisible(){
   } catch {}
   return false;
 }
+function isServerRequestLoaderPending(){
+  try {
+    return Number(window.__SERVER_REQUEST_LOADER_PENDING_COUNT__ || 0) > 0;
+  } catch {}
+  return false;
+}
 function hidePageLoader(opts){
   try {
     const allowForceHide = !!(opts && opts.force);
+    if (isServerRequestLoaderPending() && !(opts && opts.ignoreServerRequestLoading === true)) {
+      return;
+    }
     if (allowForceHide) {
       try {
         if (isCatalogPageLoaderActive() && !(opts && opts.ignoreCatalogLoading === true)) return;
@@ -968,105 +980,77 @@ function hidePageLoader(opts){
   } catch {}
 }
 
-(function setupPageLoaderFailsafe(){
-  function getCurrentInlineRouteKey(){
-    try {
-      const fromBody = String(document.body && document.body.getAttribute('data-inline-route') || '').trim().toLowerCase();
-      if (fromBody) return fromBody;
-    } catch {}
-    try {
-      const raw = String(location.hash || '').replace(/^#\/?/, '').trim().toLowerCase();
-      return raw.split('/').filter(Boolean)[0] || '';
-    } catch {}
-    return '';
-  }
-  function isProtectedLoaderRoute(){
-    const key = getCurrentInlineRouteKey();
-    return key === 'deposit' || key === 'edaa' || key === 'security';
-  }
-  function canClearGoogleRedirectLoader(){
-    try {
-      const root = document.documentElement;
-      if (!root || !root.classList.contains('google-redirect-pending')) return true;
-      const startedAt = Number(window.__GOOGLE_REDIRECT_EARLY_STARTED_AT__ || 0) || 0;
-      return !startedAt || (Date.now() - startedAt) > 2500;
-    } catch {}
-    return true;
-  }
-  function clearStaleLoaderState(reason){
-    const hardClearReason = reason === 'startup-long';
-    try {
-      if (!hardClearReason && window.__LOADER_HOLD_ACTIVE__ === true) return;
-    } catch {}
-    try {
-      if (isProtectedLoaderRoute() && !hardClearReason) return;
-    } catch {}
-    try {
-      if (typeof shouldKeepPageLoaderVisible === 'function' && shouldKeepPageLoaderVisible() && isProtectedLoaderRoute()) return;
-    } catch {}
-    try {
-      if (!hardClearReason && typeof shouldKeepPageLoaderVisible === 'function' && shouldKeepPageLoaderVisible()) return;
-    } catch {}
-    if (!canClearGoogleRedirectLoader()) return;
-    try { window.__LOADER_HOLD_ACTIVE__ = false; } catch {}
-    try { window.__INLINE_WALLET_ROUTE_PENDING__ = false; } catch {}
-    try { window.__DEPOSIT_INLINE_LOADING__ = false; } catch {}
-    if (hardClearReason) {
-      try { window.__CATALOG_INLINE_LOADING__ = false; } catch {}
-      try { window.__CATALOG_PAGE_LOADER_ACTIVE_COUNT__ = 0; } catch {}
+(function setupServerRequestLoaderFetchTracker(){
+  try {
+    if (window.__SERVER_REQUEST_LOADER_FETCH_TRACKER_INSTALLED__ === true) return;
+    const originalFetch = window.fetch;
+    if (typeof originalFetch !== 'function') return;
+    window.__SERVER_REQUEST_LOADER_FETCH_TRACKER_INSTALLED__ = true;
+    let pending = Math.max(0, Number(window.__SERVER_REQUEST_LOADER_PENDING_COUNT__ || 0) || 0);
+    function getFetchUrl(input){
       try {
-        if (window.__CATALOG_PAGE_LOADER_KEEPALIVE_TIMER__) {
-          clearInterval(window.__CATALOG_PAGE_LOADER_KEEPALIVE_TIMER__);
-          window.__CATALOG_PAGE_LOADER_KEEPALIVE_TIMER__ = null;
-        }
+        if (typeof input === 'string') return input;
+        if (input && typeof input.url === 'string') return input.url;
       } catch {}
-      try {
-        if (document.documentElement) document.documentElement.classList.remove('catalog-loader-pending');
-        if (document.body) document.body.classList.remove('catalog-loader-pending');
-      } catch {}
+      return '';
     }
-    try {
-      sessionStorage.removeItem('nav:loader:expected');
-      sessionStorage.removeItem('nav:loader:showAt');
-    } catch {}
-    try {
-      const root = document.documentElement;
-      if (root) {
-        root.classList.remove('google-redirect-pending', 'auth-request-loader-pending', 'pre-inline-route', 'pre-login-route', 'inline-wallet-route-pending', 'inline-route-pending');
+    function shouldTrack(input){
+      const raw = getFetchUrl(input);
+      if (!raw) return false;
+      try {
+        const url = new URL(raw, location.href);
+        const mode = String(url.searchParams.get('mode') || '').trim().toLowerCase();
+        if (/^client-/.test(mode)) return true;
+      } catch {
+        if (/[?&]mode=client-/i.test(String(raw))) return true;
       }
-      if (document.body) {
-        document.body.classList.remove('auth-request-loader-pending', 'login-route-active', 'inline-wallet-route-pending', 'inline-route-pending');
+      return false;
+    }
+    function setPending(next){
+      pending = Math.max(0, Number(next || 0) || 0);
+      try { window.__SERVER_REQUEST_LOADER_PENDING_COUNT__ = pending; } catch {}
+      try { window.__SERVER_REQUEST_LOADER_ACTIVE__ = pending > 0; } catch {}
+    }
+    function begin(input){
+      setPending(pending + 1);
+      try { window.__SERVER_REQUEST_LOADER_LAST_URL__ = String(getFetchUrl(input) || '').slice(0, 400); } catch {}
+      try { showPageLoader({ replay: pending === 1 }); } catch {}
+    }
+    function end(){
+      setPending(pending - 1);
+      if (pending > 0) return;
+      try { hidePageLoader({ ignoreServerRequestLoading: true }); } catch {}
+    }
+    window.__isServerRequestLoaderPending = function(){ return pending > 0; };
+    window.__shouldTrackServerRequestLoaderFetch = shouldTrack;
+    window.fetch = function serverRequestLoaderFetch(){
+      let track = false;
+      try { track = shouldTrack(arguments[0]); } catch {}
+      if (!track) return originalFetch.apply(this, arguments);
+      begin(arguments[0]);
+      let result;
+      try {
+        result = originalFetch.apply(this, arguments);
+      } catch (err) {
+        end();
+        throw err;
       }
-    } catch {}
-    try { hidePageLoader({ force: true }); } catch {}
-    try {
-      const el = document.getElementById('preloader');
-      if (el && reason) el.dataset.failsafeCleared = String(reason).slice(0, 60);
-    } catch {}
-  }
-  function schedule(reason, delay){
-    try {
-      setTimeout(function(){ clearStaleLoaderState(reason); }, delay);
-    } catch {}
-  }
-  try {
-    if (document.readyState === 'complete') schedule('complete', 900);
-    else window.addEventListener('load', function(){ schedule('load', 900); }, { once: true });
+      return Promise.resolve(result).then(function(response){
+        end();
+        return response;
+      }, function(err){
+        end();
+        throw err;
+      });
+    };
   } catch {}
-  try { window.addEventListener('pageshow', function(){ schedule('pageshow', 900); }); } catch {}
-  try { window.addEventListener('error', function(){ schedule('error', 0); }, true); } catch {}
-  try { window.addEventListener('unhandledrejection', function(){ schedule('unhandledrejection', 0); }); } catch {}
-  schedule('startup', 7500);
-  schedule('startup-long', 30000);
 })();
-window.addEventListener('pageshow', (event) => {
-  try {
-    const expected = sessionStorage.getItem('nav:loader:expected') === '1';
-    const startedAt = Number(sessionStorage.getItem('nav:loader:showAt') || 0) || 0;
-    const isFresh = startedAt > 0 && (Date.now() - startedAt) < 2200;
-    if (expected && isFresh && !(event && event.persisted)) return;
-  } catch {}
-  hidePageLoader({ force: true });
+
+(function setupPageLoaderFailsafe(){
+  try { window.__pageLoaderTimedFailsafeDisabled = true; } catch {}
+})();
+window.addEventListener('pageshow', () => {
+  try { sessionStorage.removeItem('nav:loader:expected'); sessionStorage.removeItem('nav:loader:showAt'); } catch {}
 });
 
 // Suppress hover URL badge and block native dragging for links/images/buttons.
@@ -1074,9 +1058,14 @@ window.addEventListener('pageshow', (event) => {
   const HOVER_HREF_ATTR = 'data-hover-href-suppressed';
   const DRAG_BLOCK_SELECTOR = 'a,button,img,[role="button"]';
 
+  // Cached: this runs on every mouseover/mouseout; constructing a new
+  // MediaQueryList per event is needless main-thread churn.
+  let fineHoverMql = null;
   function supportsFineHover(){
     try {
-      return !!(window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches);
+      if (!window.matchMedia) return false;
+      if (!fineHoverMql) fineHoverMql = window.matchMedia('(hover: hover) and (pointer: fine)');
+      return !!fineHoverMql.matches;
     } catch {}
     return false;
   }
@@ -1193,7 +1182,7 @@ window.addEventListener('pageshow', (event) => {
   }
 })();
 
-// Show loader during navigation for internal links
+// Keep pure route navigation loader-free; request-backed flows show the loader explicitly.
 (function setupNavLoader(){
   function hasNoLoader(link){
     try {
@@ -1224,13 +1213,17 @@ window.addEventListener('pageshow', (event) => {
       try { url = new URL(href, location.href); } catch { return; }
       if (!sameOrigin(url)) return;
       if (url.pathname === location.pathname && url.search === location.search && url.hash === location.hash) return;
-      const hashRoute = url.pathname === location.pathname && url.search === location.search && /^#\//.test(url.hash || '');
-      showPageLoader(hashRoute ? { replay: true, autoHide: true } : undefined);
+      return;
     } catch {}
   }
   document.addEventListener('pointerdown', handleNav, true);
   document.addEventListener('click', handleNav, true);
-  window.addEventListener('beforeunload', function(){ try { showPageLoader(); } catch {} });
+  window.addEventListener('beforeunload', function(){
+    try {
+      sessionStorage.removeItem('nav:loader:expected');
+      sessionStorage.removeItem('nav:loader:showAt');
+    } catch {}
+  });
 })();
 
 // Device fingerprint helpers (per-device session id)
@@ -2545,12 +2538,7 @@ function watchSessionDocForDevice(user){
 })();
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return;
-  try {
-    const expected = sessionStorage.getItem('nav:loader:expected') === '1';
-    const startedAt = Number(sessionStorage.getItem('nav:loader:showAt') || 0) || 0;
-    if (expected && startedAt > 0 && (Date.now() - startedAt) < 2200) return;
-  } catch {}
-  hidePageLoader({ force: true });
+  try { sessionStorage.removeItem('nav:loader:expected'); sessionStorage.removeItem('nav:loader:showAt'); } catch {}
 });
 
 // i18n compatibility stubs only. Translation is disabled site-wide.
@@ -7812,7 +7800,7 @@ function setSiteManifestLinkHref(manifestUrl, isObjectUrl){
   return href;
 }
 function setStaticSiteManifestLink(){
-  const manifestUrl = "/manifest.webmanifest?v=20260519-04";
+  const manifestUrl = "/manifest.webmanifest?v=20260613-share-preview-01";
   setSiteManifestLinkHref(manifestUrl, false);
   revokeSiteManifestUrl();
   return manifestUrl;
@@ -8822,7 +8810,6 @@ function navigateHomeHash(targetHash, routeKey){
         return;
       }
     } catch {}
-    try { if (typeof showPageLoader === 'function') showPageLoader({ replay: true, autoHide: true }); } catch {}
     const currentHash = String(location.hash || '').toLowerCase();
     const nextHash = String(target || '').toLowerCase();
     try {
@@ -9141,6 +9128,9 @@ function normalizeHeaderSidebarButtonState(source, fallback, withBackgrounds){
     state.lightBackground = normalizeHeaderSidebarColor(src.lightBackground ?? src.light_background ?? src.backgroundLight ?? src.background_light ?? src.background, base.lightBackground || '');
     state.darkBackground = normalizeHeaderSidebarColor(src.darkBackground ?? src.dark_background ?? src.backgroundDark ?? src.background_dark ?? src.background, base.darkBackground || base.lightBackground || '');
   }
+  // Admin-controlled top→bottom order for nav items (0 / unset = default spot).
+  const orderRaw = Number(src.order ?? src.sortOrder ?? src.position ?? base.order ?? 0);
+  state.order = Number.isFinite(orderRaw) && orderRaw > 0 ? Math.trunc(orderRaw) : 0;
   return state;
 }
 
@@ -9270,6 +9260,32 @@ function applyHeaderSidebarTheme(user){
       if (color) item.style.setProperty('--sidebar-item-icon', color);
       const label = normalizeHeaderSidebarLabel(state.label, entry.label);
       setSidebarNavLabel(item, label, entry.i18nKey, entry.label);
+    });
+    reorderHeaderSidebarNavItems(sidebarTheme, navMap);
+  } catch {}
+}
+
+// Reorders the sidebar nav <li> nodes top→bottom by the admin-set `order`,
+// grouped by their shared parent list so we never move an item out of its
+// group. Items without an order keep their default relative position.
+function reorderHeaderSidebarNavItems(sidebarTheme, navMap){
+  try {
+    const groups = new Map();
+    navMap.forEach((entry, idx) => {
+      const node = document.getElementById(entry.id);
+      if (!node || !node.parentElement) return;
+      const st = (sidebarTheme && sidebarTheme.navItems && sidebarTheme.navItems[entry.key]) || {};
+      const ord = Number(st.order);
+      const order = Number.isFinite(ord) && ord > 0 ? ord : (1000 + idx);
+      const parent = node.parentElement;
+      if (!groups.has(parent)) groups.set(parent, []);
+      groups.get(parent).push({ node, order, idx });
+    });
+    groups.forEach((items, parent) => {
+      const sorted = items.slice().sort((a, b) => (a.order - b.order) || (a.idx - b.idx));
+      const already = items.every((it, i) => it === sorted[i]);
+      if (already) return;
+      sorted.forEach((it) => { try { parent.appendChild(it.node); } catch {} });
     });
   } catch {}
 }
@@ -9776,7 +9792,6 @@ function attachHeaderShell(){
     }
   } catch {}
   try { document.documentElement.classList.add('site-header-attached'); } catch {}
-  try { hidePageLoader({ force: true }); } catch {}
   return true;
 }
 if (!attachHeaderShell()) {
@@ -17792,7 +17807,8 @@ function wirePageBalanceBox(){
       const title = String(src.title ?? src.headline ?? src.subject ?? "").trim().slice(0, 160);
       const message = String(src.message ?? src.text ?? src.body ?? "").trim().slice(0, 4000);
       const requiredViewsRaw = Number(src.requiredViews ?? src.required_views ?? src.readCount ?? src.read_count ?? src.count ?? src.views ?? 1);
-      const requiredViews = Number.isFinite(requiredViewsRaw) ? Math.max(1, Math.min(20, Math.trunc(requiredViewsRaw))) : 1;
+      // 0 means unlimited appearances (no cap); otherwise clamp to 1..20.
+      const requiredViews = Number.isFinite(requiredViewsRaw) ? Math.max(0, Math.min(20, Math.trunc(requiredViewsRaw))) : 1;
       const autoHideRaw = Number(
         src.autoHideSeconds ??
         src.auto_hide_seconds ??
@@ -18126,7 +18142,8 @@ function wirePageBalanceBox(){
       if (siteNoticeDismissedOnce) return;
       const progress = readNoticeProgress(siteNoticeConfig);
       if (progress.muted) return;
-      if (progress.reads >= siteNoticeConfig.requiredViews) return;
+      // requiredViews === 0 → unlimited: never stop based on read count.
+      if (siteNoticeConfig.requiredViews > 0 && progress.reads >= siteNoticeConfig.requiredViews) return;
       const wrap = ensureSiteNoticeModal();
       if (!wrap) return;
       const card = wrap ? wrap.querySelector(".notice-card") : null;
@@ -19211,13 +19228,13 @@ html[data-theme="dark"] #depositInlineApp .categories .card h2{
   --c1: ${palette.base} !important;
   --c2: ${palette.light} !important;
   --c3: ${palette.strong} !important;
-  filter: drop-shadow(0 6px 18px rgba(${palette.rgb}, 0.35)) !important;
+  filter: none !important;
 }
 #preloader .loader::before{
-  background: conic-gradient(from 0deg, ${palette.base} 0 140deg, transparent 140deg 360deg) !important;
-}
-#preloader .loader::after{
-  background: conic-gradient(from 180deg, ${palette.strong} 0 110deg, transparent 110deg 360deg) !important;
+  background: none !important;
+  border-top-color: ${palette.base} !important;
+  border-right-color: ${palette.light} !important;
+  box-shadow: none !important;
 }
 .reviews-page .user-name,
 .reviews-page .review-header .username,
@@ -19897,9 +19914,9 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
     }
     function normalizeSiteLayoutCount(value, fallback){
       const num = Number(value);
-      if (Number.isFinite(num)) return Math.max(1, Math.min(6, Math.trunc(num)));
+      if (Number.isFinite(num)) return Math.max(1, Math.min(8, Math.trunc(num)));
       const fallbackNum = Number(fallback);
-      return Number.isFinite(fallbackNum) ? Math.max(1, Math.min(6, Math.trunc(fallbackNum))) : 3;
+      return Number.isFinite(fallbackNum) ? Math.max(1, Math.min(8, Math.trunc(fallbackNum))) : 3;
     }
     function normalizeSiteLayoutShape(value, fallback){
       const raw = String(value == null ? "" : value).trim().toLowerCase();
@@ -19975,7 +19992,7 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
       const resolved = Number.isFinite(parsed)
         ? parsed
         : (Number.isFinite(fallbackValue) ? fallbackValue : 15);
-      return Math.max(12, Math.min(32, Math.round(resolved)));
+      return Math.max(12, Math.min(40, Math.round(resolved)));
     }
     function normalizeSiteThemeFlag(value, fallback){
       if (value === true || value === false) return value;
@@ -20684,7 +20701,7 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
     const SITE_APPEARANCE_CACHE_KEY = "site:appearance:v1";
     const DEFAULT_SITE_LOADER_LOGO = resolveSiteMediaFallbackUrl("loader");
     const DEFAULT_SITE_HEADER_LOGO = resolveSiteMediaFallbackUrl("header");
-    const DEFAULT_SITE_ICON = resolveSiteMediaFallbackUrl("icon");
+    const DEFAULT_SITE_ICON = "";
     const DEFAULT_SITE_BRAND = (() => {
       try {
         return window.__getSiteBrandConfig ? window.__getSiteBrandConfig() : {};
@@ -21288,19 +21305,11 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
     }
 
     function resolveSiteSharePreviewUrl(fallbackUrl){
-      try {
-        const fromWindow = trimSiteMediaUrl(window.__SITE_SHARE_PREVIEW__);
-        if (fromWindow && !isBlockedSiteSharePreviewUrl(fromWindow)) return new URL(fromWindow, window.location.href).href;
-      } catch {}
-      try {
-        const fromSettings = window.__getSiteSetting ? trimSiteMediaUrl(window.__getSiteSetting("media.sitePreview", "")) : "";
-        if (fromSettings && !isBlockedSiteSharePreviewUrl(fromSettings)) return new URL(fromSettings, window.location.href).href;
-      } catch {}
-      return trimSiteMediaUrl(fallbackUrl);
+      return "";
     }
 
     function applySiteIcon(url){
-      const next = normalizeSiteMediaUrl(url) || DEFAULT_SITE_ICON;
+      const next = normalizeSiteMediaUrl(url);
       if (!next) return;
       try { window.__SITE_ICON__ = next; } catch {}
       const type = guessSiteMediaMimeType(next);
@@ -21327,20 +21336,6 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
         appleIcon.type = type;
         appleIcon.setAttribute("sizes", "180x180");
       }
-      const sharePreview = resolveSiteSharePreviewUrl(next);
-      if (isBlockedSiteSharePreviewUrl(sharePreview)) return;
-      try { window.__SITE_SHARE_PREVIEW__ = sharePreview; } catch {}
-      setMetaContent('meta[property="og:image"]', sharePreview);
-      setMetaContent('meta[property="og:image:secure_url"]', sharePreview);
-      setMetaContent('meta[property="og:image:type"]', guessSiteMediaMimeType(sharePreview));
-      setMetaContent('meta[property="og:image:alt"]', window.__getCurrentStoreName ? window.__getCurrentStoreName() : "Njad store");
-      setMetaContent('meta[name="twitter:image"]', sharePreview);
-      setMetaContent('meta[name="twitter:image:src"]', sharePreview);
-      setMetaContent('meta[name="twitter:image:alt"]', window.__getCurrentStoreName ? window.__getCurrentStoreName() : "Njad store");
-      setMetaContent('meta[name="msapplication-TileImage"]', next);
-      setMetaContent('meta[itemprop="image"]', sharePreview);
-      preloadImageAsset(next);
-      preloadImageAsset(sharePreview);
       try {
         window.dispatchEvent(new CustomEvent("site:icon", { detail: { url: next } }));
       } catch {}
@@ -21353,7 +21348,7 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
         const loaderNodes = document.querySelectorAll("#preloader .loader");
         loaderNodes.forEach((node) => {
           if (!(node instanceof HTMLElement)) return;
-          node.style.backgroundImage = "none";
+          try { node.style.removeProperty("background-image"); } catch {}
           const logo = ensureSiteLoaderLogoNode(node);
           if (!(logo instanceof HTMLImageElement)) return;
           if (!next) {

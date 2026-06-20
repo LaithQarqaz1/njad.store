@@ -1749,8 +1749,9 @@ window.__ORDERS_REFRESH__ = async function(opts){
   }catch(_){}
 })();
 
-/* ===================== LocalStorage Helpers ===================== */
-const MEMORY_CACHE = new Map();
+/* ===================== In-page order view state ===================== */
+const ORDER_VIEW_STATE_BY_UID = new Map();
+const ORDER_VIEW_STATE_MAX_USERS = 500;
 
 function sanitizeOrderPrivateForClient(priv) {
   const source = (priv && typeof priv === "object" && !Array.isArray(priv)) ? priv : {};
@@ -1771,7 +1772,11 @@ function sanitizeOrderForClientCache(order) {
 
 const LS = {
   read(uid) {
-    return MEMORY_CACHE.get(uid) || { byCode: {}, lastSync: 0 };
+    if (!ORDER_VIEW_STATE_BY_UID.has(uid)) return { byCode: {}, lastSync: 0 };
+    const value = ORDER_VIEW_STATE_BY_UID.get(uid);
+    ORDER_VIEW_STATE_BY_UID.delete(uid);
+    ORDER_VIEW_STATE_BY_UID.set(uid, value);
+    return value;
   },
   replace(uid, ordersArray) {
     const byCode = {};
@@ -1795,10 +1800,16 @@ const LS = {
     LS._save(uid, cur);
   },
   _save(uid, obj) {
-    MEMORY_CACHE.set(uid, obj);
+    if (ORDER_VIEW_STATE_BY_UID.has(uid)) ORDER_VIEW_STATE_BY_UID.delete(uid);
+    while (ORDER_VIEW_STATE_BY_UID.size >= ORDER_VIEW_STATE_MAX_USERS) {
+      const oldestUid = ORDER_VIEW_STATE_BY_UID.keys().next().value;
+      if (oldestUid === undefined) break;
+      ORDER_VIEW_STATE_BY_UID.delete(oldestUid);
+    }
+    ORDER_VIEW_STATE_BY_UID.set(uid, obj);
   },
   clear(uid) {
-    MEMORY_CACHE.delete(uid);
+    ORDER_VIEW_STATE_BY_UID.delete(uid);
   }
 };
 

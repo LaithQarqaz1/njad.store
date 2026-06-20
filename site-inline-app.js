@@ -1155,15 +1155,7 @@
       }
 
       function getRuntimeSharePreviewUrl(fallbackUrl){
-        try {
-          var fromWindow = resolveRuntimeSiteUrl(window.__SITE_SHARE_PREVIEW__ || '');
-          if (fromWindow && !isBlockedRuntimeSharePreviewUrl(fromWindow)) return fromWindow;
-        } catch(_){}
-        try {
-          var fromSettings = window.__getSiteSetting ? resolveRuntimeSiteUrl(window.__getSiteSetting('media.sitePreview', '')) : '';
-          if (fromSettings && !isBlockedRuntimeSharePreviewUrl(fromSettings)) return fromSettings;
-        } catch(_){}
-        return resolveRuntimeSiteUrl(fallbackUrl || '');
+        return '';
       }
 
       function applyRuntimeSharePreviewMeta(url){
@@ -1183,7 +1175,7 @@
 
       function updateStructuredData(iconUrl, storeName){
         var logoUrl = String(iconUrl || '').trim();
-        var imageUrl = getRuntimeSharePreviewUrl(logoUrl);
+        var imageUrl = getRuntimeSharePreviewUrl('');
         var currentStoreName = String(storeName || DEFAULT_STORE_NAME).trim();
         var seoStoreTitle = buildRuntimeSeoStoreTitle(currentStoreName);
         var currentOrigin = '';
@@ -1234,7 +1226,7 @@
               "url": canonicalUrl,
               "alternateName": [SITE_ARABIC_STORE_NAME, "Njad store", currentHost].filter(Boolean),
               "inLanguage": "ar",
-              "image": imageUrl,
+              "image": imageUrl || undefined,
               "potentialAction": {
                 "@type": "SearchAction",
                 "target": searchUrl,
@@ -1244,12 +1236,12 @@
                 "@type": "Organization",
                 "name": organizationName,
                 "alternateName": [SITE_ARABIC_STORE_NAME, "Njad store", currentHost].filter(Boolean),
-                "logo": {
+                "logo": logoUrl ? {
                   "@type": "ImageObject",
-                  "url": logoUrl || imageUrl,
+                  "url": logoUrl,
                   "width": "512",
                   "height": "512"
-                }
+                } : undefined
               }
             }, null, 2);
           }
@@ -1279,7 +1271,7 @@
               "name": currentStoreName || currentHost,
               "alternateName": [SITE_ARABIC_STORE_NAME, "Njad store", currentHost].filter(Boolean),
               "url": canonicalUrl,
-              "logo": logoUrl || imageUrl,
+              "logo": logoUrl || undefined,
               "sameAs": canonicalUrl ? [canonicalUrl] : []
             }, null, 2);
           }
@@ -1301,8 +1293,6 @@
             window.__refreshDynamicSiteManifestHead();
           }
         } catch(_){}
-        applyRuntimeSharePreviewMeta(getRuntimeSharePreviewUrl(nextIcon));
-        setMetaContent('meta[name="msapplication-TileImage"]', nextIcon);
         updateStructuredData(nextIcon, window.__getCurrentStoreName ? window.__getCurrentStoreName() : DEFAULT_STORE_NAME);
       }
 
@@ -2567,15 +2557,6 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
         return;
       }
       clearHideTimer();
-      const minVisibleMs = 650;
-      const elapsed = inlineLoaderShownAtMs > 0 ? (Date.now() - inlineLoaderShownAtMs) : minVisibleMs;
-      if (elapsed < minVisibleMs) {
-        inlineLoaderHideTimer = setTimeout(function(){
-          inlineLoaderHideTimer = 0;
-          setInlinePreloaderVisible(app, false);
-        }, Math.max(0, minVisibleMs - elapsed));
-        return;
-      }
 
       try { syncDepositInlineLoadingEmptyState(false); } catch (_) {}
       try { clearDepositInlineCountriesLoaderOverrides(); } catch (_) {}
@@ -9848,30 +9829,15 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
   }
 
   function getBalanceMemoryStore(){
-    try {
-      window.__BALANCE_MEMORY_CACHE__ = window.__BALANCE_MEMORY_CACHE__ || {};
-      return window.__BALANCE_MEMORY_CACHE__;
-    } catch (_) {
-      return {};
-    }
+    return {};
   }
 
   function writeBalanceMemory(uid, value){
-    const safeUid = String(uid || '').trim();
-    const num = Number(value);
-    if (!safeUid || !Number.isFinite(num)) return;
-    try { getBalanceMemoryStore()[safeUid] = num; } catch (_) {}
+    return undefined;
   }
 
   function readBalanceMemory(uid){
-    const safeUid = String(uid || '').trim();
-    if (!safeUid) return null;
-    try {
-      const num = Number(getBalanceMemoryStore()[safeUid]);
-      return Number.isFinite(num) ? num : null;
-    } catch (_) {
-      return null;
-    }
+    return null;
   }
 
   function updateInlineWithdrawBalanceCache(value){
@@ -11138,6 +11104,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
   }
 
   const catalogSectionLabelMemory = new Map();
+  const CATALOG_SECTION_LABEL_CACHE_MAX = 500;
 
   function normalizeCatalogSectionLookup(value) {
     let text = String(value == null ? "" : value).trim();
@@ -11194,8 +11161,24 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     keys.forEach((entryKey) => {
       const safeKey = String(entryKey || "").trim();
       if (!safeKey) return;
+      if (catalogSectionLabelMemory.has(safeKey)) catalogSectionLabelMemory.delete(safeKey);
+      while (catalogSectionLabelMemory.size >= CATALOG_SECTION_LABEL_CACHE_MAX) {
+        const oldestKey = catalogSectionLabelMemory.keys().next().value;
+        if (oldestKey === undefined) break;
+        catalogSectionLabelMemory.delete(oldestKey);
+      }
       catalogSectionLabelMemory.set(safeKey, readable);
-      try { store[safeKey] = readable; } catch (_) {}
+      try {
+        if (!Object.prototype.hasOwnProperty.call(store, safeKey)) {
+          const storedKeys = Object.keys(store);
+          while (storedKeys.length >= CATALOG_SECTION_LABEL_CACHE_MAX) {
+            const oldestKey = storedKeys.shift();
+            if (oldestKey === undefined) break;
+            delete store[oldestKey];
+          }
+        }
+        store[safeKey] = readable;
+      } catch (_) {}
     });
     return readable;
   }
@@ -11210,7 +11193,12 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     for (const key of candidates) {
       const safeKey = String(key || "").trim();
       if (!safeKey) continue;
-      const direct = catalogSectionLabelMemory.get(safeKey) || store[safeKey];
+      const memoryValue = catalogSectionLabelMemory.get(safeKey);
+      if (memoryValue !== undefined) {
+        catalogSectionLabelMemory.delete(safeKey);
+        catalogSectionLabelMemory.set(safeKey, memoryValue);
+      }
+      const direct = memoryValue || store[safeKey];
       if (direct) return decodeCatalogSectionLabel(direct);
     }
     return "";
@@ -12495,7 +12483,20 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           try {
             if (Number(window.__CATALOG_PAGE_LOADER_ACTIVE_COUNT__ || 0) > 0) {
               window.__CATALOG_INLINE_LOADING__ = true;
-              forceCatalogPageLoaderVisible();
+              // Only force styles when something actually hid the loader;
+              // rewriting identical styles 4x/sec causes needless style
+              // recalcs and can restart animations in Safari.
+              const el = document.getElementById("preloader");
+              const stillVisible = !!(
+                el &&
+                !el.classList.contains("hidden") &&
+                !el.classList.contains("closing") &&
+                String(el.style.display || "") === "flex" &&
+                String(el.style.opacity || "") === "1" &&
+                document.documentElement &&
+                document.documentElement.classList.contains("catalog-loader-pending")
+              );
+              if (!stillVisible) forceCatalogPageLoaderVisible();
               return;
             }
             clearInterval(window.__CATALOG_PAGE_LOADER_KEEPALIVE_TIMER__);
@@ -14667,6 +14668,30 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     } catch(_){}
   }
 
+  function restoreLoadedCatalogCardMediaImage(img) {
+    if (!img || !img.complete || Number(img.naturalWidth || 0) <= 0) return false;
+    var currentSrc = "";
+    var originalSrc = "";
+    var blobSrc = "";
+    try { currentSrc = String(img.currentSrc || img.getAttribute("src") || "").trim(); } catch(_){}
+    try { originalSrc = String(img.dataset && img.dataset.catalogOriginalSrc || "").trim(); } catch(_){}
+    try { blobSrc = String(img.dataset && img.dataset.catalogBlobUrl || "").trim(); } catch(_){}
+    var markedFallback = !!(img.dataset && img.dataset.catalogFallbackImage === "1");
+    var loadedOriginal = !markedFallback ||
+      (!!originalSrc && currentSrc === originalSrc) ||
+      (!!blobSrc && currentSrc === blobSrc);
+    if (!loadedOriginal) return false;
+    try { delete img.dataset.catalogFallbackImage; } catch(_){}
+    try { delete img.dataset.placeholderApplied; } catch(_){}
+    try { img.dataset.catalogPriorityLoaded = "1"; } catch(_){}
+    try { img.style.display = ""; } catch(_){}
+    var media = null;
+    try { media = img.closest ? img.closest(".catalog-card-media") : null; } catch(_){}
+    var host = media ? media.parentElement : null;
+    try { clearCatalogCardMediaEmptyState(host, media); } catch(_){}
+    return true;
+  }
+
   function applyCatalogCardMediaFallback(host, media, img, fallbackLabel) {
     if (!media || !img) return;
     var label = resolveCatalogCardMediaLabel(host, media, img, fallbackLabel);
@@ -14719,6 +14744,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
 
     function markImageLoaded(img) {
       if (!img) return;
+      if (!restoreLoadedCatalogCardMediaImage(img)) return;
       try { img.dataset.catalogPriorityLoaded = "1"; } catch(_){}
       try { delete img.dataset.catalogSharedPending; } catch(_){}
       try { delete img.dataset.placeholderApplied; } catch(_){}
@@ -14779,6 +14805,8 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
         if (/^blob:/i.test(String(src || ""))) img.dataset.catalogBlobUrl = src;
       } catch(_){}
       try { delete img.dataset.catalogSharedPending; } catch(_){}
+      try { delete img.dataset.catalogFallbackImage; } catch(_){}
+      try { delete img.dataset.placeholderApplied; } catch(_){}
       setImagePriority(img, high === true);
       try { img.style.display = ""; } catch(_){}
       if (isActuallyLoaded(img)) markImageLoaded(img);
@@ -14815,6 +14843,9 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
         if (ok) assignSharedSource(waiter, state.resolvedSrc || state.src, state.high === true, state.src);
         else rejectSharedSource(waiter, state.src, state.high === true);
       });
+      if (!ok && sharedLoads[state.src] === state) {
+        try { delete sharedLoads[state.src]; } catch(_){}
+      }
     }
 
     function upgradeSharedPriority(state) {
@@ -15020,13 +15051,14 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
       try {
         setTimeout(function() {
           try {
-            if (!img || (img.dataset && img.dataset.catalogFallbackImage === "1")) return;
-            if (img.complete && Number(img.naturalWidth || 0) > 0) {
+            if (!img) return;
+            if (restoreLoadedCatalogCardMediaImage(img)) {
               try { img.dataset.catalogPriorityLoaded = "1"; } catch(_){}
               try { img.style.display = ""; } catch(_){}
               clearCatalogCardMediaEmptyState(host, media);
               return;
             }
+            if (img.dataset && img.dataset.catalogFallbackImage === "1") return;
             if (img.dataset && img.dataset.catalogBlobRetry === "1") return;
             try { catalogCardImageScheduler.refresh(host || media || document); } catch(_){}
             var current = "";
@@ -15079,6 +15111,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
 
     img.addEventListener("load", function() {
       try {
+        if (restoreLoadedCatalogCardMediaImage(img)) return;
         if (img.dataset.catalogFallbackImage === "1") {
           setCatalogCardMediaEmptyState(host, media);
           ensureCatalogCardMediaBadge(media);
@@ -16911,8 +16944,51 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     return String(control.dataset?.fieldKind || "").toLowerCase() === "image";
   }
 
+  // Resolve the effective keyboard/input mode of a purchase control so values
+  // can be sanitized to what that keyboard could actually have produced.
+  function purchaseFieldInputMode(control, field) {
+    let mode = field && field.inputMode != null ? String(field.inputMode) : "";
+    if (!mode && control) {
+      try { mode = String(control.inputMode || ""); } catch (_) { mode = ""; }
+      if (!mode && typeof control.getAttribute === "function") {
+        try { mode = String(control.getAttribute("inputmode") || ""); } catch (_) {}
+      }
+    }
+    mode = mode.toLowerCase();
+    if (!mode && control) {
+      let type = "";
+      try { type = String(control.type || "").toLowerCase(); } catch (_) {}
+      if (type === "tel") mode = "tel";
+      else if (type === "number") mode = "numeric";
+      else if (type === "email") mode = "email";
+      else if (type === "url") mode = "url";
+    }
+    return mode;
+  }
+
   function sanitizeFieldValueForControl(control, value, field = null) {
-    return normalizeDigitsToEnglish(String(value ?? "").trim());
+    let text = normalizeDigitsToEnglish(String(value ?? "")).trim();
+    if (!text) return "";
+    // Drop characters that the field's own keyboard can never emit. iOS Safari
+    // autofill (and some keyboards) inject nearby button/label/description text
+    // into numeric ID/quantity inputs; since those keyboards only produce
+    // digits, any letters/punctuation are never user-typed and are removed on
+    // the spot. Free-text/email/url fields are left untouched.
+    const mode = purchaseFieldInputMode(control, field);
+    if (mode === "numeric") {
+      text = text.replace(/\D+/g, "");
+    } else if (mode === "tel") {
+      const hasPlus = /^\+/.test(text);
+      text = text.replace(/\D+/g, "");
+      if (hasPlus) text = "+" + text;
+    } else if (mode === "decimal") {
+      text = text.replace(/[^0-9.]+/g, "");
+      const dot = text.indexOf(".");
+      if (dot >= 0) {
+        text = text.slice(0, dot + 1) + text.slice(dot + 1).replace(/\./g, "");
+      }
+    }
+    return text;
   }
 
   function isTextPurchaseFieldControl(control) {
@@ -16927,19 +17003,6 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
       control.dataset.purchaseTrustedValue = sanitizeFieldValueForControl(control, control.value);
       control.dataset.purchaseTrustedValueSet = "1";
     } catch (_) {}
-  }
-
-  function scheduleTrustedPurchaseFieldValueStore(control) {
-    if (!isTextPurchaseFieldControl(control)) return;
-    const store = () => storeTrustedPurchaseFieldValue(control);
-    try { Promise.resolve().then(store); } catch (_) {}
-    try { setTimeout(store, 0); } catch (_) {}
-  }
-
-  function markPurchaseFieldUserIntent(control) {
-    if (!isTextPurchaseFieldControl(control)) return;
-    try { control.dataset.purchaseTrustedInputPending = "1"; } catch (_) {}
-    scheduleTrustedPurchaseFieldValueStore(control);
   }
 
   function readTrustedPurchaseFieldValue(control) {
@@ -16990,6 +17053,17 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     return true;
   }
 
+  // Insert types `beforeinput` reports for the customer's own direct editing
+  // (typing, IME composition, paste, drop). Anything else that inserts content
+  // — insertReplacementText, insertFromYank, autofill/suggestion inserts — is
+  // rejected so neighbouring text (the description, another field, or a value
+  // the browser remembered) can never be dropped into a purchase field.
+  var DIRECT_PURCHASE_INSERTS = (typeof Set === "function") ? new Set([
+    "insertText", "insertCompositionText", "insertFromComposition",
+    "insertFromPaste", "insertFromPasteAsQuotation", "insertFromDrop",
+    "insertLineBreak", "insertParagraph", "insertTranspose"
+  ]) : null;
+
   function preparePurchaseFieldControl(control, field = null) {
     if (!control || isImageFieldControl(control)) return;
     try { control.setAttribute("autocomplete", "off"); } catch (_) {}
@@ -16997,42 +17071,37 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     try { control.setAttribute("autocapitalize", "off"); } catch (_) {}
     try { control.setAttribute("autocorrect", "off"); } catch (_) {}
     try { control.spellcheck = false; } catch (_) {}
+    // Password managers / extensions ignore hints.
+    try { control.setAttribute("data-1p-ignore", "true"); } catch (_) {}
+    try { control.setAttribute("data-lpignore", "true"); } catch (_) {}
+    try { control.setAttribute("data-form-type", "other"); } catch (_) {}
     try {
-      const key = toSafeId(field?.key || control.dataset?.fieldKey || control.id || "field") || "field";
-      const scope = String(control.id || "").startsWith("modal") ? "modal" : "catalog";
-      control.name = `catalog_${scope}_${key}`;
+      // A per-instance random name stops the browser from matching — and
+      // autofilling — a value it remembered for this field on a previous visit.
+      // App logic addresses fields by data-field-key, so the name is cosmetic.
+      if (!control.dataset.purchaseNameNonce) {
+        control.dataset.purchaseNameNonce = Math.random().toString(36).slice(2, 10);
+      }
+      control.name = `pf_${control.dataset.purchaseNameNonce}`;
     } catch (_) {}
     try { control.removeAttribute("pattern"); } catch (_) {}
     if (control.dataset.purchaseSanitizeBound !== "1") {
       control.dataset.purchaseSanitizeBound = "1";
+      // Block autofill / suggestion / replacement inserts at the source so the
+      // field stays isolated. beforeinput is cancelable; real typing, IME and
+      // paste/drop are in the allow-list and pass through untouched.
       control.addEventListener("beforeinput", (event) => {
-        if (event && event.isTrusted === false) return;
-        markPurchaseFieldUserIntent(control);
-      });
-      control.addEventListener("paste", (event) => {
-        if (event && event.isTrusted === false) return;
-        markPurchaseFieldUserIntent(control);
-      });
-      control.addEventListener("drop", (event) => {
-        if (event && event.isTrusted === false) return;
-        markPurchaseFieldUserIntent(control);
-      });
-      control.addEventListener("keydown", (event) => {
-        if (event && event.isTrusted === false) return;
-        markPurchaseFieldUserIntent(control);
-      });
-      control.addEventListener("compositionend", (event) => {
-        if (event && event.isTrusted === false) return;
-        markPurchaseFieldUserIntent(control);
+        if (!event) return;
+        const type = String(event.inputType || "");
+        if (!type || type.indexOf("insert") !== 0) return; // deletions/formatting
+        if (DIRECT_PURCHASE_INSERTS && DIRECT_PURCHASE_INSERTS.has(type)) return;
+        try { event.preventDefault(); } catch (_) {}
       });
       control.addEventListener("input", () => {
         sanitizeFieldInputInPlace(control);
-        try {
-          if (control.dataset.purchaseTrustedInputPending === "1") {
-            storeTrustedPurchaseFieldValue(control);
-            delete control.dataset.purchaseTrustedInputPending;
-          }
-        } catch (_) {}
+        // Whatever the customer typed/pasted/dropped is the trusted value;
+        // nothing reverts it, so paste works on every platform.
+        try { storeTrustedPurchaseFieldValue(control); } catch (_) {}
       });
       control.addEventListener("blur", () => { sanitizeFieldInputInPlace(control); });
       control.addEventListener("change", () => { sanitizeFieldInputInPlace(control); });
@@ -19910,6 +19979,42 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     }
   }
 
+  // Route-exit cleanup: when the inline catalog page is closed by navigation
+  // the purchase modal must not leak its open state (body.modal-open hides
+  // the dock/support widgets site-wide) or its per-purchase lock/fields into
+  // the next visit. While a purchase request is pending the modal is kept
+  // as-is so the pending UI state stays authoritative.
+  try {
+    window.__catalogResetPurchaseModalOnRouteExit = function () {
+      try {
+        if (state.submitting) return;
+        const modal = dom.modal || document.getElementById("purchase-modal");
+        if (!modal) return;
+        const wasOpen = modal.classList.contains("show") || modal.classList.contains("closing");
+        if (state.modalCloseTimer) {
+          clearTimeout(state.modalCloseTimer);
+          state.modalCloseTimer = null;
+        }
+        modal.classList.remove("show", "closing");
+        try { document.body.classList.remove("modal-open"); } catch (_) {}
+        if (!wasOpen) return;
+        try { resetTurnstileWidget({ remove: true }); } catch (_) {}
+        try { clearFieldControlValues(dom.modalPlayerRow || modal); } catch (_) {}
+        try { closeQtyPickerMenu(); } catch (_) {}
+        state.modalLock = null;
+        state.modalPriceValue = null;
+        state.modalPriceDisplayText = "";
+        state.modalPriceAnimatingTarget = "";
+        try {
+          if (state.modalPriceAnimTimer) {
+            clearTimeout(state.modalPriceAnimTimer);
+            state.modalPriceAnimTimer = null;
+          }
+        } catch (_) {}
+      } catch (_) {}
+    };
+  } catch (_) {}
+
   function splitPriceForRolling(text) {
     const raw = String(text || "").trim();
     const m = raw.match(/^([^0-9]*)([0-9][0-9.,]*)([^0-9]*)$/);
@@ -20416,6 +20521,10 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     try { window.__BAL_BASE__ = val; window.__BALANCE__ = val; } catch (_) {}
     if (uid) {
       writeBalanceMemory(uid, val);
+      // Persist the authoritative balance (from the server response) to the same
+      // localStorage cache the header seeds from, so the new balance survives a
+      // reload / re-render and shows immediately without waiting for Firebase.
+      try { localStorage.setItem('balance:cache:' + uid, String(val)); } catch (_) {}
     }
     try {
       const formatted = (typeof window.formatCurrencyFromJOD === "function")
@@ -20461,15 +20570,23 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     return updateCatalogBalanceView(next);
   }
 
+  // Synchronous re-entrancy guard: state.submitting is only set after the
+  // awaited login/validation steps, so without this a fast double-tap could
+  // pass the state.submitting check twice and POST the purchase twice.
+  let submitOrderInFlight = false;
+
   async function submitOrder() {
     if (!state.selected) {
       showToast("يرجى اختيار عرض.", "warning");
       return;
     }
-    if (state.submitting) {
+    if (state.submitting || submitOrderInFlight) {
       showToast("الطلب قيد المعالجة، يرجى الانتظار.", "warning");
       return;
     }
+    submitOrderInFlight = true;
+    if (dom.modalBuy) dom.modalBuy.disabled = true;
+    try {
 
     let currentUser = await requireCatalogPurchaseLogin();
     if (!currentUser) {
@@ -20633,10 +20750,21 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
       showToast("حدث خطأ غير متوقع أثناء تنفيذ الطلب.", "error");
       resetTurnstileWidget();
     } finally {
-      dom.modalBuy.disabled = false;
+      // Clear the pending state first: if the modal DOM was torn down by a
+      // navigation while the request was in flight, a throw here must not
+      // leave state.submitting stuck or the page loader held forever.
       state.submitting = false;
       try { window.__CATALOG_PURCHASE_ACTIVE__ = false; } catch(_) {}
+      try { if (dom.modalBuy) dom.modalBuy.disabled = false; } catch (_) {}
       releaseCatalogNetworkPageLoader();
+    }
+
+    } finally {
+      submitOrderInFlight = false;
+      // Early validation returns happen before state.submitting is set;
+      // restore the button for those paths (the inner finally already
+      // handles the request path).
+      try { if (dom.modalBuy && !state.submitting) dom.modalBuy.disabled = false; } catch (_) {}
     }
   }
 
@@ -20849,6 +20977,10 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
       input.addEventListener("input", () => { normalizeInputDigitsInPlace(input); });
       input.addEventListener("blur", () => { normalizeInputDigitsInPlace(input); });
     });
+    // Purchase text autofill removed by request: fields must only ever change
+    // from the customer's own direct entry into that field. No typed/pasted
+    // text is parsed or distributed across fields. (Browser/iOS autofill is
+    // still neutralized by the trusted-value revert in preparePurchaseFieldControl.)
     if (dom.modalDesc) {
       dom.modalDesc.addEventListener("scroll", () => updateModalDescScrollIndicator(), { passive: true });
       dom.modalDesc.addEventListener("pointerdown", handleModalDescPointerDown);
@@ -20861,14 +20993,24 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
       if (!dom.modal?.classList.contains("show")) return;
       requestAnimationFrame(() => updateModalDescScrollIndicator());
     });
+    // currency:change / currency:rates:change / currency:ready often fire
+    // back-to-back; renderOffers rebuilds the whole grid, so coalesce the
+    // bursts into a single re-render per animation frame.
+    let currencyRefreshScheduled = false;
     const handleCatalogCurrencyChange = () => {
-      try {
-        if (Array.isArray(state.allItems) && state.allItems.length) {
-          renderOffers(state.allItems);
-        }
-      } catch (_) {}
-      try { updateSummary(); } catch (_) {}
-      try { updateModalPrice(); } catch (_) {}
+      if (currencyRefreshScheduled) return;
+      currencyRefreshScheduled = true;
+      const run = () => {
+        currencyRefreshScheduled = false;
+        try {
+          if (Array.isArray(state.allItems) && state.allItems.length) {
+            renderOffers(state.allItems);
+          }
+        } catch (_) {}
+        try { updateSummary(); } catch (_) {}
+        try { updateModalPrice(); } catch (_) {}
+      };
+      try { requestAnimationFrame(run); } catch (_) { setTimeout(run, 0); }
     };
     window.addEventListener("currency:change", handleCatalogCurrencyChange);
     window.addEventListener("currency:rates:change", handleCatalogCurrencyChange);
@@ -21044,7 +21186,13 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           showToast("لا يوجد حقل للصق.", "warning");
           return;
         }
-        if (txt) dom.playerInput.value = txt;
+        if (txt) {
+          // Direct paste into this one field only — the clipboard text is not
+          // parsed and is never distributed to other fields.
+          dom.playerInput.value = txt;
+          try { sanitizeFieldInputInPlace(dom.playerInput); } catch (_) {}
+          try { storeTrustedPurchaseFieldValue(dom.playerInput); } catch (_) {}
+        }
         else showToast("لا يوجد نص في الحافظة.", "warning");
       } catch {
         showToast("تعذر قراءة الحافظة. يرجى الإدخال يدويًا.", "error");
@@ -26231,7 +26379,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           requestSecurityTelegramCode(purpose).then(function(res){
             var target = (res && res.to ? String(res.to) : "");
             var cooldownSeconds = Number(
-              (res && (res.resendAfterSeconds ?? res.retryAfterSeconds)) || EMAIL_OTP_RESEND_COOLDOWN_SECONDS
+              (res && (res.resendAfterSeconds ?? res.retryAfterSeconds)) ?? EMAIL_OTP_RESEND_COOLDOWN_SECONDS
             );
             if (flow === "disable") {
               setDisableCodeState(method, true, target);
@@ -26361,10 +26509,10 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           else state.enableEmailCooldownUntilMs = safeUntil;
         }
 
-        function getEmailCooldownRemaining(flow){
-          var until = getEmailCooldownUntil(flow);
-          var remaining = Math.ceil((until - Date.now()) / 1000);
-          return remaining > 0 ? remaining : 0;
+        function getEmailCooldownRemaining(){
+          // Frontend resend timer removed: the server is the sole authority for the
+          // resend cooldown and returns the retry message itself.
+          return 0;
         }
 
         function stopEmailCooldownTimer(){
@@ -26435,11 +26583,9 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           }, 1000);
         }
 
-        function startEmailCooldown(flow, seconds){
-          var sec = Number(seconds);
-          if (!Number.isFinite(sec) || sec <= 0) sec = EMAIL_OTP_RESEND_COOLDOWN_SECONDS;
-          setEmailCooldownUntil(flow, Date.now() + (Math.trunc(sec) * 1000));
-          ensureEmailCooldownTimer();
+        function startEmailCooldown(){
+          // Frontend resend timer removed: no local countdown is started after a send.
+          // The server alone decides when a resend is allowed and returns that message.
         }
 
         function setMethodButtons(activeMethod, appBtn, emailBtn, telegramBtn){
@@ -27404,7 +27550,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           loaderHeld = true;
           requestSecurityTelegramCode("totp_enable", telegramTargetId).then(function(res){
             var cooldownSeconds = Number(
-              (res && (res.resendAfterSeconds ?? res.retryAfterSeconds)) || EMAIL_OTP_RESEND_COOLDOWN_SECONDS
+              (res && (res.resendAfterSeconds ?? res.retryAfterSeconds)) ?? EMAIL_OTP_RESEND_COOLDOWN_SECONDS
             );
             setEnableCodeState(method, true, res && res.to ? String(res.to) : "");
             startEmailCooldown("enable", cooldownSeconds);
@@ -27478,7 +27624,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
             loaderHeld = true;
             requestSecurityTelegramCode("totp_disable").then(function(res){
               var cooldownSeconds = Number(
-                (res && (res.resendAfterSeconds ?? res.retryAfterSeconds)) || EMAIL_OTP_RESEND_COOLDOWN_SECONDS
+                (res && (res.resendAfterSeconds ?? res.retryAfterSeconds)) ?? EMAIL_OTP_RESEND_COOLDOWN_SECONDS
               );
               setDisableCodeState(method, true, res && res.to ? String(res.to) : "");
               startEmailCooldown("disable", cooldownSeconds);
@@ -27923,8 +28069,9 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
         var totpEmailCooldownTimer = null;
 
         function getTotpEmailCooldownRemaining(){
-          var remaining = Math.ceil((totpEmailCooldownUntilMs - Date.now()) / 1000);
-          return remaining > 0 ? remaining : 0;
+          // Frontend resend timer removed: the server is the sole authority for the
+          // resend cooldown and returns the retry message itself.
+          return 0;
         }
 
         function hasTransferTotpEmailSent(){
@@ -28009,11 +28156,9 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           }, 1000);
         }
 
-        function startTotpEmailCooldown(seconds){
-          var sec = Number(seconds);
-          if (!Number.isFinite(sec) || sec <= 0) sec = TOTP_EMAIL_RESEND_COOLDOWN_SECONDS;
-          totpEmailCooldownUntilMs = Date.now() + (Math.trunc(sec) * 1000);
-          ensureTotpEmailCooldownTimer();
+        function startTotpEmailCooldown(){
+          // Frontend resend timer removed: no local countdown is started after a send.
+          // The server alone decides when a resend is allowed and returns that message.
         }
 
         function generateGuardToken(prefix){
@@ -28844,7 +28989,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
               : "telegram";
             var target = payload && payload.to ? String(payload.to) : "";
             var cooldownSeconds = Number(
-              (payload && (payload.resendAfterSeconds ?? payload.retryAfterSeconds)) || TOTP_EMAIL_RESEND_COOLDOWN_SECONDS
+              (payload && (payload.resendAfterSeconds ?? payload.retryAfterSeconds)) ?? TOTP_EMAIL_RESEND_COOLDOWN_SECONDS
             );
             startTotpEmailCooldown(cooldownSeconds);
             markTransferTotpEmailSent(payload && payload.expiresInSeconds);
@@ -28922,7 +29067,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           var subtitle = options && options.subtitle ? options.subtitle : "";
           if (isTransferTotpCodeDeliveryMethod(method) && !pendingTotpEmailSent) {
             subtitle = emailCooldownActive
-              ? "تعذر إرسال الرمز حاليًا. يمكنك إعادة المحاولة بعد انتهاء المؤقت."
+              ? "تعذر إرسال الرمز حاليًا. اتبع الرسالة الظاهرة بالأسفل."
               : "اضغط على زر إرسال رمز التحقق عبر تيليغرام أولاً.";
           } else if (!subtitle) {
             /*
@@ -29584,6 +29729,9 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           var uid = state.currentUser && state.currentUser.uid;
           if (uid){
             try { if (typeof writeBalanceMemory === "function") writeBalanceMemory(uid, val); } catch(_){}
+            // Persist to the localStorage cache the header seeds from, so the new
+            // balance survives reload / re-render without waiting for Firebase.
+            try { localStorage.setItem('balance:cache:' + uid, String(val)); } catch(_){}
           }
         }
 
@@ -32008,6 +32156,9 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
             if (catalogSectionLoaderHolds > 0) {
               return;
             }
+            if (Number(window.__SERVER_REQUEST_LOADER_PENDING_COUNT__ || 0) > 0) {
+              return;
+            }
           } catch(_){}
           try {
             if (typeof window.__resetPageLoaderHold === "function") {
@@ -32495,6 +32646,41 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           try { sessionStorage.setItem("catalog:visit", id); } catch(_) {}
           return id;
         })();
+        function catalogClearPersistentCache(){
+          try {
+            var prefixes = ["catalog:cache:", "catalog:section:", "catalog:provider-sync:"];
+            var doomed = [];
+            for (var i = 0; i < localStorage.length; i += 1) {
+              var k = localStorage.key(i);
+              if (!k) continue;
+              for (var p = 0; p < prefixes.length; p += 1) {
+                if (k.indexOf(prefixes[p]) === 0) { doomed.push(k); break; }
+              }
+            }
+            for (var j = 0; j < doomed.length; j += 1) {
+              try { localStorage.removeItem(doomed[j]); } catch(_){}
+            }
+          } catch(_){}
+        }
+        try { window.__catalogClearPersistentCache = catalogClearPersistentCache; } catch(_){}
+        try { catalogClearPersistentCache(); } catch(_){}
+        try { window.addEventListener("pagehide", function(){ catalogClearPersistentCache(); }); } catch(_){}
+        try { window.addEventListener("auth:logout", function(){ catalogClearPersistentCache(); }); } catch(_){}
+        try {
+          var __catalogLastSessionUid = "";
+          try {
+            var __cs = JSON.parse(localStorage.getItem("sessionKeyInfo") || "null");
+            __catalogLastSessionUid = (__cs && __cs.uid) ? String(__cs.uid) : "";
+          } catch(_){ __catalogLastSessionUid = ""; }
+          window.addEventListener("sessionkey:updated", function(ev){
+            var nextUid = "";
+            try { nextUid = (ev && ev.detail && ev.detail.uid) ? String(ev.detail.uid) : ""; } catch(_){ nextUid = ""; }
+            if (nextUid && nextUid !== __catalogLastSessionUid) {
+              __catalogLastSessionUid = nextUid;
+              catalogClearPersistentCache();
+            }
+          });
+        } catch(_){}
         var cacheFromStorage = false;
         var deferredTreeWarmQueue = [];
         var deferredTreeWarmScheduled = false;
@@ -32502,6 +32688,296 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
         var deferredTreeWarmSeen = {};
         var deferredTreeWarmActivePath = [];
         var ROOT_TREE_WARM_LIMIT = 8;
+
+        // ---- D1 per-section lazy catalog (additive, OFF by default) --------
+        // Mirror of the site-bundle.js implementation (authoritative). When
+        // enabled the home page fetches only the top-level section list and each
+        // section is fetched on entry with a per-section localStorage cache so a
+        // back-navigation never re-requests. Flip on with:
+        //   localStorage.setItem("catalog:d1-lazy","1") OR window.__CATALOG_D1_LAZY__=true
+        var CATALOG_D1_SECTION_PREFIX = "catalog:section:v1:";
+        var CATALOG_D1_VERSION_SUFFIX = "__version__";
+        // D1 source-of-truth: lazy per-section is ON by default with auto-
+        // fallback to the whole-tree path when D1 is cold. Kill-switch:
+        // window.__CATALOG_D1_LAZY__=false OR localStorage["catalog:d1-lazy"]="0".
+        function isCatalogD1LazyEnabled(){
+          try { if (window.__CATALOG_D1_LAZY__ === false) return false; }
+          catch(_){}
+          try { if (window.__CATALOG_D1_LAZY__ === true) return true; }
+          catch(_){}
+          try {
+            var v = localStorage.getItem("catalog:d1-lazy");
+            if (v === "0") return false;
+            if (v === "1") return true;
+          } catch(_){}
+          return true;
+        }
+        function catalogD1SectionKey(uid, id){
+          return CATALOG_D1_SECTION_PREFIX + (uid || "guest") + ":" + String(id || "");
+        }
+        function catalogD1ReadCurrentVersion(uid){
+          try {
+            var raw = localStorage.getItem(catalogD1SectionKey(uid, CATALOG_D1_VERSION_SUFFIX));
+            return raw ? String(raw) : "";
+          } catch(_){ return ""; }
+        }
+        function catalogD1WriteCurrentVersion(uid, version){
+          try {
+            if (version) localStorage.setItem(catalogD1SectionKey(uid, CATALOG_D1_VERSION_SUFFIX), String(version));
+          } catch(_){}
+        }
+        function catalogD1ReadSection(uid, id){
+          try {
+            var raw = localStorage.getItem(catalogD1SectionKey(uid, id));
+            if (!raw) return null;
+            var data = JSON.parse(raw);
+            return (data && typeof data === "object") ? data : null;
+          } catch(_){ return null; }
+        }
+        function catalogD1WriteSection(uid, id, payload, version){
+          try {
+            localStorage.setItem(catalogD1SectionKey(uid, id), JSON.stringify({
+              version: String(version || ""),
+              savedAt: Date.now(),
+              payload: payload
+            }));
+          } catch(_){}
+        }
+        function catalogD1Url(targetMode, id){
+          var originBase = "";
+          try { if (location && location.origin) originBase = String(location.origin).replace(/\/+$/, "") + "/"; } catch(_){}
+          var base = (typeof getBase === "function" ? getBase() : "") || DEFAULT_BASE || originBase;
+          var url;
+          try { url = new URL(base); } catch(_){ url = new URL(originBase || "http://localhost/"); }
+          url.searchParams.set("mode", targetMode);
+          if (id) url.searchParams.set("id", String(id));
+          return url.toString();
+        }
+        function catalogD1RequestHeaders(){
+          var headers = {};
+          try { var uid = getCurrentUid(); if (uid) headers["x-useruid"] = String(uid); } catch(_){}
+          return headers;
+        }
+        var catalogD1InFlight = {};
+        function catalogD1DedupedFetch(key, run){
+          if (key && catalogD1InFlight[key]) return catalogD1InFlight[key];
+          var tracked = run().finally(function(){
+            if (key && catalogD1InFlight[key] === tracked) {
+              try { delete catalogD1InFlight[key]; } catch(_){}
+            }
+          });
+          if (key) catalogD1InFlight[key] = tracked;
+          return tracked;
+        }
+        function catalogD1FetchTopSections(){
+          var uid = getCurrentUid();
+          var requestUrl = catalogD1Url("load-sections", "");
+          return catalogD1DedupedFetch("sections:" + (uid || "guest"), function(){
+            return fetchWithCatalogTimeout(requestUrl, { cache: "no-store", headers: catalogD1RequestHeaders() }, CATALOG_NETWORK_TIMEOUT_MS)
+            .then(function(res){
+              return res.json().catch(function(){ return {}; }).then(function(data){
+                var siteDisabledErr = handleCatalogSiteDisabledResponse(data, res, "catalog-load-sections");
+                if (siteDisabledErr) throw siteDisabledErr;
+                if (!res.ok || !data || data.ok === false) {
+                  var err = new Error("catalog_sections_fetch_failed");
+                  err.payload = data; throw err;
+                }
+                var version = String(data.version || "");
+                catalogD1WriteCurrentVersion(uid, version);
+                try { window.__CATALOG_D1_VERSION__ = version; } catch(_){}
+                return { sections: Array.isArray(data.sections) ? data.sections : [], version: version, source: data.source || "" };
+              });
+            });
+          });
+        }
+        function catalogD1FetchSection(id, opts){
+          var uid = getCurrentUid();
+          var force = !!(opts && opts.force === true);
+          var currentVersion = (opts && opts.version) ? String(opts.version) : catalogD1ReadCurrentVersion(uid);
+          var cached = catalogD1ReadSection(uid, id);
+          if (!force && cached && cached.payload && currentVersion && cached.version === currentVersion) {
+            return Promise.resolve({ payload: cached.payload, version: cached.version, fromCache: true });
+          }
+          var requestUrl = catalogD1Url("load-section", id);
+          var dedupKey = "section:" + (uid || "guest") + ":" + String(id || "");
+          return catalogD1DedupedFetch(dedupKey, function(){
+            return fetchWithCatalogTimeout(requestUrl, { cache: "no-store", headers: catalogD1RequestHeaders() }, CATALOG_NETWORK_TIMEOUT_MS)
+            .then(function(res){
+              return res.json().catch(function(){ return {}; }).then(function(data){
+                var siteDisabledErr = handleCatalogSiteDisabledResponse(data, res, "catalog-load-section");
+                if (siteDisabledErr) throw siteDisabledErr;
+                if (!res.ok || !data || data.ok === false) {
+                  var err = new Error("catalog_section_fetch_failed");
+                  err.payload = data; throw err;
+                }
+                var version = String(data.version || currentVersion || "");
+                var payload = { section: data.section || null, children: Array.isArray(data.children) ? data.children : [], products: Array.isArray(data.products) ? data.products : [] };
+                catalogD1WriteSection(uid, id, payload, version);
+                return { payload: payload, version: version, fromCache: false, source: data.source || "" };
+              });
+            })
+            .catch(function(err){
+              if (cached && cached.payload && !isCatalogSiteDisabledError(err)) {
+                return { payload: cached.payload, version: cached.version, fromCache: true, stale: true };
+              }
+              throw err;
+            });
+          });
+        }
+        function catalogD1ClearCache(){
+          try {
+            var uid = getCurrentUid();
+            var prefix = CATALOG_D1_SECTION_PREFIX + (uid || "guest") + ":";
+            var keys = [];
+            for (var i = 0; i < localStorage.length; i += 1) {
+              var k = localStorage.key(i);
+              if (k && k.indexOf(prefix) === 0) keys.push(k);
+            }
+            keys.forEach(function(k){ try { localStorage.removeItem(k); } catch(_){} });
+          } catch(_){}
+        }
+        function catalogD1FindTreeNode(nodes, id){
+          var target = String(id || "");
+          if (!target) return null;
+          var stack = Array.isArray(nodes) ? nodes.slice() : [];
+          while (stack.length){
+            var node = stack.shift();
+            if (!node || typeof node !== "object") continue;
+            var nid = String(node.id || node.key || "");
+            if (nid && nid === target && String(node.type || "category") !== "product") return node;
+            var branches = Array.isArray(node.branches) ? node.branches : [];
+            for (var i = 0; i < branches.length; i += 1) stack.push(branches[i]);
+          }
+          return null;
+        }
+        function catalogD1FindDirectSection(nodes, id){
+          var target = String(id || "").trim();
+          if (!target || !Array.isArray(nodes)) return null;
+          for (var i = 0; i < nodes.length; i += 1) {
+            var node = nodes[i];
+            if (!node || typeof node !== "object" || String(node.type || "category") === "product") continue;
+            if (String(node.id || node.key || "").trim() === target) return node;
+          }
+          return null;
+        }
+        function catalogD1EnsureRoutePath(pathParts){
+          var parts = Array.isArray(pathParts)
+            ? pathParts.map(function(part){ return String(part || "").trim(); }).filter(Boolean)
+            : [];
+          if (!parts.length) return null;
+          if (!Array.isArray(treeCache)) treeCache = [];
+          var levelNodes = treeCache;
+          var current = null;
+          for (var i = 0; i < parts.length; i += 1) {
+            var id = parts[i];
+            current = catalogD1FindDirectSection(levelNodes, id);
+            if (!current) {
+              var existing = catalogD1FindTreeNode(treeCache, id);
+              if (existing && levelNodes !== treeCache) {
+                var rootIndex = treeCache.indexOf(existing);
+                if (rootIndex >= 0) treeCache.splice(rootIndex, 1);
+                current = existing;
+              }
+              if (!current) {
+                current = {
+                  type: "category", id: id, key: id, name: id,
+                  imageUrl: "", branches: [], __d1LazyUnloaded: true
+                };
+              }
+              levelNodes.push(current);
+            }
+            if (!Array.isArray(current.branches)) current.branches = [];
+            levelNodes = current.branches;
+          }
+          return current;
+        }
+        function catalogD1MergeTopLevelNodes(incoming){
+          var nextRoots = [];
+          (Array.isArray(incoming) ? incoming : []).forEach(function(fresh){
+            if (!fresh) return;
+            var id = String(fresh.id || fresh.key || "").trim();
+            var existing = catalogD1FindDirectSection(treeCache, id);
+            if (!existing) {
+              nextRoots.push(fresh);
+              return;
+            }
+            existing.name = fresh.name || existing.name;
+            existing.imageUrl = fresh.imageUrl || existing.imageUrl || "";
+            existing.order = fresh.order || 0;
+            existing.__d1LazyHasChildren = fresh.__d1LazyHasChildren === true;
+            nextRoots.push(existing);
+          });
+          return nextRoots;
+        }
+        function catalogD1HydrateSection(id, opts){
+          if (!isCatalogD1LazyEnabled() || !id) return Promise.resolve(false);
+          opts = opts || {};
+          var node = catalogD1EnsureRoutePath(opts.pathParts);
+          if (!node || String(node.id || node.key || "") !== String(id)) {
+            node = catalogD1FindTreeNode(treeCache, id);
+          }
+          // No-op when already hydrated or when the whole tree was loaded
+          // (cold-fallback): those nodes aren't marked lazy-unloaded.
+          if (node && node.__d1LazyUnloaded !== true) return Promise.resolve(true);
+          return catalogD1FetchSection(id, {}).then(function(res){
+            var payload = res && res.payload;
+            if (!payload) return false;
+            var target = catalogD1EnsureRoutePath(opts.pathParts) || catalogD1FindTreeNode(treeCache, id);
+            var previousBranches = target && Array.isArray(target.branches) ? target.branches : [];
+            var childNodes = (payload.children || []).map(function(c){
+              var existingChild = catalogD1FindDirectSection(previousBranches, c.id);
+              var child = existingChild || {
+                type: "category", id: c.id, key: c.id, branches: [],
+                __d1LazyUnloaded: true
+              };
+              child.name = c.name;
+              child.imageUrl = c.image || "";
+              child.order = c.sortOrder || 0;
+              child.__d1LazyHasChildren = !!c.hasChildren;
+              return child;
+            });
+            var products = Array.isArray(payload.products) ? payload.products : [];
+            var branches = childNodes.concat(products);
+            if (target) {
+              target.branches = branches;
+              target.__d1LazyUnloaded = false;
+            } else {
+              if (!Array.isArray(treeCache)) treeCache = [];
+              treeCache.push({
+                type: "category", id: id, key: id,
+                name: (payload.section && payload.section.name) || id,
+                imageUrl: (payload.section && payload.section.image) || "",
+                branches: branches, __d1LazyUnloaded: false
+              });
+            }
+            try {
+              var ex = _extractGamesFromTree(treeCache);
+              cache = ex.games || cache || [];
+              categoriesCache = ex.categories || categoriesCache;
+              catalogPayloadCache = _buildCatalogFromTree(treeCache);
+              window.__CATALOG_CATALOG_CACHE__ = catalogPayloadCache;
+              window.__CATALOG_TREE_CACHE__ = treeCache;
+              writeCatalogCache(getCurrentUid(), cache, categoriesCache, catalogPayloadCache);
+            } catch(_){}
+            if (opts.silentRender !== true) {
+              try { scheduleForceRender(); } catch(_){}
+            }
+            return true;
+          }).catch(function(){ return false; });
+        }
+        try {
+          window.__catalogD1 = {
+            isEnabled: isCatalogD1LazyEnabled,
+            fetchTopSections: catalogD1FetchTopSections,
+            fetchSection: catalogD1FetchSection,
+            hydrateSection: catalogD1HydrateSection,
+            readCachedSection: catalogD1ReadSection,
+            currentVersion: function(){ return catalogD1ReadCurrentVersion(getCurrentUid()); },
+            clearCache: catalogD1ClearCache
+          };
+        } catch(_){}
+        // -------------------------------------------------------------------
+
         function handleCatalogSiteDisabledResponse(data, res, reason){
           try {
             if (typeof window.__handleSiteDisabledApiResponse === "function") {
@@ -32684,6 +33160,133 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           return Math.max(0, Math.round(num * 1000) / 1000);
         }
 
+        // === Catalog load timeline instrumentation (additive, measurement-only) ===
+        // The existing payload.timings.client only covers fetch-start -> JSON.parse.
+        // This recorder also fills the two blind windows that hide the perceived
+        // delay: (1) page navigation -> catalog fetch start (boot/route/auth), and
+        // (2) JSON.parse -> cards painted -> first image. It never changes behavior;
+        // it logs a console.table and exposes window.__CATALOG_TIMINGS__ /
+        // __CATALOG_TIMELINE__ so the full pipeline can be read with real numbers.
+        var catalogPerf = (function(){
+          var cycle = null;
+          var history = [];
+          var finishTimer = 0;
+          function nowMs(){ return catalogTimingNow(); }
+          function reset(){
+            cycle = null;
+            if (finishTimer) { try { clearTimeout(finishTimer); } catch(_){} finishTimer = 0; }
+          }
+          function begin(reason){
+            reset();
+            cycle = {
+              reason: String(reason || ""),
+              beginMs: nowMs(),
+              marks: [],
+              seen: {},
+              fetches: [],
+              fetchCount: 0,
+              server: null,
+              finished: false
+            };
+            add("cycle_begin", cycle.beginMs);
+            scheduleFinish(12000);
+            return cycle;
+          }
+          function ensure(reason){ return cycle || begin(reason || "auto"); }
+          function add(name, at, opts){
+            if (!cycle && !(opts && opts.allowBegin === true)) {
+              if (!(opts && opts.ensure === true)) return;
+            }
+            var c = ensure();
+            if (c.finished) return;
+            var key = String(name || "");
+            var t = Number(at);
+            if (!Number.isFinite(t)) t = nowMs();
+            var repeat = !!(opts && opts.repeat === true);
+            if (!repeat && c.seen[key]) return;
+            c.seen[key] = true;
+            c.marks.push({
+              name: key,
+              sinceNavMs: roundCatalogTimingMs(t),
+              sinceLoadStartMs: roundCatalogTimingMs(t - c.beginMs)
+            });
+          }
+          function countFetch(url, startedAt){
+            if (!cycle || cycle.finished) return;
+            cycle.fetchCount += 1;
+            cycle.fetches.push({
+              n: cycle.fetchCount,
+              url: String(url || "").slice(0, 200),
+              startedSinceNavMs: roundCatalogTimingMs(Number(startedAt) || nowMs())
+            });
+          }
+          function recordServer(res, payload){
+            if (!cycle || cycle.finished) return;
+            var t = (payload && payload.timings && typeof payload.timings === "object") ? payload.timings : null;
+            var client = (t && t.client && typeof t.client === "object") ? t.client : null;
+            cycle.server = {
+              routerTotalMs: readCatalogResponseHeaderNumber(res, "x-router-response-ready-ms"),
+              routerHandlerMs: readCatalogResponseHeaderNumber(res, "x-router-handler-ready-ms"),
+              originTotalMs: t ? Number(t.totalMs) : null,
+              originHandlerMs: t ? Number(t.handlerTotalMs) : null,
+              sectionsSource: String((t && t.sectionsSource) || (payload && payload.sectionsSource) || ""),
+              clientFetchToParseMs: client ? Number(client.totalMs) : null,
+              clientHeaderWaitMs: client ? Number(client.headerWaitMs) : null,
+              clientBodyReadJsonMs: client ? Number(client.bodyReadJsonMs) : null,
+              edgeQueueAndTransferMs: client ? Number(client.estimatedUnmeasuredMs) : null
+            };
+          }
+          function scheduleFinish(delayMs){
+            if (finishTimer) { try { clearTimeout(finishTimer); } catch(_){} }
+            finishTimer = setTimeout(function(){ finishTimer = 0; finish("timeout"); }, Math.max(0, Number(delayMs) || 4000));
+          }
+          function finish(reason){
+            var c = cycle;
+            if (!c || c.finished) return;
+            c.finished = true;
+            if (finishTimer) { try { clearTimeout(finishTimer); } catch(_){} finishTimer = 0; }
+            add("cycle_finish", nowMs(), { repeat: true });
+            var rows = c.marks.map(function(m){
+              return { stage: m.name, msSinceNav: m.sinceNavMs, msSinceLoadStart: m.sinceLoadStartMs };
+            });
+            var summary = {
+              reason: c.reason,
+              finishReason: String(reason || ""),
+              catalogFetchCount: c.fetchCount,
+              fetches: c.fetches.slice(),
+              server: c.server,
+              marks: rows,
+              totalSinceNavMs: c.marks.length ? c.marks[c.marks.length - 1].sinceNavMs : null
+            };
+            try { window.__CATALOG_TIMINGS__ = summary; } catch(_){}
+            try { window.__CATALOG_TIMELINE__ = rows; } catch(_){}
+            try {
+              if (window.console) {
+                if (console.groupCollapsed) console.groupCollapsed("📊 Catalog load timeline (" + (c.reason || "load") + ")");
+                if (console.table) console.table(rows);
+                console.log("catalogFetchCount:", c.fetchCount, c.fetches);
+                console.log("server timings:", c.server);
+                if (console.groupEnd) console.groupEnd();
+              }
+            } catch(_){}
+            history.push(summary);
+            if (history.length > 10) history.shift();
+            cycle = null;
+          }
+          try { window.__catalogPerfHistory = history; } catch(_){}
+          return {
+            begin: begin,
+            mark: add,
+            countFetch: countFetch,
+            recordServer: recordServer,
+            finish: finish,
+            scheduleFinish: scheduleFinish,
+            reset: reset,
+            isActive: function(){ return !!(cycle && !cycle.finished); }
+          };
+        })();
+        try { window.__catalogPerf = catalogPerf; } catch(_){}
+
         function readCatalogResponseHeaderNumber(res, name){
           try {
             var raw = res && res.headers && typeof res.headers.get === "function"
@@ -32771,6 +33374,12 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
             headersReceivedAt: 0
           };
           try {
+            if (catalogPerf.isActive() && isCatalogFetchLoaderUrl(url)) {
+              catalogPerf.countFetch(url, timingInfo.startedAt);
+              catalogPerf.mark("before_fetch", timingInfo.startedAt);
+            }
+          } catch(_){}
+          try {
             if (typeof AbortController !== "undefined") {
               controller = new AbortController();
               finalOptions.signal = controller.signal;
@@ -32784,6 +33393,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           }
           return fetch(url, finalOptions).then(function(res){
             timingInfo.headersReceivedAt = catalogTimingNow();
+            try { if (catalogPerf.isActive() && isCatalogFetchLoaderUrl(url)) catalogPerf.mark("response_headers", timingInfo.headersReceivedAt); } catch(_){}
             return attachCatalogFetchLoaderRelease(res, releaseCatalogFetchLoader, timingInfo);
           }).catch(function(err){
             try { releaseCatalogFetchLoader(); } catch(_){}
@@ -32812,7 +33422,14 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
                 try {
                   var result = Promise.resolve(original.apply(null, arguments));
                   if (method === "json") {
+                    try { if (catalogPerf.isActive()) catalogPerf.mark("body_read_start", bodyStartedAt); } catch(_){}
                     result = result.then(function(data){
+                      try {
+                        if (catalogPerf.isActive()) {
+                          catalogPerf.mark("response_body_read_and_json_parsed");
+                          catalogPerf.recordServer(res, data);
+                        }
+                      } catch(_){}
                       return annotateCatalogClientTimings(data, res, timingInfo, bodyStartedAt, catalogTimingNow());
                     });
                   }
@@ -32831,16 +33448,42 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           try {
             var parsed = new URL(String(rawUrl || ""), window.location.href);
             var mode = String(parsed.searchParams.get("mode") || "").trim().toLowerCase();
-            return mode === "load-categories" || mode === "provider-games";
+            return mode === "load-categories" || mode === "provider-games" || mode === "load-section";
           } catch(_){
-            return /[?&]mode=(?:load-categories|provider-games)(?:&|$)/i.test(String(rawUrl || ""));
+            return /[?&]mode=(?:load-categories|provider-games|load-section)(?:&|$)/i.test(String(rawUrl || ""));
           }
+        }
+
+        function isCatalogSectionFetchLoaderUrl(rawUrl){
+          try {
+            var parsed = new URL(String(rawUrl || ""), window.location.href);
+            return String(parsed.searchParams.get("mode") || "").trim().toLowerCase() === "load-section";
+          } catch(_){
+            return /[?&]mode=load-section(?:&|$)/i.test(String(rawUrl || ""));
+          }
+        }
+
+        function setCatalogSectionLoaderFastExit(active){
+          try {
+            var styleId = "catalog-section-loader-fast-exit-style";
+            if (!document.getElementById(styleId)) {
+              var style = document.createElement("style");
+              style.id = styleId;
+              style.textContent = "#preloader.catalog-section-loader-fast-exit{transition:opacity 140ms ease-out,visibility 0s linear 140ms!important;}";
+              (document.head || document.documentElement).appendChild(style);
+            }
+            var pre = document.getElementById("preloader");
+            if (!pre) return;
+            pre.classList.toggle("catalog-section-loader-fast-exit", !!active);
+          } catch(_){}
         }
 
         function holdCatalogFetchLoader(rawUrl, timeoutMs){
           if (!isCatalogFetchLoaderUrl(rawUrl)) return function(){};
+          var isSectionFetch = isCatalogSectionFetchLoaderUrl(rawUrl);
           var released = false;
           var fallbackTimer = 0;
+          if (isSectionFetch) setCatalogSectionLoaderFastExit(false);
           try {
             if (typeof window.__catalogStartPageLoaderKeepAlive === "function") {
               window.__catalogStartPageLoaderKeepAlive();
@@ -32882,6 +33525,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
                 window.__CATALOG_INLINE_LOADING__ = false;
               }
             } catch(_){}
+            if (isSectionFetch) setCatalogSectionLoaderFastExit(true);
             try {
               if (typeof window.__releasePageLoader === "function") {
                 window.__releasePageLoader();
@@ -32889,6 +33533,9 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
                 hidePageLoader();
               }
             } catch(_){}
+            if (isSectionFetch) {
+              try { setTimeout(function(){ setCatalogSectionLoaderFastExit(false); }, 260); } catch(_){}
+            }
           }
           return function(){
             releaseCatalogFetchLoaderNow();
@@ -34276,6 +34923,15 @@ function normalizeCategory(value){
                 }
               } catch(_){}
             });
+            if (catalogPerf.isActive() && absoluteIndex === 0 && images && images.length) {
+              var firstImg = images[0];
+              var markFirstImg = function(){ try { catalogPerf.mark("first_card_image_loaded"); } catch(_){} };
+              if (firstImg.complete && firstImg.naturalWidth > 0) markFirstImg();
+              else {
+                try { firstImg.addEventListener("load", markFirstImg, { once: true }); } catch(_){}
+                try { firstImg.addEventListener("error", markFirstImg, { once: true }); } catch(_){}
+              }
+            }
           } catch(_){}
         }
         function insertProgressiveCardChunk(section, state, limit){
@@ -34319,6 +34975,15 @@ function normalizeCategory(value){
               firstChunk: state.renderedChunks === 0,
               final: state.index >= state.builders.length
             });
+            try {
+              if (catalogPerf.isActive() && section && section.id === "categoriesContainer") {
+                if (state.renderedChunks === 0) catalogPerf.mark("render_first_cards_painted");
+                if (state.index >= state.builders.length) {
+                  catalogPerf.mark("render_done_all_cards");
+                  catalogPerf.scheduleFinish(2500);
+                }
+              }
+            } catch(_){}
             state.renderedChunks += 1;
           }
           if (state.index < state.builders.length) {
@@ -34628,7 +35293,10 @@ function normalizeCategory(value){
           if (useLoader) {
             loaderHeld = holdLoader();
           }
-          inflight = syncPromise.then(function(){
+          // D1 lazy mode (flag-gated): initial load fetches ONLY the top-level
+          // section list and synthesizes a shallow tree (hydrated on entry).
+          // Mirror of site-bundle.js. Falls back to the whole-tree fetch.
+          function fetchWholeTree(){
             return fetchFromBase(base, primaryMode).catch(function(err){
               if (isCatalogSiteDisabledError(err)) throw err;
               if (fallbackMode !== primaryMode) {
@@ -34636,7 +35304,28 @@ function normalizeCategory(value){
               }
               throw err;
             });
-          }).then(function(data){
+          }
+          function fetchCatalogData(){
+            if (isCatalogD1LazyEnabled()) {
+              return catalogD1FetchTopSections().then(function(res){
+                if (!res || res.source !== "d1") return fetchWholeTree();
+                var nodes = (res.sections || []).map(function(s){
+                  return {
+                    type: "category", id: s.id, key: s.id, name: s.name,
+                    imageUrl: s.image || "", order: s.sortOrder || 0, branches: [],
+                    __d1LazyUnloaded: true, __d1LazyHasChildren: !!s.hasChildren
+                  };
+                });
+                return { tree: nodes, __d1Lazy: true, version: res.version };
+              }).catch(function(err){
+                if (isCatalogSiteDisabledError(err)) throw err;
+                return fetchWholeTree();
+              });
+            }
+            return fetchWholeTree();
+          }
+          inflight = syncPromise.then(fetchCatalogData).then(function(data){
+            try { if (catalogPerf.isActive()) catalogPerf.mark("data_processing_start"); } catch(_){}
             var root = (data && typeof data === "object") ? data : {};
             var nested = (root.data && typeof root.data === "object") ? root.data : null;
             function pickArray() {
@@ -34683,6 +35372,9 @@ function normalizeCategory(value){
                 || categoriesObjectToArray(catalogPayload && catalogPayload.categories);
             }
             var tree = pickArray(root.tree, nested && nested.tree);
+            if (root.__d1Lazy === true && Array.isArray(tree)) {
+              tree = catalogD1MergeTopLevelNodes(tree);
+            }
             var preferTree = !!(tree && hasNestedBranches(tree));
             if ((preferTree || !games || !games.length) && tree) {
               var extracted = _extractGamesFromTree(tree);
@@ -34735,6 +35427,7 @@ function normalizeCategory(value){
               try { scheduleRootTreeBranchWarm(ROOT_TREE_WARM_LIMIT); } catch(_){}
             }
             try { scheduleForceRender(); } catch(_){}
+            try { if (catalogPerf.isActive()) { catalogPerf.mark("data_processing_end"); catalogPerf.scheduleFinish(6000); } } catch(_){}
             return games;
           }).catch(function(err){
             console.error("Catalog games fetch error:", err);
@@ -36728,6 +37421,12 @@ function normalizeCategory(value){
             !hasRouteDemandPref &&
             hideItems
           );
+          try {
+            if (isHomeRootCatalogRender && !catalogPerf.isActive()) {
+              catalogPerf.begin("home_root_render");
+              catalogPerf.mark("render_invoked");
+            }
+          } catch(_){}
           var hasUsableCatalogSnapshot = !!(
             (Array.isArray(cache) && cache.length) ||
             (Array.isArray(treeCache) && treeCache.length) ||
@@ -39607,10 +40306,10 @@ function normalizeCategory(value){
               if (typeof showPageLoader === 'function') showPageLoader({ hold: true, replay: true });
             } catch(_){}
           }
-          if (inlineWalletBootLoaderTimer) clearTimeout(inlineWalletBootLoaderTimer);
-          inlineWalletBootLoaderTimer = setTimeout(function(){
-            releaseInlineWalletBootLoader();
-          }, 15000);
+          if (inlineWalletBootLoaderTimer) {
+            clearTimeout(inlineWalletBootLoaderTimer);
+            inlineWalletBootLoaderTimer = null;
+          }
         } catch(_){}
       }
       try { window.__releaseInlineWalletBootLoader = releaseInlineWalletBootLoader; } catch(_){}
@@ -39919,6 +40618,16 @@ function normalizeCategory(value){
             modalOnlyFlow = !!(host && host.dataset && host.dataset.modalOnlyFlow === '1');
             if (host && host.dataset) delete host.dataset.modalOnlyFlow;
           } catch(_){ modalOnlyFlow = false; }
+          // Never leak the purchase modal (and body.modal-open) across routes.
+          try {
+            if (typeof window.__catalogResetPurchaseModalOnRouteExit === 'function') {
+              window.__catalogResetPurchaseModalOnRouteExit();
+            } else if (window.__CATALOG_PURCHASE_ACTIVE__ !== true) {
+              var leakedPm = document.getElementById('purchase-modal');
+              if (leakedPm) leakedPm.classList.remove('show', 'closing');
+              document.body.classList.remove('modal-open');
+            }
+          } catch(_){ }
           if (host) host.style.display = 'none';
           setModalOnlyClassSafe(false);
           try { window.__CATALOG_INLINE_MODAL_ONLY__ = ''; window.__CATALOG_INLINE_MODAL_ONLY_SOURCE__ = ''; window.__CATALOG_INLINE_KEEP_PAGE_FOR_FORCE_MODAL__ = ''; } catch(_){ }
@@ -40927,6 +41636,90 @@ function normalizeCategory(value){
         } catch(_){}
       }
 
+      function getInlineRouteFetchUrl(input){
+        try {
+          if (typeof input === 'string') return input;
+          if (input && typeof input.url === 'string') return input.url;
+        } catch(_){}
+        return '';
+      }
+
+      function isInlineRouteServerFetchUrl(input){
+        var url = getInlineRouteFetchUrl(input);
+        if (!url) return true;
+        var lower = String(url || '').toLowerCase();
+        if (/^(?:data|blob|file):/.test(lower)) return false;
+        if (/\.(?:js|mjs|css|png|jpe?g|webp|gif|svg|ico|woff2?|ttf|map)(?:[?#]|$)/i.test(lower)) return false;
+        return true;
+      }
+
+      function createInlineRouteServerFetchTracker(options){
+        var opts = options || {};
+        var originalFetch = null;
+        try { originalFetch = window.fetch; } catch(_){ originalFetch = null; }
+        if (typeof originalFetch !== 'function') {
+          return {
+            waitForIdle: function(){ return Promise.resolve(); },
+            stop: function(){},
+            hasTrackedFetch: function(){ return false; }
+          };
+        }
+        var active = true;
+        var pending = 0;
+        var trackedFetchStarted = false;
+        var idleResolvers = [];
+        function notifyIdle(){
+          if (pending > 0) return;
+          var resolvers = idleResolvers.splice(0);
+          resolvers.forEach(function(resolve){ try { resolve(); } catch(_){} });
+        }
+        function waitForIdle(){
+          if (pending <= 0) return Promise.resolve();
+          return new Promise(function(resolve){ idleResolvers.push(resolve); });
+        }
+        function trackedFetch(){
+          var shouldTrack = false;
+          try { shouldTrack = active && isInlineRouteServerFetchUrl(arguments[0]); } catch(_){ shouldTrack = false; }
+          if (!shouldTrack) return originalFetch.apply(this, arguments);
+          if (!trackedFetchStarted) {
+            trackedFetchStarted = true;
+            try {
+              if (typeof opts.onFirstFetch === 'function') opts.onFirstFetch(arguments[0]);
+            } catch(_){}
+          }
+          pending += 1;
+          var result;
+          try {
+            result = originalFetch.apply(this, arguments);
+          } catch(err) {
+            pending = Math.max(0, pending - 1);
+            notifyIdle();
+            throw err;
+          }
+          return Promise.resolve(result).then(function(response){
+            pending = Math.max(0, pending - 1);
+            notifyIdle();
+            return response;
+          }, function(err){
+            pending = Math.max(0, pending - 1);
+            notifyIdle();
+            throw err;
+          });
+        }
+        try { window.fetch = trackedFetch; } catch(_){}
+        return {
+          waitForIdle: waitForIdle,
+          hasTrackedFetch: function(){ return trackedFetchStarted; },
+          stop: function(){
+            active = false;
+            try {
+              if (window.fetch === trackedFetch) window.fetch = originalFetch;
+            } catch(_){}
+            notifyIdle();
+          }
+        };
+      }
+
       function setInlineRouteTransitionPending(active, meta){
         var next = !!active;
         var token = Number(meta && meta.token || 0) || 0;
@@ -40988,36 +41781,14 @@ function normalizeCategory(value){
       }
 
       function waitForInlineWalletRouteStep(value, maxMs, label){
-        var timeoutMs = Math.max(3000, Number(maxMs) || INLINE_WALLET_ROUTE_ONSHOW_MAX_MS);
-        return new Promise(function(resolve){
-          var done = false;
-          var timer = 0;
-          function finish(result){
-            if (done) return;
-            done = true;
-            try { if (timer) clearTimeout(timer); } catch(_){ }
-            resolve(result);
-          }
+        return Promise.resolve(value).catch(function(err){
           try {
-            timer = setTimeout(function(){
-              try {
-                console.warn('[inline-route] wallet route step timed out', {
-                  label: String(label || 'wallet_route_step'),
-                  timeoutMs: timeoutMs
-                });
-              } catch(_){ }
-              finish(null);
-            }, timeoutMs);
+            console.warn('[inline-route] wallet route step failed', {
+              label: String(label || 'wallet_route_step'),
+              error: err && err.message ? err.message : String(err || '')
+            });
           } catch(_){ }
-          Promise.resolve(value).then(finish).catch(function(err){
-            try {
-              console.warn('[inline-route] wallet route step failed', {
-                label: String(label || 'wallet_route_step'),
-                error: err && err.message ? err.message : String(err || '')
-              });
-            } catch(_){ }
-            finish(null);
-          });
+          return null;
         });
       }
 
@@ -41026,6 +41797,19 @@ function normalizeCategory(value){
         try { syncInlineStyles(); } catch(_){ }
         try { if (typeof window.__closeCatalogInline === 'function') window.__closeCatalogInline(); } catch(_){ }
         var r = routes[key]; if(!r) return;
+        // Hydrate only the current route section. Reloads no longer replay all
+        // ancestor requests; back navigation loads the parent on demand.
+        try {
+          if (key === "games" && window.__catalogD1 && typeof window.__catalogD1.isEnabled === "function" && window.__catalogD1.isEnabled()) {
+            var d1Parts = (ctx && Array.isArray(ctx.routeParts) && ctx.routeParts.length)
+              ? ctx.routeParts
+              : (ctx && ctx.routeValue ? [ctx.routeValue] : []);
+            var d1Part = d1Parts.length ? String(d1Parts[d1Parts.length - 1] || "").trim() : "";
+            if (d1Part) {
+              try { await window.__catalogD1.hydrateSection(d1Part, { pathParts: d1Parts, silentRender: true }); } catch(_){}
+            }
+          }
+        } catch(_){}
         var isWalletFlowRoute = isWalletFlowRouteKey(key);
         var routeLoadToken = !isWalletFlowRoute ? (++inlineRouteTransitionSerial) : 0;
         var canResolveCatalogRouteLocally = false;
@@ -41039,8 +41823,11 @@ function normalizeCategory(value){
             );
           } catch(_){ canResolveCatalogRouteLocally = false; }
         }
+        // Pure route switches should not flash the global loader. The loader
+        // starts only when an actual server fetch begins during inline load.
         var useNonWalletTransitionLoader = !isWalletFlowRoute && !canResolveCatalogRouteLocally;
         var nonWalletLoaderSettled = false;
+        var nonWalletLoaderStarted = false;
         var keyLower = String(key || '').toLowerCase();
         var activeInlineRouteKey = '';
         try { activeInlineRouteKey = String(document.body && document.body.getAttribute('data-inline-route') || '').toLowerCase(); } catch(_){ activeInlineRouteKey = ''; }
@@ -41055,6 +41842,17 @@ function normalizeCategory(value){
         if (isWalletFlowRoute && !Object.prototype.hasOwnProperty.call(ctx, '__enteredWalletRoute')) {
           ctx.__enteredWalletRoute = activeInlineRouteKey !== keyLower;
         }
+        function beginNonWalletLoader(){
+          if (!useNonWalletTransitionLoader || nonWalletLoaderStarted || nonWalletLoaderSettled) return;
+          nonWalletLoaderStarted = true;
+          holdInlineRoutePageLoader();
+          setInlineRouteTransitionPending(true, { token: routeLoadToken, key: key });
+          try {
+            if (typeof catalogGamesInline !== 'undefined' && catalogGamesInline && typeof catalogGamesInline.primeRouteLoader === 'function') {
+              catalogGamesInline.primeRouteLoader(key, ctx);
+            }
+          } catch(_){ }
+        }
         function settleNonWalletLoader(forceImmediate){
           if (!useNonWalletTransitionLoader || nonWalletLoaderSettled) return;
           nonWalletLoaderSettled = true;
@@ -41067,26 +41865,14 @@ function normalizeCategory(value){
           function finish(){
             if (!isCurrentRouteToken()) return;
             setInlineRouteTransitionPending(false, { token: routeLoadToken });
-            releaseInlineRoutePageLoader();
+            if (nonWalletLoaderStarted) releaseInlineRoutePageLoader();
           }
           if (forceImmediate === true) {
             finish();
             return;
           }
           try {
-            var elapsed = started ? (Date.now() - started) : Infinity;
-            var remain = 300 - elapsed;
-            if (remain > 0 && remain < 5000) {
-              setTimeout(function(){
-                try {
-                  requestAnimationFrame(function(){ requestAnimationFrame(finish); });
-                } catch(_){ finish(); }
-              }, remain);
-            } else {
-              try {
-                requestAnimationFrame(function(){ requestAnimationFrame(finish); });
-              } catch(_){ finish(); }
-            }
+            requestAnimationFrame(function(){ requestAnimationFrame(finish); });
           } catch(_){ finish(); }
         }
         var forceReload = !!ctx.__forceReload;
@@ -41135,17 +41921,16 @@ function normalizeCategory(value){
             });
           }
         }
+        var routeFetchTracker = null;
         var loadTask = (async function(){
         if (useNonWalletTransitionLoader) {
-          holdInlineRoutePageLoader();
-          setInlineRouteTransitionPending(true, { token: routeLoadToken, key: key });
+          routeFetchTracker = createInlineRouteServerFetchTracker({ onFirstFetch: beginNonWalletLoader });
         } else {
           try { clearInlineRouteTransitionPendingState(); } catch(_){ }
         }
         try {
           if (typeof catalogGamesInline !== 'undefined' && catalogGamesInline && typeof catalogGamesInline.primeRouteLoader === 'function') {
             if (isWalletFlowRoute) catalogGamesInline.clearRouteLoaderPrime();
-            else if (useNonWalletTransitionLoader) catalogGamesInline.primeRouteLoader(key, ctx);
             else if (typeof catalogGamesInline.clearRouteLoaderPrime === 'function') catalogGamesInline.clearRouteLoaderPrime();
           }
         } catch(_){ }
@@ -41184,6 +41969,12 @@ function normalizeCategory(value){
             await waitForInlineWalletRouteStep(onShowResult, INLINE_WALLET_ROUTE_ONSHOW_MAX_MS, 'onShow:' + String(key || ''));
           } else {
             try { await Promise.resolve(onShowResult); } catch(_){ }
+            if (routeFetchTracker) {
+              try {
+                await Promise.resolve();
+                await routeFetchTracker.waitForIdle();
+              } catch(_){ }
+            }
           }
           try{ if (typeof applyCardsVisibility === 'function') applyCardsVisibility(); }catch(_){ }
           try{ attachSearchBehavior(inlineBox); }catch(_){ }
@@ -41219,6 +42010,7 @@ function normalizeCategory(value){
           inlineWalletRouteLoadState.inFlightStartedAt = Date.now();
         }
         return Promise.resolve(loadTask).finally(function(){
+          try { if (routeFetchTracker) routeFetchTracker.stop(); } catch(_){}
           if (useNonWalletTransitionLoader) {
             try { settleNonWalletLoader(true); } catch(_){}
           }
@@ -41280,23 +42072,6 @@ function normalizeCategory(value){
         var hash = buildCategoryHash(key, hashPartsSource);
         var historyPath = routeValue || '';
         if (location.hash !== hash) { history.pushState({key:key, path: historyPath}, '', hash); }
-        var keyLowerLoader = String(key || '').toLowerCase();
-        var lightweightInlineRoutes = { games:1, favorites:1, privacy:1, terms:1 };
-        var walletFlowRoutes = { deposit:1, edaa:1 };
-        var shouldShowNavLoader = !lightweightInlineRoutes[keyLowerLoader];
-        var shouldPrimeInlineLoader = !!(
-          !walletFlowRoutes[keyLowerLoader] &&
-          /^(games)$/.test(keyLowerLoader) &&
-          (
-            (Array.isArray(effectiveParts) && effectiveParts.length) ||
-            (routeValue && String(routeValue).trim())
-          )
-        );
-        if (shouldShowNavLoader) {
-          try { if (typeof showPageLoader === 'function') showPageLoader(); } catch(_){ }
-        } else if (!walletFlowRoutes[keyLowerLoader] && !shouldPrimeInlineLoader) {
-          try { if (typeof hidePageLoader === 'function') hidePageLoader(); } catch(_){ }
-        }
         try { window.__INLINE_FORCE_ROUTE__ = key; } catch(_){ }
         try {
           loadInline(key, { routeValue: routeValue || '', routeParts: effectiveParts });

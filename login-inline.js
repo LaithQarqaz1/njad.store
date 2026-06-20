@@ -26,9 +26,6 @@
   let pendingTotpLostCooldownUntilMs = 0;
   let pendingTotpCooldownTimer = null;
   let totpModalMethod = "";
-  const manualAuthInFlight = new Map();
-  const manualAuthRecent = new Map();
-  const OTP_REQUEST_DEDUPE_MS = 5000;
 
   const firebaseConfig = window.__getSiteFirebaseConfig
     ? window.__getSiteFirebaseConfig()
@@ -1394,14 +1391,7 @@
   }
 
   function getManualAuthRecentDuplicate(key, windowMs) {
-    const entry = manualAuthRecent.get(key);
-    if (!entry) return null;
-    const ageMs = Date.now() - Number(entry.ts || 0);
-    if (!Number.isFinite(ageMs) || ageMs < 0 || ageMs > windowMs) {
-      manualAuthRecent.delete(key);
-      return null;
-    }
-    return entry;
+    return null;
   }
 
   function createManualAuthLocalDuplicateError(action, payload, originalError = null) {
@@ -1542,22 +1532,6 @@
         if (dir === "rtl" || dir === "ltr") body.dir = dir;
       }
     } catch (_) {}
-    const normalizedAction = String(action || "").trim().toLowerCase();
-    const requestKey = buildManualAuthRequestKey(normalizedAction, body);
-    if (manualAuthInFlight.has(requestKey)) {
-      return manualAuthInFlight.get(requestKey);
-    }
-    if (normalizedAction === "telegram_otp_request") {
-      const recent = getManualAuthRecentDuplicate(requestKey, OTP_REQUEST_DEDUPE_MS);
-      if (recent) {
-        const duplicateErr = createManualAuthLocalDuplicateError(action, body, recent.error || null);
-        if (targetErrorEl) {
-          targetErrorEl.style.color = "var(--danger, #ef4444)";
-          targetErrorEl.textContent = translateFirebaseError(duplicateErr);
-        }
-        throw duplicateErr;
-      }
-    }
     showRequestLoader();
     const runPromise = (async () => {
     try {
@@ -1565,6 +1539,7 @@
       const timer = controller ? setTimeout(() => controller.abort(), 15000) : null;
       const res = await fetch(manualUrl, {
         method: "POST",
+        cache: "no-store",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
         signal: controller ? controller.signal : undefined
@@ -1587,7 +1562,6 @@
       const sourceCode = (err && err.name === "AbortError") ? fallbackCode : (err && err.code ? err.code : fallbackCode);
       const resolvedCode = resolveManualAuthErrorCode(err && err.payload ? err.payload : null, sourceCode) || fallbackCode;
       const safeErr = createWritableManualAuthError(err, resolvedCode);
-      manualAuthRecent.set(requestKey, { ts: Date.now(), error: safeErr });
       const authLike = /^auth\//.test(String(safeErr.code || "")) || /^totp[_-]/.test(String(safeErr.code || "")) || /^telegram_otp[_-]/.test(String(safeErr.code || ""));
       if (targetErrorEl) {
         targetErrorEl.style.color = "var(--danger, #ef4444)";
@@ -1615,19 +1589,7 @@
       hideRequestLoader();
     }
     })();
-    manualAuthInFlight.set(requestKey, runPromise);
-    if (normalizedAction === "telegram_otp_request") {
-      manualAuthRecent.set(requestKey, { ts: Date.now(), error: null });
-    }
-    try {
-      const result = await runPromise;
-      if (normalizedAction === "telegram_otp_request") {
-        manualAuthRecent.set(requestKey, { ts: Date.now(), error: null });
-      }
-      return result;
-    } finally {
-      manualAuthInFlight.delete(requestKey);
-    }
+    return await runPromise;
   }
 
   function hideTotpRow() {
@@ -1713,12 +1675,11 @@
     resolver(code);
   }
 
-  function getTotpModalCooldownRemaining(flow = "email") {
-    const until = flow === "lost"
-      ? Number(pendingTotpLostCooldownUntilMs || 0)
-      : Number(pendingTotpEmailCooldownUntilMs || 0);
-    const remaining = Math.ceil((until - Date.now()) / 1000);
-    return remaining > 0 ? remaining : 0;
+  function getTotpModalCooldownRemaining() {
+    // Frontend resend timer removed: the server is the sole authority for the
+    // resend cooldown. It returns the retry message (with the remaining time)
+    // when blocked; when it doesn't, the user can send again immediately.
+    return 0;
   }
 
   function stopTotpModalCooldownTimer() {
@@ -1743,7 +1704,7 @@
     if (totpLoginEmailBtn) {
       const canRequestEmail = isTotpCodeDeliveryMethod(method) && !!pendingTotpEmailRequest;
       if (!canRequestEmail) {
-        totpLoginEmailBtn.style.display = "none";
+        totpLoginEmailBtn.style.setProperty("display", "none", "important");
         totpLoginEmailBtn.disabled = false;
         totpLoginEmailBtn.innerHTML = getTotpCodeDeliveryButtonHtml(method || "email", false);
       } else {
@@ -1769,7 +1730,7 @@
     if (totpLoginLostBtn) {
       const canRecover = method === "app" && !!pendingTotpLostRequest && !!pendingTotpLostVerify && !!pendingTotpLostDisable;
       if (!canRecover) {
-        totpLoginLostBtn.style.display = "none";
+        totpLoginLostBtn.style.setProperty("display", "none", "important");
         totpLoginLostBtn.disabled = true;
         totpLoginLostBtn.textContent = "فقدت حماية Google Authenticator؟";
       } else {
@@ -1811,13 +1772,9 @@
     }, 1000);
   }
 
-  function startTotpModalCooldown(flow, seconds) {
-    let sec = Number(seconds);
-    if (!Number.isFinite(sec) || sec <= 0) sec = TOTP_EMAIL_RESEND_COOLDOWN_SECONDS;
-    const nextUntil = Date.now() + (Math.trunc(sec) * 1000);
-    if (flow === "lost") pendingTotpLostCooldownUntilMs = nextUntil;
-    else pendingTotpEmailCooldownUntilMs = nextUntil;
-    ensureTotpModalCooldownTimer();
+  function startTotpModalCooldown() {
+    // Frontend resend timer removed: no local countdown is started after a send.
+    // The server alone decides when a resend is allowed and returns that message.
   }
 
   function getRetryAfterSecondsFromError(err) {
@@ -1858,7 +1815,7 @@
     const remaining = getTotpModalCooldownRemaining("email");
     if (remaining > 0) {
       if (!pendingTotpEmailSent && totpLoginSubtitle) {
-        totpLoginSubtitle.textContent = "تعذر إرسال الرمز حاليًا. يمكنك إعادة المحاولة بعد انتهاء المؤقت.";
+        totpLoginSubtitle.textContent = "تعذر إرسال الرمز حاليًا. اتبع الرسالة الظاهرة بالأسفل.";
       }
       if (!pendingTotpEmailSent) setTotpLoginInputVisible(false);
       if (totpLoginError) totpLoginError.textContent = "";
@@ -1879,7 +1836,7 @@
         : "telegram";
       const target = (payload && payload.to) ? String(payload.to) : "";
       const cooldownSeconds = Number(
-        (payload && (payload.resendAfterSeconds ?? payload.retryAfterSeconds)) || TOTP_EMAIL_RESEND_COOLDOWN_SECONDS
+        (payload && (payload.resendAfterSeconds ?? payload.retryAfterSeconds)) ?? TOTP_EMAIL_RESEND_COOLDOWN_SECONDS
       );
       startTotpModalCooldown("email", cooldownSeconds);
       pendingTotpEmailSent = true;
@@ -1904,7 +1861,7 @@
       const retryAfterSeconds = getRetryAfterSecondsFromError(err);
       if (retryAfterSeconds > 0) startTotpModalCooldown("email", retryAfterSeconds);
       if (!pendingTotpEmailSent && totpLoginSubtitle) {
-        totpLoginSubtitle.textContent = "تعذر إرسال الرمز حاليًا. يمكنك إعادة المحاولة بعد انتهاء المؤقت.";
+        totpLoginSubtitle.textContent = "تعذر إرسال الرمز حاليًا. اتبع الرسالة الظاهرة بالأسفل.";
       }
       if (totpLoginError) {
         totpLoginError.style.color = "var(--danger, #ef4444)";
@@ -1954,7 +1911,7 @@
         : "email";
       const target = (payload && payload.to) ? String(payload.to) : "";
       const cooldownSeconds = Number(
-        (payload && (payload.resendAfterSeconds ?? payload.retryAfterSeconds)) || TOTP_EMAIL_RESEND_COOLDOWN_SECONDS
+        (payload && (payload.resendAfterSeconds ?? payload.retryAfterSeconds)) ?? TOTP_EMAIL_RESEND_COOLDOWN_SECONDS
       );
       startTotpModalCooldown("lost", cooldownSeconds);
       pendingTotpLostSent = true;
@@ -2021,7 +1978,7 @@
         fallbackSubtitle = pendingTotpEmailSent
           ? "ادخل الكود المستلم على تيليغرام."
           : (emailCooldownActive
-            ? "تعذر إرسال الرمز حاليًا. يمكنك إعادة المحاولة بعد انتهاء المؤقت."
+            ? "تعذر إرسال الرمز حاليًا. اتبع الرسالة الظاهرة بالأسفل."
             : "اضغط على زر إرسال رمز عبر تيليغرام أولاً.");
       } else if (pendingTotpLostMode) {
         fallbackSubtitle = "ادخل الكود المستلم على تيليغرام.";

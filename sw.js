@@ -50,7 +50,7 @@ function firebaseAuthHelperResponse(kind) {
     status: 200,
     headers: {
       "Content-Type": "text/html; charset=utf-8",
-      "Cache-Control": "no-store"
+      "Cache-Control": "no-store, private"
     }
   });
 }
@@ -130,7 +130,7 @@ self.addEventListener("fetch", (event) => {
       status: 200,
       headers: {
         "Content-Type": "application/json; charset=utf-8",
-        "Cache-Control": "no-store"
+        "Cache-Control": "no-store, private"
       }
     })));
     return;
