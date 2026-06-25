@@ -10760,6 +10760,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
   try { window.__siteCatalogFallbackImage = FALLBACK_IMAGE; } catch(_){}
   const NAME_VALIDATION_RATE_LIMIT_MAX = 6;
   const NAME_VALIDATION_RATE_LIMIT_WINDOW_MS = 60 * 1000;
+  const NAME_VALIDATION_REQUEST_TIMEOUT_MS = 8 * 1000;
 
   const state = {
     slug: "",
@@ -10795,6 +10796,8 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     serverClockOffsetMs: 0,
     serverClockOffsetUpdatedAt: 0
   };
+  let activeNameValidationController = null;
+  let nameValidationRequestSerial = 0;
   const modalDescDrag = {
     active: false,
     pointerId: null,
@@ -17366,7 +17369,17 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     };
   }
 
-  function clearNameValidationResult() {
+  function cancelActiveNameValidationRequest() {
+    nameValidationRequestSerial += 1;
+    const controller = activeNameValidationController;
+    activeNameValidationController = null;
+    if (controller) {
+      try { controller.abort(); } catch (_) {}
+    }
+  }
+
+  function clearNameValidationResult({ cancelActive = true } = {}) {
+    if (cancelActive) cancelActiveNameValidationRequest();
     state.nameValidation = {
       productId: "",
       inputKey: "",
@@ -17530,11 +17543,6 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
       if (target && typeof target.focus === "function") target.focus();
       return;
     }
-    if (!canStartNameValidationRequest()) {
-      renderNameValidationError("وصلت للحد الأقصى للتحقق، حاول بعد دقيقة.");
-      showToast("وصلت للحد الأقصى للتحقق، حاول بعد دقيقة.", "warning");
-      return;
-    }
     const currentUser = await requireCatalogPurchaseLogin();
     if (!currentUser) return;
     let idToken = "";
@@ -17542,6 +17550,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
       idToken = await currentUser.getIdToken(false);
     } catch (_) {}
     clearNameValidationResult();
+    const requestSerial = ++nameValidationRequestSerial;
     state.nameValidation = {
       productId: inputSet.productId,
       inputKey: inputSet.inputKey,
@@ -17549,8 +17558,10 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
       result: null,
       attempts: Array.isArray(state.nameValidation?.attempts) ? state.nameValidation.attempts : []
     };
-    recordNameValidationRequestAttempt();
     syncNameValidationUI(item);
+    const controller = new AbortController();
+    activeNameValidationController = controller;
+    const timeoutId = setTimeout(() => controller.abort(), NAME_VALIDATION_REQUEST_TIMEOUT_MS);
     try {
       const url = buildCatalogActionUrl(getCatalogBase(), state.slug);
       url.searchParams.set("mode", "validate-game-user");
@@ -17564,11 +17575,25 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           productId: inputSet.productId,
           userId: inputSet.userId,
           zoneId: inputSet.zoneId
-        })
+        }),
+        signal: controller.signal
       });
       const data = await response.json().catch(() => ({}));
+      if (requestSerial !== nameValidationRequestSerial) return;
       if (!response.ok || data?.ok !== true) {
         const message = String(data?.message || data?.error || "بيانات اللاعب غير صحيحة، تأكد من الآيدي والمنطقة.").trim();
+        const responseCode = String(data?.code || data?.status || "").trim().toLowerCase();
+        if (response.status === 504 || responseCode.includes("timeout")) {
+          state.nameValidation = {
+            productId: inputSet.productId,
+            inputKey: inputSet.inputKey,
+            status: "idle",
+            result: null,
+            attempts: Array.isArray(state.nameValidation?.attempts) ? state.nameValidation.attempts : []
+          };
+          showToast(message || "انتهت مهلة التحقق، حاول مرة أخرى.", "warning");
+          return;
+        }
         state.nameValidation = {
           productId: inputSet.productId,
           inputKey: inputSet.inputKey,
@@ -17587,7 +17612,19 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
         attempts: Array.isArray(state.nameValidation?.attempts) ? state.nameValidation.attempts : []
       };
       renderNameValidationSuccess(data);
-    } catch (_) {
+    } catch (err) {
+      if (requestSerial !== nameValidationRequestSerial) return;
+      if (err?.name === "AbortError") {
+        state.nameValidation = {
+          productId: inputSet.productId,
+          inputKey: inputSet.inputKey,
+          status: "idle",
+          result: null,
+          attempts: Array.isArray(state.nameValidation?.attempts) ? state.nameValidation.attempts : []
+        };
+        showToast("انتهت مهلة التحقق، حاول مرة أخرى.", "warning");
+        return;
+      }
       state.nameValidation = {
         productId: inputSet.productId,
         inputKey: inputSet.inputKey,
@@ -17597,7 +17634,9 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
       };
       renderNameValidationError("تعذر التحقق حالياً، حاول مرة أخرى بعد قليل.");
     } finally {
-      syncNameValidationUI(item);
+      clearTimeout(timeoutId);
+      if (activeNameValidationController === controller) activeNameValidationController = null;
+      if (requestSerial === nameValidationRequestSerial) syncNameValidationUI(item);
     }
   }
 
@@ -19896,6 +19935,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
         return;
       }
     } catch (_) {}
+    cancelActiveNameValidationRequest();
     const wasShown = !!(dom.modal && dom.modal.classList.contains("show"));
     const wasClosing = !!(dom.modal && dom.modal.classList.contains("closing"));
     const modalOnlyInline = isModalOnlyInlineOpen();
@@ -32918,7 +32958,12 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           }
           // No-op when already hydrated or when the whole tree was loaded
           // (cold-fallback): those nodes aren't marked lazy-unloaded.
-          if (node && node.__d1LazyUnloaded !== true) return Promise.resolve(true);
+          if (
+            node &&
+            node.__d1LazyUnloaded !== true &&
+            String(node.name || "").trim() &&
+            String(node.name || "").trim() !== String(id)
+          ) return Promise.resolve(true);
           return catalogD1FetchSection(id, {}).then(function(res){
             var payload = res && res.payload;
             if (!payload) return false;
@@ -32939,6 +32984,10 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
             var products = Array.isArray(payload.products) ? payload.products : [];
             var branches = childNodes.concat(products);
             if (target) {
+              var sectionMeta = payload.section && typeof payload.section === "object" ? payload.section : {};
+              target.name = String(sectionMeta.name || target.name || id);
+              target.imageUrl = String(sectionMeta.image || target.imageUrl || "");
+              target.order = Number(sectionMeta.sortOrder || target.order || 0);
               target.branches = branches;
               target.__d1LazyUnloaded = false;
             } else {

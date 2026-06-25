@@ -18834,7 +18834,7 @@ function wirePageBalanceBox(){
         const el=document.createElement("div");
         if(kind==="leaf"){
           el.className="leaf";
-          el.textContent="ًںچپ";
+          el.innerHTML='<svg viewBox="0 0 24 24" style="width:1em;height:1em;display:block" fill="currentColor" aria-hidden="true"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
           el.style.top=`-${5+Math.random()*15}%`;
           el.style.left=`${Math.random()*100}vw`;
           el.style.animationDelay=`${Math.random()*1.2}s`;
@@ -18843,7 +18843,7 @@ function wirePageBalanceBox(){
           el.style.transform=`rotate(${Math.random()*40-20}deg)`;
         } else if(kind==="snow"){
           el.className="snowflake";
-          el.textContent="â‌„";
+          el.textContent="\u2744";
           const durationSec = 14 + Math.random() * 9;
           el.style.top=`-${5+Math.random()*15}%`;
           el.style.left=`${Math.random()*100}vw`;
