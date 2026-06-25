@@ -6636,16 +6636,30 @@ body.dark-mode #ordersContainer{
   -webkit-tap-highlight-color:transparent !important;
 }
 #ordersContainer .order-status{
-  display:inline-flex;
-  align-items:center;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
   justify-content:center;
+  gap:3px;
   min-height:26px;
   padding:0 10px;
   border-radius:999px;
   font-size:11px;
   font-weight:700;
-  line-height:1;
+  line-height:1.15;
   border:1px solid transparent;
+  white-space:normal;
+}
+#ordersContainer .order-status .order-status-text{
+  display:block;
+  line-height:1.15;
+  white-space:nowrap;
+}
+#ordersContainer .order-status .order-amount-mini{
+  display:block;
+  margin-top:0;
+  direction:ltr;
+  text-align:left;
   white-space:nowrap;
 }
 #ordersContainer .order-status.is-pending{
@@ -15028,9 +15042,19 @@ body[data-inline-route="orders"] #ordersContainer .order-header .order-meta-line
   text-overflow:clip !important;
 }
 body[data-inline-route="orders"] #ordersContainer .order-status{
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:flex-start !important;
+  justify-content:center !important;
+  gap:3px !important;
   font-size:clamp(13px, 2.4vw, 16px) !important;
   line-height:1.2 !important;
   font-weight:900 !important;
+  white-space:normal !important;
+}
+body[data-inline-route="orders"] #ordersContainer .order-status .order-status-text,
+body[data-inline-route="orders"] #ordersContainer .order-status .order-amount-mini{
+  display:block !important;
 }
 body[data-inline-route="orders"] #ordersContainer .order-details,
 body[data-inline-route="orders"] #ordersContainer .order-details p,
@@ -16860,6 +16884,24 @@ body:not(.dark-mode) .wallet-search-modal .txn-action{
 #paymentsList .balance-after.is-rejected,
 #paymentsList .balance-after.is-rejected .txn-balance-value{
   color:var(--wallet-red,#d60945)!important;
+}
+#paymentsList .txn-amount{
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:flex-start!important;
+  justify-content:center!important;
+  gap:4px!important;
+}
+#paymentsList .txn-status-side{
+  order:1;
+  margin-top:0!important;
+  text-align:left!important;
+}
+#paymentsList .txn-value{
+  order:2;
+}
+#paymentsList .txn-balances{
+  order:3;
 }
 
 /* Orders, wallet, and payments mobile spacing */

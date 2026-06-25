@@ -9829,14 +9829,42 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
   }
 
   function getBalanceMemoryStore(){
-    return {};
+    try {
+      if (!window.__BALANCE_MEMORY__ || typeof window.__BALANCE_MEMORY__ !== 'object') {
+        window.__BALANCE_MEMORY__ = {};
+      }
+      return window.__BALANCE_MEMORY__;
+    } catch (_) {
+      return {};
+    }
   }
 
   function writeBalanceMemory(uid, value){
-    return undefined;
+    const safeUid = String(uid || '').trim();
+    const num = Number(value);
+    if (!safeUid || !Number.isFinite(num)) return undefined;
+    try {
+      const store = getBalanceMemoryStore();
+      store[safeUid] = num;
+      store.lastUid = safeUid;
+      store.lastValue = num;
+    } catch (_) {}
+    try { localStorage.setItem('balance:cache:' + safeUid, String(num)); } catch (_) {}
+    return num;
   }
 
   function readBalanceMemory(uid){
+    const safeUid = String(uid || '').trim();
+    if (!safeUid) return null;
+    try {
+      const store = getBalanceMemoryStore();
+      const val = Number(store[safeUid]);
+      if (Number.isFinite(val)) return val;
+    } catch (_) {}
+    try {
+      const cached = Number(localStorage.getItem('balance:cache:' + safeUid));
+      if (Number.isFinite(cached)) return cached;
+    } catch (_) {}
     return null;
   }
 
@@ -39424,21 +39452,37 @@ function normalizeCategory(value){
           return null;
         }
 
-        function adjustCachedWalletBalance(delta){
-          if (!Number.isFinite(delta) || delta === 0) return;
+        function setCachedWalletBalance(value){
+          var updated = quantizeMoney(value);
+          if (updated == null) return false;
           var uid = getCachedSessionUid();
-          var current = getCachedWalletBalance();
-          if (current == null) current = 0;
-          var updated = quantizeMoney(current + delta);
-          if (updated == null) return;
-          try { window.__BAL_BASE__ = updated; } catch(_){}
+          try { window.__BAL_BASE__ = updated; window.__BALANCE__ = updated; } catch(_){}
+          var formatted = (typeof window.__formatHeaderBalanceDisplay === "function")
+            ? window.__formatHeaderBalanceDisplay(updated)
+            : ((typeof window.formatCurrencyFromJOD === "function")
+              ? window.formatCurrencyFromJOD(updated)
+              : (updated.toFixed(3) + " $"));
+          try {
+            if (typeof window.__setHeaderBalanceDisplay === "function") {
+              window.__setHeaderBalanceDisplay(formatted);
+            }
+          } catch(_){}
           if (uid){
             try { if (typeof writeBalanceMemory === "function") writeBalanceMemory(uid, updated); } catch(_){}
+            try { localStorage.setItem('balance:cache:' + uid, String(updated)); } catch(_){}
           }
           try {
-            var evt = new CustomEvent("balance:change", { detail: { value: updated } });
+            var evt = new CustomEvent("balance:change", { detail: { value: updated, formatted: formatted } });
             window.dispatchEvent(evt);
           } catch(_){}
+          return true;
+        }
+
+        function adjustCachedWalletBalance(delta){
+          if (!Number.isFinite(delta) || delta === 0) return false;
+          var current = getCachedWalletBalance();
+          if (current == null) current = 0;
+          return setCachedWalletBalance(current + delta);
         }
 
         function submitInlineOrder(service, link, qty){
@@ -39471,7 +39515,10 @@ function normalizeCategory(value){
                 ? 'يُرجى متابعة إشعاراتك، وسيتم تنفيذ الطلب خلال وقت قصير.'
                 : ''
             });
-            if (result && (result.price != null || result.estimatedCharge != null || result.charged != null)){
+            var serverBalanceAfter = Number(result && (result.balanceAfter ?? result.balance_after ?? result.newBalance ?? result.balance));
+            if (Number.isFinite(serverBalanceAfter)){
+              setCachedWalletBalance(serverBalanceAfter);
+            } else if (result && (result.price != null || result.estimatedCharge != null || result.charged != null)){
               var chargeVal = Number(result.price ?? result.estimatedCharge ?? result.charged);
               if (Number.isFinite(chargeVal) && chargeVal > 0){
                 adjustCachedWalletBalance(-chargeVal);

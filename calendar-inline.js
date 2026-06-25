@@ -711,23 +711,9 @@ function resolveOrderReplyText(order) {
   );
   if (providerReply) return providerReply;
 
-  const normalizedStatus = normOrderStatus(
-    current.status ||
-    pub.status ||
-    priv.status ||
-    current.providerStatus ||
-    pub.providerStatus ||
-    priv.providerStatus ||
-    ""
-  );
-  if (normalizedStatus === "rejected") {
-    return ordersT(
-      "orders.reply.rejectedFallback",
-      "\u0639\u0630\u0631\u064b\u0627\u060c \u062a\u0645 \u0631\u0641\u0636 \u0637\u0644\u0628\u0643.",
-      "Your order was rejected.",
-      "Votre commande a ete refusee."
-    );
-  }
+  // No auto-generated reply on purchase or on rejection. A reply is shown only
+  // when an admin actually sets one or updates the order (it then comes from the
+  // stored reply fields handled above).
   return "";
 }
 
@@ -968,6 +954,14 @@ function collectOrderRequiredFields(order) {
   return out;
 }
 
+function isGenericInputFieldKey(value) {
+  // System-only placeholder keys that carry no real field name, e.g. "input 1",
+  // "input", "field 2". They must not be shown to the customer as a field label.
+  const compact = String(value || "").trim().toLowerCase().replace(/[\s_-]+/g, "");
+  if (!compact) return true;
+  return /^(?:input|field)\d*$/.test(compact);
+}
+
 function buildOrderInputDisplayPairs({
   submittedFields = null,
   requiredFields = [],
@@ -1013,6 +1007,7 @@ function buildOrderInputDisplayPairs({
       if (isValidPlayerId(playerIdValue)) push(playerIdLabel || "ايدي اللاعب", playerIdValue, "playerid");
       return;
     }
+    if (isGenericInputFieldKey(requiredKey)) return;
     const hit = findSubmittedValue(requiredKey);
     if (!hit) return;
     push(normalizeOrderFieldLabel(requiredKey), hit.value, lookupKey);
@@ -1021,6 +1016,7 @@ function buildOrderInputDisplayPairs({
   rawKeys.forEach((rawKey) => {
     const lookupKey = normalizeOrderFieldLookupKey(rawKey);
     if (!lookupKey || lookupKey === "quantity" || lookupKey === "playerid") return;
+    if (isGenericInputFieldKey(rawKey)) return;
     const value = normalizeOrderFieldValue(source[rawKey]);
     if (!value) return;
     push(normalizeOrderFieldLabel(rawKey), value, lookupKey);
@@ -2184,6 +2180,9 @@ function drawOrdersPage() {
     })();
     const safeHeaderDisplay = escapeHtml(headerDisplayValue || "-");
     const safeAmountDisplay = escapeHtml(amountDisplay);
+    const headerAmountHtml = (amountDisplay && String(amountDisplay).trim() && String(amountDisplay).trim() !== "-")
+      ? `<span class="order-amount-mini" dir="ltr">${safeAmountDisplay}</span>`
+      : "";
     const safeStatusText = escapeHtml(statusText);
     const safeDateText = escapeHtml(formattedDate);
     const safeProofSrc = proof ? escapeHtml(proof) : "";
@@ -2300,7 +2299,8 @@ function drawOrdersPage() {
           <div class="order-meta-line"><strong>${escapeHtml(labelBuy)}: ${safeHeaderDisplay}</strong></div>
         </div>
         <div class="order-status${statusToneClass}">
-          ${safeStatusText}
+          <span class="order-status-text">${safeStatusText}</span>
+          ${headerAmountHtml}
         </div>
         <i class="fas fa-chevron-down"></i>
       </div>
@@ -2310,7 +2310,6 @@ function drawOrdersPage() {
         ${smmDetailsBlock}
         ${offersLineHtml}
         ${refundLineHtml}
-        <p><strong>${escapeHtml(labelTotal)}:</strong> ${safeAmountDisplay}</p>
         <p><strong>${escapeHtml(labelDate)}:</strong> ${safeDateText}</p>
         ${orderReplyHtml}
         ${

@@ -399,7 +399,7 @@
         listEl.innerHTML = '';
         const empty = document.createElement('div');
         empty.className = 'empty';
-        empty.textContent = String(pageConfig.emptyText || '').trim();
+        empty.textContent = getWalletEmptyTextForCurrentFilters();
         listEl.appendChild(empty);
         closeTransactionDetailsModal();
       }
@@ -572,6 +572,14 @@
         if (value == null || !isFinite(value)) return '';
         var cur = 'USD';
         return formatNumber(value, digitsForCurrency(cur)) + ' ' + cur;
+      }
+
+      function getWalletEmptyTextForCurrentFilters(){
+        if (PAGE_MODE === 'wallet' && DATE_FILTER_ENABLED){
+          if (DATE_MODE === 'range') return 'لا توجد معاملات لهذا النطاق';
+          return 'لا توجد معاملات لهذا اليوم';
+        }
+        return String(pageConfig.emptyText || '').trim();
       }
 
       function applyDateFilter(arr){
