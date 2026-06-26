@@ -1135,12 +1135,7 @@
       }
 
       function isBlockedRuntimeSharePreviewUrl(value){
-        try {
-          var url = new URL(String(value || ''), window.location.href);
-          return url.hostname.toLowerCase() === 'api.njad.store' && /\/site-preview\.png$/i.test(url.pathname || '');
-        } catch(_) {
-          return /api\.njad\.store\/site-preview\.png/i.test(String(value || ''));
-        }
+        return false;
       }
 
       function guessRuntimePreviewImageType(value){
@@ -20582,10 +20577,32 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     return readBalanceMemory(uid);
   }
 
+  function formatCatalogBalanceDisplay(value) {
+    const val = Number(value);
+    const fallback = (Number.isFinite(val) ? val : 0).toFixed(3) + " $";
+    try {
+      if (typeof window.__formatHeaderBalanceDisplay === "function") {
+        const formatted = String(window.__formatHeaderBalanceDisplay(val) || "").trim();
+        if (formatted) return formatted;
+      }
+    } catch (_) {}
+    try {
+      if (typeof window.formatCurrencyFromJOD === "function") {
+        const formatted = String(window.formatCurrencyFromJOD(val) || "").trim();
+        if (formatted) return formatted;
+      }
+    } catch (_) {}
+    return fallback;
+  }
+
   function updateCatalogBalanceView(value) {
     const val = Number(value);
     if (!Number.isFinite(val)) return false;
     const uid = resolveCatalogBalanceUid();
+    // Mark this as the authoritative balance from a server response so the header's
+    // Firestore snapshot listener doesn't briefly revert to a stale (pre-purchase)
+    // value while the users/{uid}.balance mirror catches up. See handleBalanceSnap.
+    try { window.__BAL_AUTH__ = { value: val, atMs: Date.now() }; } catch (_) {}
     try { window.__BAL_BASE__ = val; window.__BALANCE__ = val; } catch (_) {}
     if (uid) {
       writeBalanceMemory(uid, val);
@@ -20594,10 +20611,8 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
       // reload / re-render and shows immediately without waiting for Firebase.
       try { localStorage.setItem('balance:cache:' + uid, String(val)); } catch (_) {}
     }
+    const formatted = formatCatalogBalanceDisplay(val);
     try {
-      const formatted = (typeof window.formatCurrencyFromJOD === "function")
-        ? window.formatCurrencyFromJOD(val)
-        : (val.toFixed(3) + " $");
       if (typeof window.__setHeaderBalanceDisplay === "function") {
         window.__setHeaderBalanceDisplay(formatted);
       } else {
@@ -20609,6 +20624,8 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           if (currencyEl) currencyEl.textContent = parts.join(" ") || "";
         }
       }
+    } catch (_) {}
+    try {
       window.dispatchEvent(new CustomEvent("balance:change", { detail: { value: val, formatted: formatted } }));
     } catch (_) {}
     return true;
@@ -20809,6 +20826,23 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
       try {
         const fallbackCharge = calcItemTotal(selectedItem, quantity);
         applyCatalogOrderBalance(json, fallbackCharge);
+      } catch (_) {}
+      // Make the just-placed purchase visible in "حركاتي" immediately and force the
+      // next wallet/orders read to re-fetch it, so a freshly-deducted order never
+      // looks missing while the orders list query catches up.
+      try {
+        const newUid = String((state.user && state.user.uid) || resolveCatalogBalanceUid() || "").trim();
+        if (newUid && typeof window.__ORDERS_FETCH_CACHE_BUST__ === "function") {
+          window.__ORDERS_FETCH_CACHE_BUST__(newUid);
+        }
+        if (typeof window.__WALLET_NOTE_NEW_ORDER__ === "function") {
+          window.__WALLET_NOTE_NEW_ORDER__({
+            code: String((json && (json.orderCode || json.order_code)) || "").trim(),
+            total: Number(json && (json.price != null ? json.price : json.charged)),
+            currency: String((json && json.currency) || "USD"),
+            status: String((json && json.status) || "wait")
+          });
+        }
       } catch (_) {}
       showCatalogSuccessOverlay(json);
       clearSelection();
@@ -39456,21 +39490,27 @@ function normalizeCategory(value){
           var updated = quantizeMoney(value);
           if (updated == null) return false;
           var uid = getCachedSessionUid();
+          try { window.__BAL_AUTH__ = { value: updated, atMs: Date.now() }; } catch(_){}
           try { window.__BAL_BASE__ = updated; window.__BALANCE__ = updated; } catch(_){}
-          var formatted = (typeof window.__formatHeaderBalanceDisplay === "function")
-            ? window.__formatHeaderBalanceDisplay(updated)
-            : ((typeof window.formatCurrencyFromJOD === "function")
-              ? window.formatCurrencyFromJOD(updated)
-              : (updated.toFixed(3) + " $"));
+          if (uid){
+            try { if (typeof writeBalanceMemory === "function") writeBalanceMemory(uid, updated); } catch(_){}
+            try { localStorage.setItem('balance:cache:' + uid, String(updated)); } catch(_){}
+          }
+          var formatted = updated.toFixed(3) + " $";
+          try {
+            if (typeof window.__formatHeaderBalanceDisplay === "function") {
+              var headerFormatted = String(window.__formatHeaderBalanceDisplay(updated) || "").trim();
+              if (headerFormatted) formatted = headerFormatted;
+            } else if (typeof window.formatCurrencyFromJOD === "function") {
+              var currencyFormatted = String(window.formatCurrencyFromJOD(updated) || "").trim();
+              if (currencyFormatted) formatted = currencyFormatted;
+            }
+          } catch(_){}
           try {
             if (typeof window.__setHeaderBalanceDisplay === "function") {
               window.__setHeaderBalanceDisplay(formatted);
             }
           } catch(_){}
-          if (uid){
-            try { if (typeof writeBalanceMemory === "function") writeBalanceMemory(uid, updated); } catch(_){}
-            try { localStorage.setItem('balance:cache:' + uid, String(updated)); } catch(_){}
-          }
           try {
             var evt = new CustomEvent("balance:change", { detail: { value: updated, formatted: formatted } });
             window.dispatchEvent(evt);

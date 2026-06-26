@@ -2,41 +2,37 @@
   "use strict";
 
   var defaultSettings = {
-    firebase: {
-      apiKey: "AIzaSyBaJE8eTuSZUfjLw3lj-788iTvR7YJvWj8",
-      authDomain: "njad.store",
-      projectId: "njadstore1",
-      storageBucket: "njadstore1.firebasestorage.app",
-      messagingSenderId: "1072422740336",
-      appId: "1:1072422740336:web:28abfc7058d310379dafb5",
-      measurementId: "G-T2J947YL3L"
+    "firebase": {},
+    "workers": {
+        "routerBase": "",
+        "routerBaseStorageKey": "MANWAL_ROUTER_BASE",
+        "legacyWorkerStorageKey": "edaa:worker",
+        "routerHostAliases": [],
+        "authAction": "auth"
     },
-    workers: {
-      routerBase: "https://api.njad.store",
-      routerBaseStorageKey: "MANWAL_ROUTER_BASE",
-      legacyWorkerStorageKey: "edaa:worker",
-      routerHostAliases: ["njad.store"],
-      authAction: "auth"
+    "auth": {
+        "googleRedirectOrigin": "",
+        "googleRedirectPath": "/__/auth/handler",
+        "googleRedirectUri": "",
+        "firebaseHelperOrigin": ""
     },
-    auth: {
-      googleRedirectOrigin: "https://njad.store",
-      googleRedirectPath: "/__/auth/handler",
-      googleRedirectUri: "https://njad.store/__/auth/handler",
-      firebaseHelperOrigin: "https://njadstore1.firebaseapp.com"
+    "brand": {
+        "storeName": "Njad store",
+        "tickerText": "",
+        "waBadgeBrand": ""
     },
-    brand: {
-      storeName: "Njad store",
-      tickerText: "",
-      waBadgeBrand: ""
+    "media": {
+        "siteIcon": "",
+        "sitePreview": ""
     },
-    media: {
-      siteIcon: "",
-      sitePreview: ""
-    },
-    pwa: {
-      legacyCachePrefixes: ["njadstore1-pwa-", "static-", "images-", "pages-"]
+    "pwa": {
+        "legacyCachePrefixes": [
+            "static-",
+            "images-",
+            "pages-"
+        ]
     }
-  };
+};
 
   function isPlainObject(value) {
     return !!value && typeof value === "object" && !Array.isArray(value);
@@ -74,10 +70,6 @@
       cursor = cursor[parts[i]];
     }
     return cursor === undefined ? fallback : clone(cursor);
-  }
-
-  function isBlockedSitePreviewUrl(value) {
-    return /api\.njad\.store\/site-preview\.png/i.test(String(value || ""));
   }
 
   var settings = merge(defaultSettings, isPlainObject(global.__SITE_SETTINGS__) ? global.__SITE_SETTINGS__ : {});

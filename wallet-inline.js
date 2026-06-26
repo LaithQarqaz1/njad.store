@@ -185,6 +185,22 @@
       }
 
       function normalizeHistoryTimestampValue(value){
+        var iso = __normalizeHistoryTimestampRaw(value);
+        // Defensive clamp: no wallet movement is legitimately in the future. A corrupt
+        // field (observed year-2034 createdAt) must never drive the display OR the
+        // today-filter (which would otherwise hide the row). Pull any future value back
+        // to "now". Non-date strings pass through unchanged.
+        try {
+          if (iso) {
+            var ms = Date.parse(iso);
+            if (Number.isFinite(ms) && ms > Date.now() + 86400000) {
+              return new Date().toISOString();
+            }
+          }
+        } catch(_){ }
+        return iso;
+      }
+      function __normalizeHistoryTimestampRaw(value){
         try{
           if (value == null || value === '') return '';
           if (value && typeof value === 'object'){
@@ -723,33 +739,13 @@
       }
 
       function bindAutoHistoryRefresh(){
+        // Recurring wallet refresh is intentionally DISABLED per user request:
+        // movements refresh ONLY when the wallet page is reloaded or (re-)entered —
+        // never on a timer, window focus, or visibility change. Entry/reload refresh
+        // is handled by init() and the route onShow hook; explicit refresh by the
+        // refresh button. Kept as a no-op so the existing init() call stays valid.
         if (AUTO_REFRESH_BOUND || typeof window === 'undefined') return;
         AUTO_REFRESH_BOUND = true;
-        if (PAGE_MODE === 'payments') return;
-
-        function refreshIfNeeded(){
-          if (!isPageRouteActive()) return;
-          try {
-            if (document.hidden) return;
-          } catch(_){ }
-          if (!hasPendingHistoryItems(ALL_ITEMS)) return;
-          requestSoftHistoryRefresh();
-        }
-
-        try {
-          document.addEventListener('visibilitychange', function(){
-            if (document.hidden) return;
-            refreshIfNeeded();
-          });
-        } catch(_){ }
-
-        try { window.addEventListener('focus', refreshIfNeeded); } catch(_){ }
-
-        try {
-          PENDING_AUTO_REFRESH_ID = window.setInterval(function(){
-            refreshIfNeeded();
-          }, PENDING_AUTO_REFRESH_MS);
-        } catch(_){ }
       }
 
       function closeHistoryCalendar(){

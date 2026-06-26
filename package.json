@@ -5,6 +5,7 @@
   "description": "Root build orchestration. The React admin panel lives in src/admin-panel and is compiled into a single self-contained HTML string that backend/admin.js serves on Cloudflare Workers.",
   "scripts": {
     "build": "npm run build:admin",
+    "write:frontend-config": "node scripts/write-frontend-config.mjs",
     "build:admin": "npm --prefix src/admin-panel install --no-audit --no-fund && npm --prefix src/admin-panel run build",
     "dev:admin": "npm --prefix src/admin-panel run dev"
   }

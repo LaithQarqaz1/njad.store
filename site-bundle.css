@@ -15041,6 +15041,36 @@ body[data-inline-route="orders"] #ordersContainer .order-header .order-meta-line
   overflow:visible !important;
   text-overflow:clip !important;
 }
+body[data-inline-route="orders"] #ordersContainer .order-header-text{
+  min-width:0 !important;
+  max-width:100% !important;
+  overflow:hidden !important;
+}
+body[data-inline-route="orders"] #ordersContainer .order-header .order-code-line,
+body[data-inline-route="orders"] #ordersContainer .order-header .order-meta-line{
+  display:block !important;
+  min-width:0 !important;
+  max-width:100% !important;
+  overflow-x:auto !important;
+  overflow-y:hidden !important;
+  white-space:nowrap !important;
+  text-overflow:clip !important;
+  overflow-wrap:normal !important;
+  word-break:normal !important;
+  scrollbar-width:none !important;
+  -webkit-overflow-scrolling:touch !important;
+  overscroll-behavior-x:contain !important;
+}
+body[data-inline-route="orders"] #ordersContainer .order-header .order-code-line *,
+body[data-inline-route="orders"] #ordersContainer .order-header .order-meta-line *{
+  white-space:nowrap !important;
+  overflow-wrap:normal !important;
+  word-break:normal !important;
+}
+body[data-inline-route="orders"] #ordersContainer .order-header .order-code-line::-webkit-scrollbar,
+body[data-inline-route="orders"] #ordersContainer .order-header .order-meta-line::-webkit-scrollbar{
+  display:none !important;
+}
 body[data-inline-route="orders"] #ordersContainer .order-status{
   display:flex !important;
   flex-direction:column !important;

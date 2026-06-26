@@ -344,7 +344,50 @@ async function buildOrdersServerHeaders(uid) {
   return {};
 }
 
-async function fetchOrdersFromServer(uid, opts = {}) {
+// Coalesce client-orders requests. The orders page, the wallet "حركاتي" movements
+// derivation, and route re-shows all call this; without dedupe each trigger fires
+// its own client-orders request, producing the observed request storm. Plain
+// full-list reads share a single in-flight promise and a short result cache per uid.
+const ORDERS_FETCH_DEDUPE_MS = 4000;
+const __ordersFetchInflight = Object.create(null);  // uid -> Promise
+const __ordersFetchCacheAt = Object.create(null);   // uid -> ms
+const __ordersFetchCacheData = Object.create(null); // uid -> array
+function __isPlainOrdersListOpts(opts){ return !opts || (!opts.code && !opts.orderCode); }
+function __ordersFetchBust(uid){
+  const k = String(uid || "").trim();
+  if (k) { delete __ordersFetchCacheAt[k]; delete __ordersFetchCacheData[k]; }
+  else {
+    for (const key in __ordersFetchCacheAt) delete __ordersFetchCacheAt[key];
+    for (const key in __ordersFetchCacheData) delete __ordersFetchCacheData[key];
+  }
+}
+try { window.__ORDERS_FETCH_CACHE_BUST__ = __ordersFetchBust; } catch (_) {}
+function fetchOrdersFromServer(uid, opts = {}) {
+  const safeUid = String(uid || "").trim();
+  if (!safeUid) return Promise.resolve([]);
+  const plain = __isPlainOrdersListOpts(opts);
+  if (plain && opts && opts.force) __ordersFetchBust(safeUid);
+  if (plain) {
+    const now = Date.now();
+    const at = __ordersFetchCacheAt[safeUid] || 0;
+    if (at && (now - at) < ORDERS_FETCH_DEDUPE_MS && __ordersFetchCacheData[safeUid]) {
+      return Promise.resolve(__ordersFetchCacheData[safeUid]);
+    }
+    if (__ordersFetchInflight[safeUid]) return __ordersFetchInflight[safeUid];
+  }
+  const task = fetchOrdersFromServerRaw(safeUid, opts);
+  if (plain) {
+    __ordersFetchInflight[safeUid] = task;
+    task.then((data) => {
+      __ordersFetchCacheAt[safeUid] = Date.now();
+      __ordersFetchCacheData[safeUid] = Array.isArray(data) ? data : [];
+    }).catch(() => {}).finally(() => {
+      if (__ordersFetchInflight[safeUid] === task) delete __ordersFetchInflight[safeUid];
+    });
+  }
+  return task;
+}
+async function fetchOrdersFromServerRaw(uid, opts = {}) {
   const safeUid = String(uid || "").trim();
   if (!safeUid) return [];
   const params = { useruid: safeUid };
@@ -2660,7 +2703,9 @@ function listenOrdersRealtime(uid, opts) {
   try {
     _ordersRealtimeUid = safeUid;
     _ordersUnsub = function(){};
-    return fetchOrdersFromServer(safeUid, { limit: 1000 }).then((fresh)=>{
+    // Thread force through so an explicit refresh bypasses the short client-orders
+    // dedupe cache and always pulls fresh data.
+    return fetchOrdersFromServer(safeUid, { limit: 1000, force: force }).then((fresh)=>{
       try{
         const uidNow = String((getOrdersCurrentUser() && getOrdersCurrentUser().uid) || "").trim();
         if (uidNow && uidNow !== safeUid) return getCachedOrdersForUser(safeUid);

@@ -10220,9 +10220,27 @@ try {
           setApiSidebarVisibility(apiEnabled === true);
           const raw = data.balance ?? 0; const num = Number(raw); const val = Number.isFinite(num) ? num : 0;
           renderHeaderLevelBadge(data);
-          try { window.__BAL_BASE__ = val; } catch {}
-          setHeaderBalanceAmount(val);
-          writeCachedBalance(user.uid, val); broadcastBalance(val);
+          // Balance display guard: a just-completed purchase debits Neon and mirrors
+          // users/{uid}.balance, but that mirror can land a beat AFTER the optimistic
+          // header update. Without this, the stale snapshot reverts the header to the
+          // old balance ("بقي بالرصيد القديم"). Hold the authoritative post-transaction
+          // value until the snapshot catches up (matches) or a short safety window
+          // elapses. Display-only — the real balance still lives in Neon/Firestore.
+          let balToApply = val;
+          try {
+            const ov = window.__BAL_AUTH__;
+            if (ov && Number.isFinite(Number(ov.value))) {
+              const ovVal = Number(ov.value);
+              const ageMs = Date.now() - Number(ov.atMs || 0);
+              if (ageMs >= 0 && ageMs < 15000) {
+                if (Math.abs(val - ovVal) <= 1e-6) { window.__BAL_AUTH__ = null; }
+                else { balToApply = ovVal; }
+              } else { window.__BAL_AUTH__ = null; }
+            }
+          } catch (_) {}
+          try { window.__BAL_BASE__ = balToApply; } catch {}
+          setHeaderBalanceAmount(balToApply);
+          writeCachedBalance(user.uid, balToApply); broadcastBalance(balToApply);
         } else {
           try { localStorage.removeItem(LAST_ACCOUNT_NO_KEY); } catch {}
           writeApiAccessCache(user.uid, false);
@@ -10759,8 +10777,9 @@ function wirePageBalanceBox(){
       if (val == null || !Number.isFinite(Number(val))) {
         el.textContent = 'يجب تسجيل الدخول اولا';
       } else {
-        if (typeof window.formatCurrencyFromJOD === 'function') el.textContent = window.formatCurrencyFromJOD(val);
-        else el.textContent = Number(val).toFixed(3) + ' $';
+        const num = Number(val);
+        const formatted = formatHeaderBalanceText(num);
+        el.textContent = formatted || (num.toFixed(3) + ' $');
       }
     } catch {}
   }
@@ -21296,12 +21315,7 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
     }
 
     function isBlockedSiteSharePreviewUrl(value){
-      try {
-        const url = new URL(String(value || ""), window.location.href);
-        return url.hostname.toLowerCase() === "api.njad.store" && /\/site-preview\.png$/i.test(url.pathname || "");
-      } catch {
-        return /api\.njad\.store\/site-preview\.png/i.test(String(value || ""));
-      }
+      return false;
     }
 
     function resolveSiteSharePreviewUrl(fallbackUrl){
