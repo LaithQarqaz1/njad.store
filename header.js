@@ -6999,7 +6999,25 @@ function handleBannedAccount(reason, webuid, uid){
   try { setHeaderBalanceAmount(0); } catch {}
   try { broadcastBalance(0); } catch {}
   try { applyAuthUi(null); } catch {}
-  forceLogout();
+  // Show the custom "حسابك محظور" overlay (ban reason + account id + support links).
+  // The account is signed out only after the user dismisses it via the "حسنًا" button,
+  // matching the dedicated banned-account dialog instead of a silent redirect to login.
+  let bannedOverlayShown = false;
+  try {
+    const overlay = showBannedOverlay(reason, webuid);
+    if (overlay) {
+      bannedOverlayShown = true;
+      const okBtn = overlay.querySelector('#banLogoutBtn');
+      if (okBtn && !okBtn.__banLogoutBound) {
+        okBtn.__banLogoutBound = true;
+        okBtn.addEventListener('click', (event) => {
+          try { event.preventDefault(); event.stopPropagation(); } catch {}
+          forceLogout();
+        }, true);
+      }
+    }
+  } catch {}
+  if (!bannedOverlayShown) forceLogout();
 }
 try {
   window.showBannedOverlay = showBannedOverlay;

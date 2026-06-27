@@ -4124,6 +4124,15 @@
         hideGoogleRedirectLoader();
         return;
       }
+      // A banned account comes back from the router as "auth/banned": show the same
+      // full-screen custom overlay (reason + account id + support) instead of inline text.
+      if (showRouterBannedOverlay(error)) {
+        pushGoogleFlowLog("google_finalize_blocked_banned", { uid: uidMasked });
+        setGoogleFlowTask("google_finalize_blocked_banned", { uid: uidMasked });
+        hideGoogleRedirectLoader();
+        resetGoogleFlow();
+        return;
+      }
       const normalizedCode = normalizeUiErrorCode(error?.code || error?.message || "");
       if (
         normalizedCode === "auth/missing-fields" ||
