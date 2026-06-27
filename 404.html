@@ -19,6 +19,14 @@
         if (map[path]) {
           if (/^#\//.test(hash)) hash = "";
           location.replace(map[path] + search + hash);
+        } else if (path && !/\.[a-z0-9]+$/i.test(path)) {
+          // SPA deep-link fallback: a static host (e.g. GitHub Pages) served this
+          // 404 page for a real client route such as /terms or /privacy (direct
+          // link or refresh). Bounce to the app root with the route preserved as
+          // a hash so the client router renders it instead of a hard 404. Real
+          // asset 404s (paths with a file extension) and the Firebase auth paths
+          // handled above are left untouched.
+          location.replace("/#" + path + search);
         }
       } catch (_) {}
     })();

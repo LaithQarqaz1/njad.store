@@ -2163,7 +2163,7 @@
     "auth/popup-no-result": "لم يرجع Google بيانات الحساب إلى الصفحة. أغلق نافذة Google إن بقيت مفتوحة ثم حاول مرة أخرى.",
     "auth/cancelled-popup-request": "تم إلغاء محاولة تسجيل Google. حاول مرة أخرى.",
     "auth/popup-blocked": "تعذر فتح تسجيل Google بشكل صحيح. أعد المحاولة في نفس النافذة.",
-    "auth/missing-initial-state": "تعذر إكمال تسجيل Google بسبب فقدان حالة التحويل. افتح الموقع من njad.store واسمح بالتخزين المحلي ثم حاول مرة أخرى.",
+    "auth/missing-initial-state": "تعذر إكمال تسجيل Google بسبب فقدان حالة التحويل. افتح الموقع من الرابط واسمح بالتخزين المحلي ثم حاول مرة أخرى.",
     "auth/unauthorized-domain": "دومين غير مصرح.",
     "auth/invalid-api-key": "إعداد Firebase غير صحيح (API Key).",
     "auth/app-not-authorized": "تطبيق Firebase غير مصرح لهذه العملية.",
