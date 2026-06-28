@@ -5902,7 +5902,6 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
         ? ('<p class="recharge-inline-fee">' + rechargeEscHtml('عمولة الاستبدال: ' + c.feePercent + '%') + '</p>')
         : '';
       page.innerHTML = ''
-        + '<button type="button" id="rechargeInlineBack" class="recharge-inline-back" aria-label="رجوع"><i class="fa-solid fa-arrow-right"></i></button>'
         + '<div class="recharge-inline-card">'
         +   '<div class="recharge-inline-head">'
         +     '<span class="recharge-inline-icon">' + iconHtml + '</span>'
@@ -5925,7 +5924,6 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       var statusEl = page.querySelector('#rechargeRedeemStatus');
       var submitBtn = page.querySelector('#rechargeRedeemSubmit');
       var cancelBtn = page.querySelector('#rechargeRedeemCancel');
-      var backBtn = page.querySelector('#rechargeInlineBack');
       if (cancelBtn) cancelBtn.addEventListener('click', closeInlineRechargeRedeemPage);
       if (backBtn) backBtn.addEventListener('click', closeInlineRechargeRedeemPage);
       async function doSubmit(){
