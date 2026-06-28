@@ -5813,15 +5813,54 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       return { ok: false };
     }
   }
+  // The recharge card config ships inside the deposit-methods payload
+  // (/deposit/countries -> data.rechargeCard). The deposit grid often renders
+  // from the warm localStorage countries cache (which does NOT carry the full
+  // payload), so we mirror rechargeCard into a dedicated per-flow store on every
+  // server fetch and read it back here — otherwise the card shows defaults.
+  function rememberInlineRechargeCardForFlow(flowKind, card){
+    try {
+      var fk = normalizeInlineFlow(flowKind || getCurrentInlineFlowKind());
+      var obj = (card && typeof card === 'object') ? card : null;
+      if (!window.__depositInlineRechargeCardByFlow || typeof window.__depositInlineRechargeCardByFlow !== 'object') {
+        window.__depositInlineRechargeCardByFlow = {};
+      }
+      if (obj) window.__depositInlineRechargeCardByFlow[fk] = obj;
+      try {
+        var key = 'edaa:' + fk + ':rechargeCard:v1';
+        if (obj) localStorage.setItem(key, JSON.stringify(obj));
+      } catch (_) {}
+    } catch (_) {}
+  }
+  function readRememberedInlineRechargeCardForFlow(flowKind){
+    var fk;
+    try { fk = normalizeInlineFlow(flowKind || getCurrentInlineFlowKind()); } catch (_) { fk = 'deposit'; }
+    try {
+      var g = window.__depositInlineRechargeCardByFlow;
+      if (g && typeof g === 'object' && g[fk] && typeof g[fk] === 'object') return g[fk];
+    } catch (_) {}
+    try {
+      var raw = localStorage.getItem('edaa:' + fk + ':rechargeCard:v1');
+      if (raw) { var p = JSON.parse(raw); if (p && typeof p === 'object') return p; }
+    } catch (_) {}
+    return null;
+  }
   function getInlineRechargeCardConfig(){
     var cfg = null;
     // PRIMARY: the recharge card ships WITH the deposit methods payload from the
-    // server (same /deposit/deposit response as the methods/countries).
+    // server (same /deposit/countries response as the methods).
     try {
       var payloads = window.__depositInlineLastCountriesPayloadByFlow;
       var fk = (typeof getCurrentInlineFlowKind === 'function') ? getCurrentInlineFlowKind() : 'deposit';
       var dp = (payloads && typeof payloads === 'object') ? (payloads[fk] || payloads.deposit) : null;
       if (dp && dp.rechargeCard && typeof dp.rechargeCard === 'object') cfg = dp.rechargeCard;
+    } catch (_) {}
+    // Survives the warm localStorage countries-cache render (no full payload).
+    try {
+      if (!cfg) {
+        var remembered = readRememberedInlineRechargeCardForFlow();
+        if (remembered && typeof remembered === 'object') cfg = remembered;
+      }
     } catch (_) {}
     // Fallback: brand settings (window.__SITE_BRAND__.rechargeCard).
     try {
@@ -6439,6 +6478,7 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
         window.__depositInlineLastRootMethodsByFlow = window.__depositInlineLastRootMethodsByFlow || {};
         window.__depositInlineLastCountriesPayloadByFlow[flowKind] = data;
         window.__depositInlineLastRootMethodsByFlow[flowKind] = rootMethods.slice();
+        try { rememberInlineRechargeCardForFlow(flowKind, data && data.rechargeCard); } catch (_) {}
         if (flowKind === getCurrentInlineFlowKind()) {
           window.__depositInlineLastCountriesPayload = data;
           window.__depositInlineLastRootMethods = rootMethods.slice();
