@@ -5815,10 +5815,21 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
   }
   function getInlineRechargeCardConfig(){
     var cfg = null;
+    // PRIMARY: the recharge card ships WITH the deposit methods payload from the
+    // server (same /deposit/deposit response as the methods/countries).
     try {
-      var b = window.__SITE_BRAND__ || {};
-      if (b && b.rechargeCard && typeof b.rechargeCard === 'object') cfg = b.rechargeCard;
-    } catch (_) { cfg = null; }
+      var payloads = window.__depositInlineLastCountriesPayloadByFlow;
+      var fk = (typeof getCurrentInlineFlowKind === 'function') ? getCurrentInlineFlowKind() : 'deposit';
+      var dp = (payloads && typeof payloads === 'object') ? (payloads[fk] || payloads.deposit) : null;
+      if (dp && dp.rechargeCard && typeof dp.rechargeCard === 'object') cfg = dp.rechargeCard;
+    } catch (_) {}
+    // Fallback: brand settings (window.__SITE_BRAND__.rechargeCard).
+    try {
+      if (!cfg) {
+        var b = window.__SITE_BRAND__ || {};
+        if (b && b.rechargeCard && typeof b.rechargeCard === 'object') cfg = b.rechargeCard;
+      }
+    } catch (_) { }
     try {
       if (!cfg && window.__SITE_RUNTIME__ && window.__SITE_RUNTIME__.brand && window.__SITE_RUNTIME__.brand.rechargeCard && typeof window.__SITE_RUNTIME__.brand.rechargeCard === 'object') {
         cfg = window.__SITE_RUNTIME__.brand.rechargeCard;
