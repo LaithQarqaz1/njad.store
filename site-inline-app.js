@@ -5726,6 +5726,143 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
     return null;
   }
 
+  // ---- Recharge codes (أكواد الشحن): a redeem card at the end of the deposit
+  // options + an inline code-entry modal. Credits the wallet via mode=redeem-code. ----
+  function rechargeEscHtml(value){
+    return String(value == null ? '' : value).replace(/[&<>"']/g, function(ch){
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch];
+    });
+  }
+  function getInlineStoreBrandName(){
+    try {
+      var b = window.__SITE_BRAND__;
+      var n = b && (b.storeName || b.siteName || b.name);
+      if (n && String(n).trim()) return String(n).trim();
+    } catch (_) {}
+    try {
+      var r = window.__SITE_RUNTIME__ && window.__SITE_RUNTIME__.brand;
+      if (r && r.storeName && String(r.storeName).trim()) return String(r.storeName).trim();
+    } catch (_) {}
+    return 'المتجر';
+  }
+  function inlineRechargeToast(message, variant){
+    try { if (typeof showToast === 'function') { showToast(message, variant || 'info', 4200); return; } } catch (_) {}
+    try { if (window && typeof window.showToast === 'function') { window.showToast(message, variant || 'info', 4200); return; } } catch (_) {}
+  }
+  async function submitInlineRechargeCode(code, statusEl){
+    var workerBase = normalizeWorkerBase(WORKER) || normalizeWorkerBase(WORKER_DEFAULT) || normalizeWorkerBase(WORKER_BASE);
+    if (!workerBase) { if (statusEl) statusEl.textContent = 'تعذّر الاتصال بالخادم.'; return { ok: false }; }
+    var auth = readInlineDepositUploadSessionInfo();
+    if (!auth.uid || !auth.sessionKey) { if (statusEl) statusEl.textContent = 'يرجى تسجيل الدخول من جديد.'; return { ok: false }; }
+    try {
+      var url = new URL(String(workerBase).replace(/\/+$/, '') + '/');
+      url.searchParams.set('mode', 'redeem-code');
+      var res = await fetch(url.toString(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-useruid': auth.uid, 'x-sessionkey': auth.sessionKey },
+        body: JSON.stringify({ code: code })
+      });
+      var data = await res.json().catch(function(){ return {}; });
+      if (res.ok && data && data.ok !== false) {
+        var amount = Number(data.amount || 0);
+        inlineRechargeToast(amount > 0 ? ('تم شحن رصيدك: $' + amount.toFixed(2)) : 'تم شحن رصيدك بنجاح', 'success');
+        try {
+          if (data.newBalance != null) {
+            var nb = Number(data.newBalance);
+            if (Number.isFinite(nb)) {
+              if (typeof window.setHeaderBalanceAmount === 'function') window.setHeaderBalanceAmount(nb);
+              if (typeof window.broadcastBalance === 'function') window.broadcastBalance(nb);
+            }
+          }
+        } catch (_) {}
+        return { ok: true, data: data };
+      }
+      var msg = (data && data.error) ? String(data.error) : 'تعذّر استبدال الكود.';
+      if (statusEl) statusEl.textContent = msg;
+      return { ok: false };
+    } catch (e) {
+      if (statusEl) statusEl.textContent = 'تعذّر الاتصال بالخادم. حاول لاحقاً.';
+      return { ok: false };
+    }
+  }
+  function openInlineRechargeRedeemModal(){
+    try {
+      var existing = document.getElementById('rechargeRedeemModal');
+      if (existing) { try { existing.remove(); } catch (_) {} }
+      var storeName = getInlineStoreBrandName();
+      var overlay = document.createElement('div');
+      overlay.id = 'rechargeRedeemModal';
+      overlay.setAttribute('role', 'dialog');
+      overlay.setAttribute('aria-modal', 'true');
+      overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(0,0,0,.55);';
+      overlay.innerHTML =
+        '<div class="card" style="width:min(420px,100%);background:var(--bg-app,#0e1726);border:1px solid var(--line,rgba(255,255,255,.12));border-radius:18px;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.45);">'
+        + '<div style="display:flex;align-items:center;gap:10px;">'
+        +   '<span style="width:42px;height:42px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;background:rgba(var(--site-accent-rgb,148,163,184),.16);color:var(--site-accent-runtime,#38bdf8);"><i class="fa-solid fa-credit-card"></i></span>'
+        +   '<div><div style="font-weight:800;font-size:1.05rem;">' + rechargeEscHtml('كود شحن ' + storeName) + '</div>'
+        +     '<div style="font-size:.82rem;color:var(--muted,#9aa4b2);">' + rechargeEscHtml('أدخل كود الشحن لإضافة الرصيد') + '</div></div>'
+        + '</div>'
+        + '<input id="rechargeRedeemInput" type="text" autocomplete="off" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX" dir="ltr" style="width:100%;margin-top:14px;height:48px;border-radius:12px;border:1px solid var(--line,rgba(255,255,255,.16));background:var(--bg-elev,rgba(255,255,255,.04));color:var(--text,#e7edf5);text-align:center;letter-spacing:2px;font-size:1rem;font-family:monospace;">'
+        + '<div id="rechargeRedeemStatus" style="min-height:18px;margin-top:8px;font-size:.85rem;color:#f87171;text-align:center;"></div>'
+        + '<div style="display:flex;gap:10px;margin-top:12px;">'
+        +   '<button id="rechargeRedeemCancel" type="button" class="btn" style="flex:1;height:46px;border-radius:999px;border:1px solid var(--line,rgba(255,255,255,.16));background:transparent;color:var(--text,#e7edf5);font-weight:700;cursor:pointer;">' + rechargeEscHtml('إلغاء') + '</button>'
+        +   '<button id="rechargeRedeemSubmit" type="button" class="btn btn-primary" style="flex:2;height:46px;border-radius:999px;border:0;background:var(--site-accent-runtime-strong,var(--site-accent-runtime,#0b6388));color:#fff;font-weight:800;cursor:pointer;">' + rechargeEscHtml('استبدال') + '</button>'
+        + '</div>'
+        + '</div>';
+      document.body.appendChild(overlay);
+      var input = overlay.querySelector('#rechargeRedeemInput');
+      var statusEl = overlay.querySelector('#rechargeRedeemStatus');
+      var submitBtn = overlay.querySelector('#rechargeRedeemSubmit');
+      var cancelBtn = overlay.querySelector('#rechargeRedeemCancel');
+      function closeModal(){ try { overlay.remove(); } catch (_) {} }
+      cancelBtn.addEventListener('click', closeModal);
+      overlay.addEventListener('click', function(ev){ if (ev.target === overlay) closeModal(); });
+      async function doSubmit(){
+        var code = String((input && input.value) || '').trim();
+        if (!code) { if (statusEl) statusEl.textContent = 'أدخل كود الشحن.'; return; }
+        if (statusEl) statusEl.textContent = '';
+        submitBtn.disabled = true;
+        var prev = submitBtn.innerHTML;
+        submitBtn.innerHTML = '...';
+        var result = await submitInlineRechargeCode(code, statusEl);
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = prev;
+        if (result && result.ok) closeModal();
+      }
+      submitBtn.addEventListener('click', doSubmit);
+      input.addEventListener('keydown', function(ev){ if (ev && ev.key === 'Enter') { try { ev.preventDefault(); } catch (_) {} doSubmit(); } });
+      try { input.focus(); } catch (_) {}
+    } catch (_) {}
+  }
+  function buildInlineRechargeRedeemCardInner(){
+    return ''
+      + '<div class="catalog-card-media is-empty">'
+      + '<div class="depositTreeThumbFallback"><i class="fa-solid fa-credit-card"></i></div>'
+      + '</div>'
+      + '<h2 class="depositTreeTitle">' + rechargeEscHtml('كود شحن ' + getInlineStoreBrandName()) + '</h2>'
+      + '<span class="offer-price">' + rechargeEscHtml('إدخال كود الشحن') + '</span>';
+  }
+  function appendInlineRechargeRedeemCard(activeFlow){
+    try {
+      if (!grid) return;
+      var flow = normalizeInlineFlow(activeFlow || getCurrentInlineFlowKind());
+      if (flow !== 'deposit') return; // recharge codes credit the wallet => deposit flow only
+      if (grid.querySelector('[data-recharge-redeem-card="1"]')) return;
+      var node = document.createElement('a');
+      node.href = 'javascript:void(0)';
+      node.className = 'card catalog-card depositTreeCard walletFlowCard rechargeRedeemCard';
+      node.dataset.rechargeRedeemCard = '1';
+      node.dataset.skipCardStates = '1';
+      node.dataset.cardStateScope = 'wallet';
+      node.setAttribute('role', 'button');
+      node.setAttribute('tabindex', '0');
+      node.innerHTML = buildInlineRechargeRedeemCardInner();
+      node.addEventListener('click', function(ev){ try { ev.preventDefault(); ev.stopPropagation(); } catch (_) {} openInlineRechargeRedeemModal(); });
+      node.addEventListener('keydown', function(ev){ if (!ev || (ev.key !== 'Enter' && ev.key !== ' ')) return; try { ev.preventDefault(); ev.stopPropagation(); } catch (_) {} openInlineRechargeRedeemModal(); });
+      grid.appendChild(node);
+    } catch (_) {}
+  }
+
   renderCountries = function(list){
     if (!grid) {
       debugCountriesLog('error', 'Grid element not found while rendering countries');
@@ -5786,6 +5923,8 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       });
       grid.appendChild(node);
     });
+    // Recharge-code redeem card always sits at the end of the deposit options.
+    appendInlineRechargeRedeemCard(activeFlow);
     const rootEmpty = rootEntries.length === 0;
     const rootEmptyVisible = setInlineDepositNoResultsVisible(rootEmpty);
     if (!currentCountry) setCountriesRetryButtonVisible(rootEmptyVisible, rootEntries.length ? '' : 'countries_empty');

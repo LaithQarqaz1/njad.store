@@ -5279,6 +5279,9 @@ function broadcastBalance(value){
     window.dispatchEvent(new CustomEvent('balance:change', { detail: { value: safeValue, formatted } }));
   } catch {}
 }
+// Exposed so other modules (e.g. the recharge-code redeem flow) can update the
+// header balance immediately after a wallet credit.
+try { window.setHeaderBalanceAmount = setHeaderBalanceAmount; window.broadcastBalance = broadcastBalance; } catch {}
 function seedHeaderFromCache(){
   try {
     const logged = localStorage.getItem(LAST_LOGGED_KEY) === '1';
