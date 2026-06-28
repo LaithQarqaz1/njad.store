@@ -185,13 +185,13 @@
 
 
 <!-- عنوان دلالي واضح للمحركات -->
-<h1 class="sr-only" data-i18n="home.srTitle">الرئيسية</h1>
+<h1 class="sr-only">الرئيسية</h1>
 
 
 
 
     <div class="page-hero">
-      <div class="hero-slider" id="heroSlider" aria-label="بانرات مميزة" data-i18n-aria-label="home.heroAria">
+      <div class="hero-slider" id="heroSlider" aria-label="بانرات مميزة">
         <div class="hero-track">
 
         </div>
@@ -201,10 +201,10 @@
     
 
   <!-- شريط الإشعار: يبدأ من البداية، يخرج تمامًا، ثم يعاود من البداية -->
-  <div class="notice-ticker" id="homeTicker" aria-label="إعلانات الموقع" data-i18n-aria-label="home.noticeAria" hidden aria-hidden="true">
+  <div class="notice-ticker" id="homeTicker" aria-label="إعلانات الموقع" hidden aria-hidden="true">
     <div class="ticker-track" role="marquee" aria-live="polite">
       <div class="ticker-copy">
-        <span data-runtime-ticker="1" data-i18n-ignore="true"></span>
+        <span data-runtime-ticker="1"></span>
       </div>
     </div>
   </div>
@@ -226,7 +226,7 @@
       <span class="catalog-context-spacer" aria-hidden="true"></span>
     </div>
     <div class="search-container">
-      <input type="text" id="searchInput" placeholder="&#1575;&#1576;&#1581;&#1579; &#1593;&#1606; &#1575;&#1604;&#1576;&#1575;&#1602;&#1575;&#1578;..." aria-label="&#1576;&#1581;&#1579;" data-i18n-placeholder="catalog.searchPackages" data-i18n-aria-label="catalog.search" />
+      <input type="text" id="searchInput" placeholder="&#1575;&#1576;&#1581;&#1579; &#1593;&#1606; &#1575;&#1604;&#1576;&#1575;&#1602;&#1575;&#1578;..." aria-label="&#1576;&#1581;&#1579;" />
     </div>
   <div class="catalog-branches" data-catalog-branches style="display:none"></div>
   <section class="categories" id="categoriesContainer" data-catalog-target="*">
@@ -322,10 +322,10 @@
                   <div class="legal-consent">
                     <div class="legal-consent-body">
                       <p class="legal-consent-links">
-                        <span data-i18n="legal.consent.prefix">أوافق على</span>
-                        <a href="#/privacy" data-i18n="legal.privacy.title">سياسة الخصوصية</a>
-                        <span class="legal-sep" data-i18n="legal.consent.and">و</span>
-                        <a href="#/terms" data-i18n="legal.terms.title">شروط الاستخدام</a>.
+                        <span>أوافق على</span>
+                        <a href="#/privacy">سياسة الخصوصية</a>
+                        <span class="legal-sep">و</span>
+                        <a href="#/terms">شروط الاستخدام</a>.
                       </p>
                     </div>
                     <label class="neon-checkbox" for="registerLegalConsent">
@@ -478,15 +478,15 @@
       <div class="not-found-shell">
         <div class="not-found-card">
           <p class="not-found-kicker">404</p>
-          <h2 id="notFoundTitle" class="not-found-title" data-i18n="notFound.title">الصفحة غير موجودة</h2>
-          <p class="not-found-copy" data-i18n="notFound.subtitle">تعذر العثور على الصفحة أو المسار الذي طلبته.</p>
+          <h2 id="notFoundTitle" class="not-found-title">الصفحة غير موجودة</h2>
+          <p class="not-found-copy">تعذر العثور على الصفحة أو المسار الذي طلبته.</p>
           <div class="not-found-path" data-not-found-path hidden>
-            <span class="not-found-path-label" data-i18n="notFound.pathLabel">المسار المطلوب</span>
+            <span class="not-found-path-label">المسار المطلوب</span>
             <code data-not-found-path-text>/</code>
           </div>
           <div class="not-found-actions">
-            <button type="button" class="not-found-btn primary" data-not-found-home data-i18n="notFound.home">العودة للرئيسية</button>
-            <button type="button" class="not-found-btn secondary" data-not-found-login data-i18n="notFound.login">تسجيل الدخول</button>
+            <button type="button" class="not-found-btn primary" data-not-found-home>العودة للرئيسية</button>
+            <button type="button" class="not-found-btn secondary" data-not-found-login>تسجيل الدخول</button>
           </div>
         </div>
       </div>
@@ -505,13 +505,13 @@
           </div>
         </section>
         <section class="catalog-controls">
-          <div class="player-id-box">
+          <div class="player-id-box notranslate" translate="no">
             <label id="catalogPlayerLabel" for="catalogPlayerId">&#1575;&#1610;&#1583;&#1610;&#32;&#1575;&#1604;&#1604;&#1575;&#1593;&#1576;</label>
-            <div class="player-input-row">
-            <input id="catalogPlayerId" name="catalog_player_id" type="text" inputmode="numeric" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" lang="en" placeholder="&#1575;&#1583;&#1582;&#1604;&#32;&#1575;&#1604;&#1575;&#1610;&#1583;&#1610;&#32;&#1607;&#1606;&#1575;" />
-              <button id="catalogPasteBtn" type="button" data-i18n="catalog.paste">&#1604;&#1589;&#1602;</button>
+            <div class="player-input-row" translate="no">
+            <input id="catalogPlayerId" name="catalog_player_id" type="text" inputmode="numeric" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" lang="en" translate="no" placeholder="&#1575;&#1583;&#1582;&#1604;&#32;&#1575;&#1604;&#1575;&#1610;&#1583;&#1610;&#32;&#1607;&#1606;&#1575;" />
+              <button id="catalogPasteBtn" type="button">&#1604;&#1589;&#1602;</button>
             </div>
-            <div id="catalogExtraFields" class="player-extra-fields"></div>
+            <div id="catalogExtraFields" class="player-extra-fields" translate="no"></div>
           </div>
           <div id="catalogCurrentSection" class="catalog-current-sectionbar" hidden>
             <button id="catalogSectionBack" class="catalog-current-section-back" type="button" aria-label="&#1585;&#1580;&#1608;&#1593;">
@@ -520,52 +520,52 @@
             <strong id="catalogCurrentSectionTitle" class="catalog-current-section-title"></strong>
           </div>
           <div class="search-container">
-            <input id="catalogSearchInput" type="text" placeholder="&#1575;&#1576;&#1581;&#1579; &#1593;&#1606; &#1575;&#1604;&#1576;&#1575;&#1602;&#1575;&#1578;..." data-i18n-placeholder="catalog.searchPackages" />
+            <input id="catalogSearchInput" type="text" placeholder="&#1575;&#1576;&#1581;&#1579; &#1593;&#1606; &#1575;&#1604;&#1576;&#1575;&#1602;&#1575;&#1578;..." />
           </div>
         </section>
         <section id="catalogOffersContainer"></section>
           <div id="catalogLoader" class="catalog-loader" style="display:none;">
             <div class="spinner" aria-hidden="true"></div>
-            <span data-i18n="catalog.loading">جاري التحميل...</span>
+            <span>جاري التحميل...</span>
           </div>
-        <div id="catalogNoResults" class="no-results" style="display:none;" data-i18n="catalog.noResults">&#1604;&#1575;&#32;&#1610;&#1608;&#1580;&#1583;&#32;&#1606;&#1578;&#1575;&#1574;&#1580;&#32;&#1576;&#1593;&#1583;.</div>
+        <div id="catalogNoResults" class="no-results" style="display:none;">&#1604;&#1575;&#32;&#1610;&#1608;&#1580;&#1583;&#32;&#1606;&#1578;&#1575;&#1574;&#1580;&#32;&#1576;&#1593;&#1583;.</div>
         <section id="selected-amount-container">
-          <h2 data-i18n="catalog.orderDetails">&#1578;&#1601;&#1575;&#1589;&#1610;&#1604;&#32;&#1575;&#1604;&#1591;&#1604;&#1576;</h2>
+          <h2>&#1578;&#1601;&#1575;&#1589;&#1610;&#1604;&#32;&#1575;&#1604;&#1591;&#1604;&#1576;</h2>
           <div id="selected-amount" class="no-selection"></div>
           <div class="catalog-actions">
-            <button id="catalogPurchaseBtn" class="send-button" type="button" disabled data-i18n="catalog.buy">&#1588;&#1585;&#1575;&#1569;</button>
-            <button id="catalogClearBtn" class="btn-outline" type="button" disabled data-i18n="catalog.clear">&#1605;&#1587;&#1581;</button>
+            <button id="catalogPurchaseBtn" class="send-button" type="button" disabled>&#1588;&#1585;&#1575;&#1569;</button>
+            <button id="catalogClearBtn" class="btn-outline" type="button" disabled>&#1605;&#1587;&#1581;</button>
           </div>
         </section>
       </main>
       <div id="purchase-modal">
-        <div class="pm-card" role="dialog" aria-modal="true">
+        <div class="pm-card notranslate" role="dialog" aria-modal="true" translate="no">
           <div class="pm-header">
             <span id="pm-price" class="pm-pill">?</span>
             <div class="pm-title">
-              <button id="pm-fav-toggle" class="pm-fav-toggle" type="button" aria-label="إضافة إلى المفضلة" aria-pressed="false" data-i18n-aria-label="catalog.favoriteToggle">
+              <button id="pm-fav-toggle" class="pm-fav-toggle" type="button" aria-label="إضافة إلى المفضلة" aria-pressed="false">
                 <i class="fa-regular fa-heart" aria-hidden="true"></i>
               </button>
               <span id="pm-title" dir="auto">?</span>
             </div>
           </div>
-          <div class="pm-input" id="modal-player-row">
+          <div class="pm-input" id="modal-player-row" translate="no">
             <label id="modal-player-label" for="modal-player-id">&#1575;&#1610;&#1583;&#1610;&#32;&#1575;&#1604;&#1604;&#1575;&#1593;&#1576;</label>
-            <input id="modal-player-id" name="catalog_modal_player_id" type="text" inputmode="numeric" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" lang="en" placeholder="&#1575;&#1583;&#1582;&#1604;&#32;&#1575;&#1604;&#1575;&#1610;&#1583;&#1610;&#32;&#1607;&#1606;&#1575;" />
+            <input id="modal-player-id" name="catalog_modal_player_id" type="text" inputmode="numeric" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" lang="en" translate="no" placeholder="&#1575;&#1583;&#1582;&#1604;&#32;&#1575;&#1604;&#1575;&#1610;&#1583;&#1610;&#32;&#1607;&#1606;&#1575;" />
             <div id="modalExtraFields" class="pm-extra-fields"></div>
           </div>
           <div class="pm-input pm-name-validation" id="modal-name-validation" style="display:none;">
             <button id="modal-name-validation-btn" class="btn btn-outline" type="button">انقر للتحقق من الاسم</button>
             <div id="modal-name-validation-result" class="pm-hint" aria-live="polite"></div>
           </div>
-          <div class="pm-input" id="modal-qty-row" style="display:none;">
-            <label for="modal-qty" data-i18n="catalog.requiredQuantity">&#1575;&#1604;&#1603;&#1605;&#1610;&#1577;&#32;&#1575;&#1604;&#1605;&#1591;&#1604;&#1608;&#1576;&#1577;</label>
-            <input id="modal-qty" type="text" step="1" inputmode="numeric" pattern="[0-9]*" lang="en" autocomplete="off" placeholder="&#1575;&#1583;&#1582;&#1604;&#32;&#1575;&#1604;&#1603;&#1605;&#1610;&#1577;&#32;&#1575;&#1604;&#1605;&#1591;&#1604;&#1608;&#1576;&#1577;" data-i18n-placeholder="catalog.enterRequiredQuantity" />
+          <div class="pm-input" id="modal-qty-row" style="display:none;" translate="no">
+            <label for="modal-qty">&#1575;&#1604;&#1603;&#1605;&#1610;&#1577;&#32;&#1575;&#1604;&#1605;&#1591;&#1604;&#1608;&#1576;&#1577;</label>
+            <input id="modal-qty" type="text" step="1" inputmode="numeric" pattern="[0-9]*" lang="en" autocomplete="off" placeholder="&#1575;&#1583;&#1582;&#1604;&#32;&#1575;&#1604;&#1603;&#1605;&#1610;&#1577;&#32;&#1575;&#1604;&#1605;&#1591;&#1604;&#1608;&#1576;&#1577;" />
             <select id="modal-qty-select" style="display:none;"></select>
             <div id="modal-qty-picker" class="pm-select" style="display:none;">
               <button id="modal-qty-trigger" class="pm-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="modal-qty-menu">
                 <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
-                <span id="modal-qty-value" class="pm-select-value" data-i18n="catalog.chooseQuantity">اختر الكمية</span>
+                <span id="modal-qty-value" class="pm-select-value">اختر الكمية</span>
               </button>
               <div id="modal-qty-menu" class="pm-select-menu" role="listbox" tabindex="-1"></div>
             </div>
@@ -580,8 +580,8 @@
             </div>
           </div>
           <div class="pm-actions">
-            <button id="pm-cancel" class="btn btn-outline" type="button" data-i18n="catalog.back">&#1585;&#1580;&#1608;&#1593;</button>
-            <button id="pm-buy" class="btn btn-primary" type="button" data-i18n="catalog.buy">&#1588;&#1585;&#1575;&#1569;</button>
+            <button id="pm-cancel" class="btn btn-outline" type="button">&#1585;&#1580;&#1608;&#1593;</button>
+            <button id="pm-buy" class="btn btn-primary" type="button">&#1588;&#1585;&#1575;&#1569;</button>
           </div>
         </div>
       </div>
@@ -597,52 +597,52 @@
   </template>
 
   
-  <textarea id="deposit-inline-template" data-i18n-ignore="true" hidden></textarea>
+  <textarea id="deposit-inline-template" hidden></textarea>
 
   <template id="privacy-inline-template">
     <section class="legal-page">
       <div class="legal-spacer"></div>
       <div class="legal-wrap">
-        <h2 data-i18n="legal.privacy.title">سياسة الخصوصية</h2>
-        <p class="legal-updated" data-i18n="legal.updated">آخر تحديث: 18 فبراير 2026</p>
+        <h2>سياسة الخصوصية</h2>
+        <p class="legal-updated">آخر تحديث: 18 فبراير 2026</p>
 
-        <h3 data-i18n="legal.privacy.scope.title">1) نطاق السياسة</h3>
-        <p data-i18n="legal.privacy.scope.body">توضح هذه السياسة طريقة جمع واستخدام وحماية بيانات مستخدمي المتجر عبر الموقع والخدمات المرتبطة به.</p>
+        <h3>1) نطاق السياسة</h3>
+        <p>توضح هذه السياسة طريقة جمع واستخدام وحماية بيانات مستخدمي المتجر عبر الموقع والخدمات المرتبطة به.</p>
 
-        <h3 data-i18n="legal.privacy.collect.title">2) البيانات التي نجمعها</h3>
+        <h3>2) البيانات التي نجمعها</h3>
         <ul>
-          <li data-i18n="legal.privacy.collect.account">بيانات الحساب: الاسم، البريد الإلكتروني، رقم الهاتف، ومعرّفات تسجيل الدخول.</li>
-          <li data-i18n="legal.privacy.collect.orders">بيانات الطلبات: الخدمة المطلوبة، حالة الطلب، تفاصيل الدفع اللازمة للتنفيذ والتوثيق.</li>
-          <li data-i18n="legal.privacy.collect.tech">بيانات تقنية: نوع الجهاز، المتصفح، عنوان IP، وسجلات الاستخدام لتحسين الأداء والأمان.</li>
+          <li>بيانات الحساب: الاسم، البريد الإلكتروني، رقم الهاتف، ومعرّفات تسجيل الدخول.</li>
+          <li>بيانات الطلبات: الخدمة المطلوبة، حالة الطلب، تفاصيل الدفع اللازمة للتنفيذ والتوثيق.</li>
+          <li>بيانات تقنية: نوع الجهاز، المتصفح، عنوان IP، وسجلات الاستخدام لتحسين الأداء والأمان.</li>
         </ul>
 
-        <h3 data-i18n="legal.privacy.use.title">3) كيف نستخدم البيانات</h3>
+        <h3>3) كيف نستخدم البيانات</h3>
         <ul>
-          <li data-i18n="legal.privacy.use.orders">تنفيذ الطلبات وتقديم الدعم الفني.</li>
-          <li data-i18n="legal.privacy.use.security">التحقق من الأمان ومنع الاحتيال وإساءة الاستخدام.</li>
-          <li data-i18n="legal.privacy.use.notifications">إرسال الإشعارات المتعلقة بالحساب والطلبات والعروض (عند السماح بذلك).</li>
-          <li data-i18n="legal.privacy.use.compliance">الامتثال للالتزامات القانونية والتنظيمية.</li>
+          <li>تنفيذ الطلبات وتقديم الدعم الفني.</li>
+          <li>التحقق من الأمان ومنع الاحتيال وإساءة الاستخدام.</li>
+          <li>إرسال الإشعارات المتعلقة بالحساب والطلبات والعروض (عند السماح بذلك).</li>
+          <li>الامتثال للالتزامات القانونية والتنظيمية.</li>
         </ul>
 
-        <h3 data-i18n="legal.privacy.share.title">4) مشاركة البيانات</h3>
-        <p data-i18n="legal.privacy.share.body">لا يتم بيع بياناتك. قد تتم المشاركة فقط مع مزودي الدفع أو مزودي الخدمات التقنية أو الجهات الرسمية عند وجود سبب قانوني أو تشغيلي مشروع.</p>
+        <h3>4) مشاركة البيانات</h3>
+        <p>لا يتم بيع بياناتك. قد تتم المشاركة فقط مع مزودي الدفع أو مزودي الخدمات التقنية أو الجهات الرسمية عند وجود سبب قانوني أو تشغيلي مشروع.</p>
 
-        <h3 data-i18n="legal.privacy.protection.title">5) حماية البيانات</h3>
-        <p data-i18n="legal.privacy.protection.body">نطبق إجراءات تنظيمية وتقنية معقولة لحماية البيانات. كما يلتزم المستخدم بالحفاظ على سرية كلمة المرور والرموز الأمنية وعدم مشاركتها.</p>
+        <h3>5) حماية البيانات</h3>
+        <p>نطبق إجراءات تنظيمية وتقنية معقولة لحماية البيانات. كما يلتزم المستخدم بالحفاظ على سرية كلمة المرور والرموز الأمنية وعدم مشاركتها.</p>
 
-        <h3 data-i18n="legal.privacy.retention.title">6) الاحتفاظ بالبيانات</h3>
-        <p data-i18n="legal.privacy.retention.body">يتم الاحتفاظ بالبيانات للمدة اللازمة لتقديم الخدمة، وتسوية النزاعات، والالتزام القانوني، ثم تُزال أو تُخفى هوية البيانات متى أمكن.</p>
+        <h3>6) الاحتفاظ بالبيانات</h3>
+        <p>يتم الاحتفاظ بالبيانات للمدة اللازمة لتقديم الخدمة، وتسوية النزاعات، والالتزام القانوني، ثم تُزال أو تُخفى هوية البيانات متى أمكن.</p>
 
-        <h3 data-i18n="legal.privacy.rights.title">7) حقوق المستخدم</h3>
-        <p data-i18n="legal.privacy.rights.body">يمكنك طلب تحديث بياناتك أو تصحيحها، وطلب حذفها ضمن الحدود النظامية وما لا يتعارض مع الالتزامات القانونية أو حقوق الطرفين في إثبات العمليات.</p>
+        <h3>7) حقوق المستخدم</h3>
+        <p>يمكنك طلب تحديث بياناتك أو تصحيحها، وطلب حذفها ضمن الحدود النظامية وما لا يتعارض مع الالتزامات القانونية أو حقوق الطرفين في إثبات العمليات.</p>
 
-        <h3 data-i18n="legal.privacy.cookies.title">8) ملفات الارتباط والتخزين المحلي</h3>
-        <p data-i18n="legal.privacy.cookies.body">يستخدم الموقع التخزين المحلي وملفات تعريف الارتباط لتحسين تجربة الاستخدام، حفظ التفضيلات، واستمرارية الجلسة وعرض المحتوى بشكل أسرع.</p>
+        <h3>8) ملفات الارتباط والتخزين المحلي</h3>
+        <p>يستخدم الموقع التخزين المحلي وملفات تعريف الارتباط لتحسين تجربة الاستخدام، حفظ التفضيلات، واستمرارية الجلسة وعرض المحتوى بشكل أسرع.</p>
 
-        <h3 data-i18n="legal.privacy.changes.title">9) التعديلات على السياسة</h3>
-        <p data-i18n="legal.privacy.changes.body">قد يتم تحديث هذه السياسة عند تطوير الخدمات. استمرار الاستخدام بعد التحديث يعني الاطلاع والقبول بالإصدار الأحدث.</p>
+        <h3>9) التعديلات على السياسة</h3>
+        <p>قد يتم تحديث هذه السياسة عند تطوير الخدمات. استمرار الاستخدام بعد التحديث يعني الاطلاع والقبول بالإصدار الأحدث.</p>
 
-        <p class="legal-note" data-i18n="legal.privacy.note">باستخدامك للموقڡ فإنك توافق على هذه السياسة بما يضمن مصلحة المستخدم والمتجر ويحفظ حقوق الطرفين.</p>
+        <p class="legal-note">باستخدامك للموقڡ فإنك توافق على هذه السياسة بما يضمن مصلحة المستخدم والمتجر ويحفظ حقوق الطرفين.</p>
       </div>
     </section>
   </template>
@@ -651,55 +651,55 @@
     <section class="legal-page">
       <div class="legal-spacer"></div>
       <div class="legal-wrap">
-        <h2 data-i18n="legal.terms.title">شروط الاستخدام</h2>
-        <p class="legal-updated" data-i18n="legal.updated">آخر تحديث: 18 فبراير 2026</p>
+        <h2>شروط الاستخدام</h2>
+        <p class="legal-updated">آخر تحديث: 18 فبراير 2026</p>
 
-        <h3 data-i18n="legal.terms.acceptance.title">1) القبول والأهلية</h3>
-        <p data-i18n="legal.terms.acceptance.body">استخدامك للمتجر يعني موافقتك على هذه الشروء وأن لديك الأهلية النظامية لإجراء الطلبات والالتزامات المالية.</p>
+        <h3>1) القبول والأهلية</h3>
+        <p>استخدامك للمتجر يعني موافقتك على هذه الشروء وأن لديك الأهلية النظامية لإجراء الطلبات والالتزامات المالية.</p>
 
-        <h3 data-i18n="legal.terms.services.title">2) طبيعة الخدمات</h3>
-        <p data-i18n="legal.terms.services.body">المتجر يقدم منتجات وخدمات رقمية (شحن/اشتراكات/أكواد). بعض الخدمات تعتمد على مزودين خارجيين وقد تختلف مدة التنفيذ وفق حالة المزود.</p>
+        <h3>2) طبيعة الخدمات</h3>
+        <p>المتجر يقدم منتجات وخدمات رقمية (شحن/اشتراكات/أكواد). بعض الخدمات تعتمد على مزودين خارجيين وقد تختلف مدة التنفيذ وفق حالة المزود.</p>
 
-        <h3 data-i18n="legal.terms.user.title">3) التزامات المستخدم</h3>
+        <h3>3) التزامات المستخدم</h3>
         <ul>
-          <li data-i18n="legal.terms.user.accurate">إدخال بيانات صحيحة وكاملة عند الطلب.</li>
-          <li data-i18n="legal.terms.user.lawful">عدم استخدام الموقع لأي نشاط مخالف للأنظمة أو ينتهك حقوق الغير.</li>
-          <li data-i18n="legal.terms.user.responsibility">تحمل المسؤولية عن أي خطأ في البيانات المدخلة من طرفك.</li>
+          <li>إدخال بيانات صحيحة وكاملة عند الطلب.</li>
+          <li>عدم استخدام الموقع لأي نشاط مخالف للأنظمة أو ينتهك حقوق الغير.</li>
+          <li>تحمل المسؤولية عن أي خطأ في البيانات المدخلة من طرفك.</li>
         </ul>
 
-        <h3 data-i18n="legal.terms.pricing.title">4) الأسعار والدفع</h3>
-        <p data-i18n="legal.terms.pricing.body">الأسعار المعروضة وقت تنفيذ الطلب هي المعتمدة، ويحق للمتجر تعديل الأسعار مستقبلًا دون أثر رجعي على الطلبات المكتملة.</p>
+        <h3>4) الأسعار والدفع</h3>
+        <p>الأسعار المعروضة وقت تنفيذ الطلب هي المعتمدة، ويحق للمتجر تعديل الأسعار مستقبلًا دون أثر رجعي على الطلبات المكتملة.</p>
 
-        <h3 data-i18n="legal.terms.orders.title">5) قبول أو رفض الطلب</h3>
-        <p data-i18n="legal.terms.orders.body">يحق للمتجر إلغاء أو رفض أي طلب قبل التسليم في حال عدم التوفر، الاشتباه الاحتيالي، أو تعارض البيانات، مع إعادة المبلغ وفق وسيلة الدفع المتاحة عند الاقتضاء.</p>
+        <h3>5) قبول أو رفض الطلب</h3>
+        <p>يحق للمتجر إلغاء أو رفض أي طلب قبل التسليم في حال عدم التوفر، الاشتباه الاحتيالي، أو تعارض البيانات، مع إعادة المبلغ وفق وسيلة الدفع المتاحة عند الاقتضاء.</p>
 
-        <h3 data-i18n="legal.terms.return.title">6) الإرجاع والاستبدال</h3>
+        <h3>6) الإرجاع والاستبدال</h3>
         <ul>
-          <li data-i18n="legal.terms.return.delivered">بعد تسليم الخدمة الرقمية أو ظهور الكود/تنفيذ الشحن، لا يحق طلب استرجاع إلا في حالات فشل موثقة بسبب من المتجر أو المزود.</li>
-          <li data-i18n="legal.terms.return.issue">في حال ثبوت خلل قابل للتحقق، يتم التعويض المناسب (إعادة التنفيذ أو الرصيد أو الاسترجاع) وفق تقييم الحالة.</li>
+          <li>بعد تسليم الخدمة الرقمية أو ظهور الكود/تنفيذ الشحن، لا يحق طلب استرجاع إلا في حالات فشل موثقة بسبب من المتجر أو المزود.</li>
+          <li>في حال ثبوت خلل قابل للتحقق، يتم التعويض المناسب (إعادة التنفيذ أو الرصيد أو الاسترجاع) وفق تقييم الحالة.</li>
         </ul>
 
-        <h3 data-i18n="legal.terms.disputes.title">7) النزاعات وعمليات الاعتراض</h3>
-        <p data-i18n="legal.terms.disputes.body">أي اعتراض دفع غير مبرر أو إساءة استخدام قد يؤدي إلى تعليق الحساب مؤقتًا حتى اكتمال التحقق وحماية حقوق جميع الأطراف.</p>
+        <h3>7) النزاعات وعمليات الاعتراض</h3>
+        <p>أي اعتراض دفع غير مبرر أو إساءة استخدام قد يؤدي إلى تعليق الحساب مؤقتًا حتى اكتمال التحقق وحماية حقوق جميع الأطراف.</p>
 
-        <h3 data-i18n="legal.terms.liability.title">8) حدود المسؤولية</h3>
-        <p data-i18n="legal.terms.liability.body">لا يتحمل المتجر المسؤولية عن الأضرار غير المباشرة أو الناتجة عن إدخال بيانات خاطئة من المستخدم أو عن انقطاع خارجي خارج السيطرة المعقولة.</p>
+        <h3>8) حدود المسؤولية</h3>
+        <p>لا يتحمل المتجر المسؤولية عن الأضرار غير المباشرة أو الناتجة عن إدخال بيانات خاطئة من المستخدم أو عن انقطاع خارجي خارج السيطرة المعقولة.</p>
 
-        <h3 data-i18n="legal.terms.ip.title">9) الملكية الفكرية</h3>
-        <p data-i18n="legal.terms.ip.body">جميع محتويات الموقع من تصميم ونصوص وشعارات وواجهات هي ملك للمتجر أو لأصحابها المرخصين، ولا يجوز نسخها أو إعادة استخدامها دون إذن.</p>
+        <h3>9) الملكية الفكرية</h3>
+        <p>جميع محتويات الموقع من تصميم ونصوص وشعارات وواجهات هي ملك للمتجر أو لأصحابها المرخصين، ولا يجوز نسخها أو إعادة استخدامها دون إذن.</p>
 
-        <h3 data-i18n="legal.terms.changes.title">10) تعديل الشروط</h3>
-        <p data-i18n="legal.terms.changes.body">يجوز تحديث هذه الشروط عند الحاجة. استمرار استخدام الموقع بعد التعديل يُعد قبولًا بالإصدار المحدث.</p>
+        <h3>10) تعديل الشروط</h3>
+        <p>يجوز تحديث هذه الشروط عند الحاجة. استمرار استخدام الموقع بعد التعديل يُعد قبولًا بالإصدار المحدث.</p>
 
-        <p class="legal-note" data-i18n="legal.terms.note">هذه الشروط وضعت لحماية المستخدم والمتجر بشكل متوازن، وضمان تعامل واضح وعادل يحفظ حق الطرفين.</p>
+        <p class="legal-note">هذه الشروط وضعت لحماية المستخدم والمتجر بشكل متوازن، وضمان تعامل واضح وعادل يحفظ حق الطرفين.</p>
       </div>
     </section>
   </template>
 
-  <div class="legal-mini-links" aria-label="روابط قانونية" data-i18n-aria-label="legal.links.label">
-    <a href="#/privacy" data-i18n="legal.privacy.title">سياسة الخصوصية</a>
+  <div class="legal-mini-links" aria-label="روابط قانونية">
+    <a href="#/privacy">سياسة الخصوصية</a>
     <span aria-hidden="true">|</span>
-    <a href="#/terms" data-i18n="legal.terms.title">شروط الاستخدام</a>
+    <a href="#/terms">شروط الاستخدام</a>
   </div>
 
 </main>
@@ -790,7 +790,7 @@
   }
   </script>
   <script src="site_settings.js?v=20260613-share-preview-01"></script>
-  <script src="site-bundle.js?v=20260626-balance-after-01"></script>
+  <script src="site-bundle.js?v=20260628-recharge-codes-02"></script>
   <!-- End runtime scripts -->
 </body>
 </html>

@@ -31,6 +31,23 @@
     ? window.__getSiteFirebaseConfig()
     : (window.__FIREBASE_CONFIG__ || null);
 
+  // Firebase frontend config is fetched asynchronously (runtime-config) and cached, so the value
+  // captured above is null on a cold first load and only becomes available after a reload. Resolve
+  // it live on every read so Google sign-in works on the first load too.
+  function resolveSiteFirebaseConfig() {
+    try {
+      if (typeof window.__getSiteFirebaseConfig === "function") {
+        const live = window.__getSiteFirebaseConfig();
+        if (live && typeof live === "object") return live;
+      }
+    } catch (_) {}
+    try {
+      const fallback = window.__FIREBASE_CONFIG__;
+      if (fallback && typeof fallback === "object") return fallback;
+    } catch (_) {}
+    return (firebaseConfig && typeof firebaseConfig === "object") ? firebaseConfig : null;
+  }
+
   function readSiteSetting(path, fallback) {
     try {
       if (typeof window.__getSiteSetting === "function") {
@@ -48,7 +65,7 @@
   }
 
   function hasFirebaseWebConfig() {
-    const cfg = (firebaseConfig && typeof firebaseConfig === "object") ? firebaseConfig : null;
+    const cfg = resolveSiteFirebaseConfig();
     if (!cfg) return false;
     return !!(
       String(cfg.apiKey || "").trim() &&
@@ -461,8 +478,9 @@
     if (skip && !skipBypassed) return false;
     if (!hasFirebaseCompatRuntime()) return false;
     try {
-      if ((!firebase.apps || !firebase.apps.length) && firebaseConfig) {
-        firebase.initializeApp(firebaseConfig);
+      const liveFirebaseConfig = resolveSiteFirebaseConfig();
+      if ((!firebase.apps || !firebase.apps.length) && liveFirebaseConfig) {
+        firebase.initializeApp(liveFirebaseConfig);
       } else if (firebase.apps && firebase.apps.length) {
         firebase.app();
       }
@@ -2202,7 +2220,8 @@
 
   function getFirebaseAuthDomainSafe() {
     try {
-      return String((firebaseConfig && firebaseConfig.authDomain) || "").trim().toLowerCase();
+      const liveCfg = resolveSiteFirebaseConfig();
+      return String((liveCfg && liveCfg.authDomain) || "").trim().toLowerCase();
     } catch (_) {
       return "";
     }
@@ -3307,6 +3326,28 @@
     return showLocalBannedOverlay(reason, webuid);
   }
 
+  // Firebase is disabled in this frontend, so a banned account now comes back as an "auth/banned"
+  // error from the unified router instead of via the Firestore session watcher. Show the same
+  // full-screen custom overlay (with the admin ban reason + account id) here.
+  function showRouterBannedOverlay(err) {
+    const code = err && err.code ? String(err.code) : "";
+    if (code !== "auth/banned") return false;
+    let reason = "";
+    let webuid = "";
+    try {
+      const payload = (err && err.payload && typeof err.payload === "object") ? err.payload : null;
+      const details = (payload && payload.details && typeof payload.details === "object") ? payload.details : null;
+      if (details) {
+        reason = String(details.banReason || details.reason || "").trim();
+        webuid = String(details.webuid || details.webUid || details.uidNo || "").trim();
+      }
+      if (!reason && payload) reason = String(payload.banReason || payload.reason || "").trim();
+      if (!webuid && payload) webuid = String(payload.webuid || payload.webUid || "").trim();
+    } catch (_) {}
+    try { showLocalBannedOverlay(reason, webuid); } catch (_) { return false; }
+    return true;
+  }
+
   async function assertNotBanned(uid, targetErrorEl) {
     try {
       await ensureFirebaseCompatAsync();
@@ -3542,6 +3583,7 @@
     } catch (err) {
       try { console.error("performManualLogin error", err); } catch (_) {}
       const code = err && err.code ? String(err.code) : "";
+      if (showRouterBannedOverlay(err)) return;
       loginError.textContent = translateFirebaseError(err || code);
     } finally {
       setButtonBusy(submitLogin, false);
@@ -3706,6 +3748,7 @@
         msg.textContent = "تم إنشاء الحساب بنجاح.";
       }
     } catch (err) {
+      if (showRouterBannedOverlay(err)) return;
       if (msg) {
         msg.style.color = "var(--danger, #ef4444)";
         msg.textContent = translateFirebaseError(err) || "تعذر إكمال العملية، حاول مرة أخرى.";
@@ -4081,6 +4124,15 @@
         hideGoogleRedirectLoader();
         return;
       }
+      // A banned account comes back from the router as "auth/banned": show the same
+      // full-screen custom overlay (reason + account id + support) instead of inline text.
+      if (showRouterBannedOverlay(error)) {
+        pushGoogleFlowLog("google_finalize_blocked_banned", { uid: uidMasked });
+        setGoogleFlowTask("google_finalize_blocked_banned", { uid: uidMasked });
+        hideGoogleRedirectLoader();
+        resetGoogleFlow();
+        return;
+      }
       const normalizedCode = normalizeUiErrorCode(error?.code || error?.message || "");
       if (
         normalizedCode === "auth/missing-fields" ||
@@ -4352,11 +4404,24 @@
         return;
       }
       if (!canUseFirebaseAuth() && !hasFirebaseWebConfig()) {
-        const unavailableMsg = getFirebaseFrontendUnavailableMessage("google");
-        pushGoogleFlowLog("google_signin_disabled_no_frontend_config", { entryPoint });
-        setGoogleFlowTask("google_signin_disabled_no_frontend_config", { entryPoint });
-        if (loginError) loginError.textContent = unavailableMsg;
-        return;
+        // Cold first load: the Firebase frontend config may not have arrived yet (it is fetched
+        // asynchronously and cached). Pull it on demand before giving up, so Google sign-in works
+        // on the first load instead of only after a page reload.
+        let recoveredFirebaseConfig = false;
+        try {
+          if (typeof window.__refreshSiteRuntimeConfig === "function") {
+            await window.__refreshSiteRuntimeConfig();
+            recoveredFirebaseConfig = hasFirebaseWebConfig();
+          }
+        } catch (_) {}
+        if (!recoveredFirebaseConfig) {
+          const unavailableMsg = getFirebaseFrontendUnavailableMessage("google");
+          pushGoogleFlowLog("google_signin_disabled_no_frontend_config", { entryPoint });
+          setGoogleFlowTask("google_signin_disabled_no_frontend_config", { entryPoint });
+          if (loginError) loginError.textContent = unavailableMsg;
+          return;
+        }
+        pushGoogleFlowLog("google_signin_frontend_config_recovered", { entryPoint });
       }
       googleFlowState.entry = entryPoint;
       const firebaseReadyNow = await ensureFirebaseCompatAsync();
