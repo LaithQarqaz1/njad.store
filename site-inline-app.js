@@ -5911,7 +5911,6 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
         +   feeNote
         +   '<label class="recharge-inline-label" for="rechargeRedeemInput">' + rechargeEscHtml('كود الشحن') + '</label>'
         +   '<input id="rechargeRedeemInput" type="text" autocomplete="off" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX" dir="ltr">'
-        +   '<div id="rechargeRedeemStatus" class="recharge-inline-status"></div>'
         +   '<div class="recharge-inline-actions">'
         +     '<button id="rechargeRedeemSubmit" type="button" class="btn btn-primary">' + rechargeEscHtml('استبدال') + '</button>'
         +     '<button id="rechargeRedeemCancel" type="button" class="btn">' + rechargeEscHtml('إلغاء') + '</button>'
