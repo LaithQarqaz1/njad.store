@@ -5777,11 +5777,38 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
     try { if (typeof showToast === 'function') { showToast(message, variant || 'info', 4200); return; } } catch (_) {}
     try { if (window && typeof window.showToast === 'function') { window.showToast(message, variant || 'info', 4200); return; } } catch (_) {}
   }
-  async function submitInlineRechargeCode(code, statusEl){
+  // A successful redeem shows the full success-animation page (the same overlay
+  // used by Binance auto-deposit), not a toast. Falls back to a success toast only
+  // if the overlay helper isn't available.
+  function showInlineRechargeSuccessPage(amount){
+    var amt = Number(amount);
+    var hasAmt = Number.isFinite(amt) && amt > 0;
+    var fn = (typeof showWalletActivityOverlay === 'function')
+      ? showWalletActivityOverlay
+      : ((window && typeof window.showWalletActivityOverlay === 'function') ? window.showWalletActivityOverlay : null);
+    if (fn) {
+      try {
+        fn({
+          title: 'تم شحن رصيدك',
+          bannerText: 'تم شحن رصيدك',
+          message: 'تمت إضافة المبلغ إلى رصيدك بنجاح.',
+          note: 'يمكنك مراجعة الحركة من سجل المحفظة.',
+          amount: hasAmt ? amt : undefined,
+          currency: 'USD',
+          primaryLabel: 'المحفظة',
+          secondaryLabel: 'الرئيسية'
+        });
+        return;
+      } catch (_) {}
+    }
+    inlineRechargeToast(hasAmt ? ('تم شحن رصيدك: $' + amt.toFixed(2)) : 'تم شحن رصيدك بنجاح', 'success');
+  }
+  // Errors are surfaced via toast (the inline status line was removed).
+  async function submitInlineRechargeCode(code){
     var workerBase = normalizeWorkerBase(WORKER) || normalizeWorkerBase(WORKER_DEFAULT) || normalizeWorkerBase(WORKER_BASE);
-    if (!workerBase) { if (statusEl) statusEl.textContent = 'تعذّر الاتصال بالخادم.'; return { ok: false }; }
+    if (!workerBase) { inlineRechargeToast('تعذّر الاتصال بالخادم.', 'error'); return { ok: false }; }
     var auth = readInlineDepositUploadSessionInfo();
-    if (!auth.uid || !auth.sessionKey) { if (statusEl) statusEl.textContent = 'يرجى تسجيل الدخول من جديد.'; return { ok: false }; }
+    if (!auth.uid || !auth.sessionKey) { inlineRechargeToast('يرجى تسجيل الدخول من جديد.', 'error'); return { ok: false }; }
     try {
       var url = new URL(String(workerBase).replace(/\\/+$/, '') + '/');
       url.searchParams.set('mode', 'redeem-code');
@@ -5793,7 +5820,6 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       var data = await res.json().catch(function(){ return {}; });
       if (res.ok && data && data.ok !== false) {
         var amount = Number(data.amount || 0);
-        inlineRechargeToast(amount > 0 ? ('تم شحن رصيدك: $' + amount.toFixed(2)) : 'تم شحن رصيدك بنجاح', 'success');
         try {
           if (data.newBalance != null) {
             var nb = Number(data.newBalance);
@@ -5803,13 +5829,14 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
             }
           }
         } catch (_) {}
+        showInlineRechargeSuccessPage(amount);
         return { ok: true, data: data };
       }
       var msg = (data && data.error) ? String(data.error) : 'تعذّر استبدال الكود.';
-      if (statusEl) statusEl.textContent = msg;
+      inlineRechargeToast(msg, 'error');
       return { ok: false };
     } catch (e) {
-      if (statusEl) statusEl.textContent = 'تعذّر الاتصال بالخادم. حاول لاحقاً.';
+      inlineRechargeToast('تعذّر الاتصال بالخادم. حاول لاحقاً.', 'error');
       return { ok: false };
     }
   }
@@ -5959,19 +5986,17 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       if (app && app.classList) app.classList.add('recharge-page-open');
       setInlineRechargeOptionsHidden(true);
       var input = page.querySelector('#rechargeRedeemInput');
-      var statusEl = page.querySelector('#rechargeRedeemStatus');
       var submitBtn = page.querySelector('#rechargeRedeemSubmit');
       var cancelBtn = page.querySelector('#rechargeRedeemCancel');
       if (cancelBtn) cancelBtn.addEventListener('click', closeInlineRechargeRedeemPage);
       if (backBtn) backBtn.addEventListener('click', closeInlineRechargeRedeemPage);
       async function doSubmit(){
         var code = String((input && input.value) || '').trim();
-        if (!code) { if (statusEl) statusEl.textContent = 'أدخل كود الشحن.'; return; }
-        if (statusEl) statusEl.textContent = '';
+        if (!code) { inlineRechargeToast('أدخل كود الشحن.', 'error'); return; }
         submitBtn.disabled = true;
         var prev = submitBtn.innerHTML;
         submitBtn.innerHTML = '...';
-        var result = await submitInlineRechargeCode(code, statusEl);
+        var result = await submitInlineRechargeCode(code);
         submitBtn.disabled = false;
         submitBtn.innerHTML = prev;
         if (result && result.ok) closeInlineRechargeRedeemPage();
