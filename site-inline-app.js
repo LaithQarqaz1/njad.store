@@ -5827,7 +5827,6 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
     cfg = cfg && typeof cfg === 'object' ? cfg : {};
     var storeName = getInlineStoreBrandName();
     var name = String(cfg.name || cfg.title || '').trim() || ('كود شحن ' + storeName);
-    var description = String(cfg.description || cfg.desc || '').trim() || 'أدخل كود الشحن لإضافة الرصيد';
     var imageUrl = String(cfg.imageUrl || cfg.image || cfg.icon || '').trim();
     var feePercent = Number(cfg.feePercent != null ? cfg.feePercent : cfg.fee);
     if (!isFinite(feePercent) || feePercent < 0) feePercent = 0;
@@ -5940,7 +5939,6 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
     return ''
       + media
       + '<h2 class="depositTreeTitle">' + rechargeEscHtml(c.name) + '</h2>'
-      + '<span class="offer-price">' + rechargeEscHtml('إدخال كود الشحن') + '</span>';
   }
   function appendInlineRechargeRedeemCard(activeFlow){
     try {
