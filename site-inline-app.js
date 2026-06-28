@@ -5815,10 +5815,21 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
   }
   function getInlineRechargeCardConfig(){
     var cfg = null;
+    // PRIMARY: the recharge card ships WITH the deposit methods payload from the
+    // server (same /deposit/deposit response as the methods/countries).
     try {
-      var b = window.__SITE_BRAND__ || {};
-      if (b && b.rechargeCard && typeof b.rechargeCard === 'object') cfg = b.rechargeCard;
-    } catch (_) { cfg = null; }
+      var payloads = window.__depositInlineLastCountriesPayloadByFlow;
+      var fk = (typeof getCurrentInlineFlowKind === 'function') ? getCurrentInlineFlowKind() : 'deposit';
+      var dp = (payloads && typeof payloads === 'object') ? (payloads[fk] || payloads.deposit) : null;
+      if (dp && dp.rechargeCard && typeof dp.rechargeCard === 'object') cfg = dp.rechargeCard;
+    } catch (_) {}
+    // Fallback: brand settings (window.__SITE_BRAND__.rechargeCard).
+    try {
+      if (!cfg) {
+        var b = window.__SITE_BRAND__ || {};
+        if (b && b.rechargeCard && typeof b.rechargeCard === 'object') cfg = b.rechargeCard;
+      }
+    } catch (_) { }
     try {
       if (!cfg && window.__SITE_RUNTIME__ && window.__SITE_RUNTIME__.brand && window.__SITE_RUNTIME__.brand.rechargeCard && typeof window.__SITE_RUNTIME__.brand.rechargeCard === 'object') {
         cfg = window.__SITE_RUNTIME__.brand.rechargeCard;
@@ -5827,13 +5838,15 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
     cfg = cfg && typeof cfg === 'object' ? cfg : {};
     var storeName = getInlineStoreBrandName();
     var name = String(cfg.name || cfg.title || '').trim() || ('كود شحن ' + storeName);
-    var description = String(cfg.description || cfg.desc || '').trim() || 'أدخل كود الشحن لإضافة الرصيد';
     var imageUrl = String(cfg.imageUrl || cfg.image || cfg.icon || '').trim();
     var feePercent = Number(cfg.feePercent != null ? cfg.feePercent : cfg.fee);
     if (!isFinite(feePercent) || feePercent < 0) feePercent = 0;
     if (feePercent > 100) feePercent = 100;
     var enabled = cfg.enabled !== false;
-    return { name: name, description: description, imageUrl: imageUrl, feePercent: feePercent, enabled: enabled };
+    var description = String(cfg.description || cfg.desc || '').trim();
+    var order = Number(cfg.order);
+    if (!isFinite(order)) order = 0;
+    return { name: name, description: description, imageUrl: imageUrl, feePercent: feePercent, enabled: enabled, order: order };
   }
   function getInlineRechargeAppEl(){
     try { if (grid && grid.closest) return grid.closest('#depositInlineApp'); } catch (_) {}
@@ -5940,7 +5953,6 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
     return ''
       + media
       + '<h2 class="depositTreeTitle">' + rechargeEscHtml(c.name) + '</h2>'
-      + '<span class="offer-price">' + rechargeEscHtml('إدخال كود الشحن') + '</span>';
   }
   function appendInlineRechargeRedeemCard(activeFlow){
     try {
@@ -5960,7 +5972,15 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       node.innerHTML = buildInlineRechargeRedeemCardInner();
       node.addEventListener('click', function(ev){ try { ev.preventDefault(); ev.stopPropagation(); } catch (_) {} openInlineRechargeRedeemModal(); });
       node.addEventListener('keydown', function(ev){ if (!ev || (ev.key !== 'Enter' && ev.key !== ' ')) return; try { ev.preventDefault(); ev.stopPropagation(); } catch (_) {} openInlineRechargeRedeemModal(); });
-      grid.appendChild(node);
+      // Position by the admin-set order: ترتيب N puts the card at the Nth slot
+      // among the option cards; 0/empty keeps it last.
+      var rcOrder = Number(getInlineRechargeCardConfig().order);
+      var optionCards = grid.querySelectorAll('.card.depositTreeCard:not([data-recharge-redeem-card="1"])');
+      if (isFinite(rcOrder) && rcOrder > 0 && optionCards.length && rcOrder <= optionCards.length) {
+        grid.insertBefore(node, optionCards[rcOrder - 1]);
+      } else {
+        grid.appendChild(node);
+      }
     } catch (_) {}
   }
 
