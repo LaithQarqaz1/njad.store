@@ -5525,7 +5525,9 @@ function headerNormalizeSiteBrandState(raw){
       src.depositCategory ??
       src.deposit_category,
       'الإيداع'
-    ),};
+    ),
+    rechargeCard: (src.rechargeCard && typeof src.rechargeCard === "object") ? src.rechargeCard : ((src.recharge_card && typeof src.recharge_card === "object") ? src.recharge_card : {}),
+  };
 }
 function readHeaderSiteBrandState(){
   try {
@@ -19377,6 +19379,7 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
             src.deposit_category,
           "الإيداع"
         ),
+        rechargeCard: (src.rechargeCard && typeof src.rechargeCard === "object") ? src.rechargeCard : ((src.recharge_card && typeof src.recharge_card === "object") ? src.recharge_card : {}),
         updatedAt: String(src.updatedAt ?? src.updated_at ?? "").trim().slice(0, 120)
       };
     }

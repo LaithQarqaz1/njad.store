@@ -5958,7 +5958,15 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       node.innerHTML = buildInlineRechargeRedeemCardInner();
       node.addEventListener('click', function(ev){ try { ev.preventDefault(); ev.stopPropagation(); } catch (_) {} openInlineRechargeRedeemModal(); });
       node.addEventListener('keydown', function(ev){ if (!ev || (ev.key !== 'Enter' && ev.key !== ' ')) return; try { ev.preventDefault(); ev.stopPropagation(); } catch (_) {} openInlineRechargeRedeemModal(); });
-      grid.appendChild(node);
+      // Position by the admin-set order: ترتيب N puts the card at the Nth slot
+      // among the option cards; 0/empty keeps it last.
+      var rcOrder = Number(getInlineRechargeCardConfig().order);
+      var optionCards = grid.querySelectorAll('.card.depositTreeCard:not([data-recharge-redeem-card="1"])');
+      if (isFinite(rcOrder) && rcOrder > 0 && optionCards.length && rcOrder <= optionCards.length) {
+        grid.insertBefore(node, optionCards[rcOrder - 1]);
+      } else {
+        grid.appendChild(node);
+      }
     } catch (_) {}
   }
 
