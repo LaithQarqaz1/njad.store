@@ -5726,143 +5726,6 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
     return null;
   }
 
-  // ---- Recharge codes (أكواد الشحن): a redeem card at the end of the deposit
-  // options + an inline code-entry modal. Credits the wallet via mode=redeem-code. ----
-  function rechargeEscHtml(value){
-    return String(value == null ? '' : value).replace(/[&<>"']/g, function(ch){
-      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch];
-    });
-  }
-  function getInlineStoreBrandName(){
-    try {
-      var b = window.__SITE_BRAND__;
-      var n = b && (b.storeName || b.siteName || b.name);
-      if (n && String(n).trim()) return String(n).trim();
-    } catch (_) {}
-    try {
-      var r = window.__SITE_RUNTIME__ && window.__SITE_RUNTIME__.brand;
-      if (r && r.storeName && String(r.storeName).trim()) return String(r.storeName).trim();
-    } catch (_) {}
-    return 'المتجر';
-  }
-  function inlineRechargeToast(message, variant){
-    try { if (typeof showToast === 'function') { showToast(message, variant || 'info', 4200); return; } } catch (_) {}
-    try { if (window && typeof window.showToast === 'function') { window.showToast(message, variant || 'info', 4200); return; } } catch (_) {}
-  }
-  async function submitInlineRechargeCode(code, statusEl){
-    var workerBase = normalizeWorkerBase(WORKER) || normalizeWorkerBase(WORKER_DEFAULT) || normalizeWorkerBase(WORKER_BASE);
-    if (!workerBase) { if (statusEl) statusEl.textContent = 'تعذّر الاتصال بالخادم.'; return { ok: false }; }
-    var auth = readInlineDepositUploadSessionInfo();
-    if (!auth.uid || !auth.sessionKey) { if (statusEl) statusEl.textContent = 'يرجى تسجيل الدخول من جديد.'; return { ok: false }; }
-    try {
-      var url = new URL(String(workerBase).replace(/\/+$/, '') + '/');
-      url.searchParams.set('mode', 'redeem-code');
-      var res = await fetch(url.toString(), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-useruid': auth.uid, 'x-sessionkey': auth.sessionKey },
-        body: JSON.stringify({ code: code })
-      });
-      var data = await res.json().catch(function(){ return {}; });
-      if (res.ok && data && data.ok !== false) {
-        var amount = Number(data.amount || 0);
-        inlineRechargeToast(amount > 0 ? ('تم شحن رصيدك: $' + amount.toFixed(2)) : 'تم شحن رصيدك بنجاح', 'success');
-        try {
-          if (data.newBalance != null) {
-            var nb = Number(data.newBalance);
-            if (Number.isFinite(nb)) {
-              if (typeof window.setHeaderBalanceAmount === 'function') window.setHeaderBalanceAmount(nb);
-              if (typeof window.broadcastBalance === 'function') window.broadcastBalance(nb);
-            }
-          }
-        } catch (_) {}
-        return { ok: true, data: data };
-      }
-      var msg = (data && data.error) ? String(data.error) : 'تعذّر استبدال الكود.';
-      if (statusEl) statusEl.textContent = msg;
-      return { ok: false };
-    } catch (e) {
-      if (statusEl) statusEl.textContent = 'تعذّر الاتصال بالخادم. حاول لاحقاً.';
-      return { ok: false };
-    }
-  }
-  function openInlineRechargeRedeemModal(){
-    try {
-      var existing = document.getElementById('rechargeRedeemModal');
-      if (existing) { try { existing.remove(); } catch (_) {} }
-      var storeName = getInlineStoreBrandName();
-      var overlay = document.createElement('div');
-      overlay.id = 'rechargeRedeemModal';
-      overlay.setAttribute('role', 'dialog');
-      overlay.setAttribute('aria-modal', 'true');
-      overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(0,0,0,.55);';
-      overlay.innerHTML =
-        '<div class="card" style="width:min(420px,100%);background:var(--bg-app,#0e1726);border:1px solid var(--line,rgba(255,255,255,.12));border-radius:18px;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.45);">'
-        + '<div style="display:flex;align-items:center;gap:10px;">'
-        +   '<span style="width:42px;height:42px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;background:rgba(var(--site-accent-rgb,148,163,184),.16);color:var(--site-accent-runtime,#38bdf8);"><i class="fa-solid fa-credit-card"></i></span>'
-        +   '<div><div style="font-weight:800;font-size:1.05rem;">' + rechargeEscHtml('كود شحن ' + storeName) + '</div>'
-        +     '<div style="font-size:.82rem;color:var(--muted,#9aa4b2);">' + rechargeEscHtml('أدخل كود الشحن لإضافة الرصيد') + '</div></div>'
-        + '</div>'
-        + '<input id="rechargeRedeemInput" type="text" autocomplete="off" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX" dir="ltr" style="width:100%;margin-top:14px;height:48px;border-radius:12px;border:1px solid var(--line,rgba(255,255,255,.16));background:var(--bg-elev,rgba(255,255,255,.04));color:var(--text,#e7edf5);text-align:center;letter-spacing:2px;font-size:1rem;font-family:monospace;">'
-        + '<div id="rechargeRedeemStatus" style="min-height:18px;margin-top:8px;font-size:.85rem;color:#f87171;text-align:center;"></div>'
-        + '<div style="display:flex;gap:10px;margin-top:12px;">'
-        +   '<button id="rechargeRedeemCancel" type="button" class="btn" style="flex:1;height:46px;border-radius:999px;border:1px solid var(--line,rgba(255,255,255,.16));background:transparent;color:var(--text,#e7edf5);font-weight:700;cursor:pointer;">' + rechargeEscHtml('إلغاء') + '</button>'
-        +   '<button id="rechargeRedeemSubmit" type="button" class="btn btn-primary" style="flex:2;height:46px;border-radius:999px;border:0;background:var(--site-accent-runtime-strong,var(--site-accent-runtime,#0b6388));color:#fff;font-weight:800;cursor:pointer;">' + rechargeEscHtml('استبدال') + '</button>'
-        + '</div>'
-        + '</div>';
-      document.body.appendChild(overlay);
-      var input = overlay.querySelector('#rechargeRedeemInput');
-      var statusEl = overlay.querySelector('#rechargeRedeemStatus');
-      var submitBtn = overlay.querySelector('#rechargeRedeemSubmit');
-      var cancelBtn = overlay.querySelector('#rechargeRedeemCancel');
-      function closeModal(){ try { overlay.remove(); } catch (_) {} }
-      cancelBtn.addEventListener('click', closeModal);
-      overlay.addEventListener('click', function(ev){ if (ev.target === overlay) closeModal(); });
-      async function doSubmit(){
-        var code = String((input && input.value) || '').trim();
-        if (!code) { if (statusEl) statusEl.textContent = 'أدخل كود الشحن.'; return; }
-        if (statusEl) statusEl.textContent = '';
-        submitBtn.disabled = true;
-        var prev = submitBtn.innerHTML;
-        submitBtn.innerHTML = '...';
-        var result = await submitInlineRechargeCode(code, statusEl);
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = prev;
-        if (result && result.ok) closeModal();
-      }
-      submitBtn.addEventListener('click', doSubmit);
-      input.addEventListener('keydown', function(ev){ if (ev && ev.key === 'Enter') { try { ev.preventDefault(); } catch (_) {} doSubmit(); } });
-      try { input.focus(); } catch (_) {}
-    } catch (_) {}
-  }
-  function buildInlineRechargeRedeemCardInner(){
-    return ''
-      + '<div class="catalog-card-media is-empty">'
-      + '<div class="depositTreeThumbFallback"><i class="fa-solid fa-credit-card"></i></div>'
-      + '</div>'
-      + '<h2 class="depositTreeTitle">' + rechargeEscHtml('كود شحن ' + getInlineStoreBrandName()) + '</h2>'
-      + '<span class="offer-price">' + rechargeEscHtml('إدخال كود الشحن') + '</span>';
-  }
-  function appendInlineRechargeRedeemCard(activeFlow){
-    try {
-      if (!grid) return;
-      var flow = normalizeInlineFlow(activeFlow || getCurrentInlineFlowKind());
-      if (flow !== 'deposit') return; // recharge codes credit the wallet => deposit flow only
-      if (grid.querySelector('[data-recharge-redeem-card="1"]')) return;
-      var node = document.createElement('a');
-      node.href = 'javascript:void(0)';
-      node.className = 'card catalog-card depositTreeCard walletFlowCard rechargeRedeemCard';
-      node.dataset.rechargeRedeemCard = '1';
-      node.dataset.skipCardStates = '1';
-      node.dataset.cardStateScope = 'wallet';
-      node.setAttribute('role', 'button');
-      node.setAttribute('tabindex', '0');
-      node.innerHTML = buildInlineRechargeRedeemCardInner();
-      node.addEventListener('click', function(ev){ try { ev.preventDefault(); ev.stopPropagation(); } catch (_) {} openInlineRechargeRedeemModal(); });
-      node.addEventListener('keydown', function(ev){ if (!ev || (ev.key !== 'Enter' && ev.key !== ' ')) return; try { ev.preventDefault(); ev.stopPropagation(); } catch (_) {} openInlineRechargeRedeemModal(); });
-      grid.appendChild(node);
-    } catch (_) {}
-  }
-
   renderCountries = function(list){
     if (!grid) {
       debugCountriesLog('error', 'Grid element not found while rendering countries');
@@ -5923,8 +5786,6 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       });
       grid.appendChild(node);
     });
-    // Recharge-code redeem card always sits at the end of the deposit options.
-    appendInlineRechargeRedeemCard(activeFlow);
     const rootEmpty = rootEntries.length === 0;
     const rootEmptyVisible = setInlineDepositNoResultsVisible(rootEmpty);
     if (!currentCountry) setCountriesRetryButtonVisible(rootEmptyVisible, rootEntries.length ? '' : 'countries_empty');
@@ -8212,6 +8073,8 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       const root = document && document.documentElement ? document.documentElement : null;
       const explicitDir = String(root && root.getAttribute ? (root.getAttribute('dir') || '') : '').trim().toLowerCase();
       if (explicitDir === 'rtl' || explicitDir === 'ltr') return explicitDir;
+      const lang = String(root && root.getAttribute ? (root.getAttribute('data-lang') || root.getAttribute('lang') || '') : '').trim().toLowerCase();
+      if (lang === 'en' || lang === 'fr') return 'ltr';
     } catch (_) {}
     return 'rtl';
   }
@@ -15348,7 +15211,61 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
   try { window.__appendCatalogCardMedia = appendCatalogCardMedia; } catch (_) {}
   try { window.__catalogNoImagePlaceholderSrc = catalogNoImagePlaceholderSrc; } catch (_) {}
 
+  const CATALOG_DYNAMIC_TEXT_OVERRIDES = {
+    "دفعاتي": { en: "My Payments", fr: "Mes paiements" },
+    "ايدي اللاعب": { en: "Player ID", fr: "ID du joueur" },
+    "ايدي اللاعب:": { en: "Player ID:", fr: "ID du joueur :" },
+    "ادخل ايدي اللاعب": { en: "Enter Player ID", fr: "Entrez l'ID du joueur" },
+    "ادخل الايدي هنا": { en: "Enter Player ID", fr: "Entrez l'ID du joueur" },
+    "شراء": { en: "Buy", fr: "Acheter" },
+    "شراء الآن": { en: "Buy Now", fr: "Acheter maintenant" },
+    "رجوع": { en: "Back", fr: "Retour" },
+    "مسح": { en: "Clear", fr: "Effacer" },
+    "غير متوفر": { en: "Unavailable", fr: "Indisponible" },
+    "لعبة الكتالوج": { en: "Catalog Game", fr: "Jeu du catalogue" },
+    "استعرض الباقات واختر ما يناسبك لإكمال الطلب.": { en: "Browse packages and choose what suits you to complete the order.", fr: "Parcourez les forfaits et choisissez celui qui vous convient pour finaliser la commande." },
+    "الخدمة تلقائية وتعمل على مدار ال24 ساعة": { en: "The service is automatic and operates 24 hours a day", fr: "Le service est automatique et fonctionne 24h/24" },
+    "هذا المنتج يعمل بشكل تلقائي 24 ساعة": { en: "This product works automatically 24/7", fr: "Ce produit fonctionne automatiquement 24h/24" },
+    "الفئة": { en: "Category", fr: "Catأ©gorie" },
+    "لصق": { en: "Paste", fr: "Coller" },
+    "اختر الكمية": { en: "Choose quantity", fr: "Choisir la quantitأ©" },
+    "الكمية المطلوبة": { en: "Required Quantity", fr: "Quantitأ© requise" },
+    "أدخل الكمية المطلوبة": { en: "Enter required quantity", fr: "Entrez la quantitأ© requise" },
+    "لم يتم اختيار أي عرض.": { en: "No offer selected.", fr: "Aucune offre sأ©lectionnأ©e." },
+    "الكمية": { en: "Qty", fr: "Qtأ©" },
+    "اختر الكمية من القائمة.": { en: "Choose quantity from the list.", fr: "Choisissez la quantitأ© dans la liste." }
+  };
+
+  const CATALOG_DYNAMIC_TITLE_ALIASES = {
+    "ببجي": { en: "PUBG Mobile", fr: "PUBG Mobile" },
+    "ببجي موبايل": { en: "PUBG Mobile", fr: "PUBG Mobile" },
+    "فري فاير": { en: "Free Fire", fr: "Free Fire" },
+    "جواكر": { en: "Jawaker", fr: "Jawaker" },
+    "موبايل ليجند": { en: "Mobile Legends", fr: "Mobile Legends" },
+    "ماين كرافت": { en: "Minecraft", fr: "Minecraft" },
+    "كلاش اوف كلانس": { en: "Clash of Clans", fr: "Clash of Clans" },
+    "كلاش رويال": { en: "Clash Royale", fr: "Clash Royale" },
+    "براول ستارز": { en: "Brawl Stars", fr: "Brawl Stars" },
+    "بلود سترايك": { en: "Blood Strike", fr: "Blood Strike" },
+    "وي بلاي": { en: "WePlay", fr: "WePlay" },
+    "ليبي": { en: "Ludo", fr: "Ludo" },
+    "اورلي": { en: "Orly", fr: "Orly" },
+    "اكواد": { en: "Codes", fr: "Codes" },
+    "عروض": { en: "Offers", fr: "Offres" },
+    "روبوت": { en: "Bot", fr: "Bot" },
+    "جوهرة": { en: "Gem", fr: "Gemme" },
+    "جواهر": { en: "Gems", fr: "Gemmes" }
+  };
+
   function getCatalogUiLang() {
+    try {
+      if (window.__I18N__ && typeof window.__I18N__.getLang === "function") {
+        return String(window.__I18N__.getLang() || "ar").trim().toLowerCase() || "ar";
+      }
+    } catch (_) {}
+    try {
+      return String(document.documentElement.getAttribute("data-lang") || "ar").trim().toLowerCase() || "ar";
+    } catch (_) {}
     return "ar";
   }
 
@@ -15359,9 +15276,157 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
       .trim();
   }
 
-  // Catalog translation removed — Arabic-only. Identity passthrough.
+  function lookupCatalogDictionaryTranslation(rawText, lang) {
+    try {
+      const text = normalizeCatalogDictKey(rawText);
+      if (!text) return "";
+      const target = String(lang || getCatalogUiLang() || "ar").trim().toLowerCase();
+      if (!target || target === "ar" || target === "off") return "";
+      const dictRoot = {};
+      const sourceDict = /[\u0600-\u06FF]/.test(text)
+        ? (dictRoot.byAr || null)
+        : (/[A-Za-z]/.test(text) ? (dictRoot.byEn || null) : null);
+      if (!sourceDict) return "";
+      const entry = sourceDict[text];
+      if (!entry || !entry[target]) return "";
+      return String(entry[target] || "").trim();
+    } catch (_) {}
+    return "";
+  }
+
+  function lookupCatalogDynamicOverride(rawText, lang) {
+    const text = normalizeCatalogDictKey(rawText);
+    if (!text) return "";
+    const target = String(lang || getCatalogUiLang() || "ar").trim().toLowerCase();
+    if (!target || target === "ar" || target === "off") return "";
+    const override = CATALOG_DYNAMIC_TEXT_OVERRIDES[text] || CATALOG_DYNAMIC_TITLE_ALIASES[text] || null;
+    if (!override || !override[target]) return "";
+    return String(override[target] || "").trim();
+  }
+
+  function applyCatalogDynamicPatterns(rawText, lang) {
+    const text = normalizeCatalogDictKey(rawText);
+    if (!text) return "";
+    const target = String(lang || getCatalogUiLang() || "ar").trim().toLowerCase();
+    if (!target || target === "ar" || target === "off") return "";
+
+    let match = text.match(/^(?:شدة|شدات)\s*(\d+(?:\.\d+)?)$/);
+    if (!match) match = text.match(/^(\d+(?:\.\d+)?)\s*(?:شدة|شدات)$/);
+    if (match) return `${match[1]} UC`;
+
+    match = text.match(/^كود\s*(\d+(?:\.\d+)?)\s*(?:شدة|شدات)$/);
+    if (match) return target === "fr" ? `Code ${match[1]} UC` : `${match[1]} UC Code`;
+
+    const gemUnit = (amount) => {
+      const numeric = Number(String(amount || "").replace(/,/g, ""));
+      const singular = Number.isFinite(numeric) && numeric === 1;
+      if (target === "fr") return singular ? "gemme" : "gemmes";
+      return singular ? "Gem" : "Gems";
+    };
+
+    match = text.match(/^(?:جواهر|جوهرة)\s*(\d+(?:\.\d+)?)$/);
+    if (!match) match = text.match(/^(\d+(?:\.\d+)?)\s*(?:جواهر|جوهرة)$/);
+    if (match) return `${match[1]} ${gemUnit(match[1])}`;
+
+    match = text.match(/^كود\s*(\d+(?:\.\d+)?)\s*(?:جواهر|جوهرة)$/);
+    if (match) return target === "fr" ? `Code ${match[1]} ${gemUnit(match[1])}` : `${match[1]} ${gemUnit(match[1])} Code`;
+
+    let replaced = text;
+    const phraseReplacements = [
+      {
+        pattern: /هذا\s*المنتج\s*يعمل\s*بشكل\s*تلقائي\s*(?:على\s*)?(?:مدار|مدا)?\s*24\s*ساعة\s*/gi,
+        en: "This product works automatically 24/7. ",
+        fr: "Ce produit fonctionne automatiquement 24h/24. "
+      },
+      {
+        pattern: /يتم\s*تسليم\s*الكود\s*بشكل\s*فوري\s*/gi,
+        en: "The code is delivered instantly. ",
+        fr: "Le code est livre instantanement. "
+      },
+      {
+        pattern: /يمكن\s*استرداد\s*الكود\s*(?:في|من)\s*موقع\s*pubg\s*mobile\s*العالمي\s*:?\s*/gi,
+        en: "The code can be redeemed on the official PUBG Mobile global site: ",
+        fr: "Le code peut etre utilise sur le site mondial officiel de PUBG Mobile : "
+      },
+      {
+        pattern: /يمكن\s*استرداد\s*الكود\s*(?:في|من)\s*موقع\s*/gi,
+        en: "The code can be redeemed on ",
+        fr: "Le code peut etre utilise sur "
+      }
+    ];
+    phraseReplacements.forEach((entry) => {
+      try {
+        replaced = replaced.replace(entry.pattern, entry[target] || entry.en || "");
+      } catch (_) {}
+    });
+    const mixedLabelPatterns = [
+      { pattern: /^اكواد\s+(.+)$/i, value: "$1 __catalog_codes__" },
+      { pattern: /^عروض\s+(.+)$/i, value: "$1 __catalog_offers__" },
+      { pattern: /^روبوت\s+(.+)$/i, value: "$1 __catalog_bot__" },
+      { pattern: /^(.+)\s+اكواد$/i, value: "$1 __catalog_codes__" },
+      { pattern: /^(.+)\s+عروض$/i, value: "$1 __catalog_offers__" },
+      { pattern: /^(.+)\s+روبوت$/i, value: "$1 __catalog_bot__" }
+    ];
+    mixedLabelPatterns.forEach((entry) => {
+      try {
+        const next = replaced.replace(entry.pattern, entry.value);
+        if (next !== replaced) replaced = next;
+      } catch (_) {}
+    });
+    const replacements = [
+      { pattern: /ببجي\s*موبايل/gi, en: "PUBG Mobile", fr: "PUBG Mobile" },
+      { pattern: /ببجي/gi, en: "PUBG Mobile", fr: "PUBG Mobile" },
+      { pattern: /فري\s*فاير/gi, en: "Free Fire", fr: "Free Fire" },
+      { pattern: /جواكر/gi, en: "Jawaker", fr: "Jawaker" },
+      { pattern: /موبايل\s*ليجند/gi, en: "Mobile Legends", fr: "Mobile Legends" },
+      { pattern: /ماين\s*كرافت/gi, en: "Minecraft", fr: "Minecraft" },
+      { pattern: /كلاش\s*اوف\s*كلانس/gi, en: "Clash of Clans", fr: "Clash of Clans" },
+      { pattern: /كلاش\s*رويال/gi, en: "Clash Royale", fr: "Clash Royale" },
+      { pattern: /براول\s*ستارز/gi, en: "Brawl Stars", fr: "Brawl Stars" },
+      { pattern: /بلود\s*سترايك/gi, en: "Blood Strike", fr: "Blood Strike" },
+      { pattern: /وي\s*بلاي/gi, en: "WePlay", fr: "WePlay" },
+      { pattern: /ليبي/gi, en: "Ludo", fr: "Ludo" },
+      { pattern: /اورلي/gi, en: "Orly", fr: "Orly" }
+    ];
+
+    replacements.forEach((entry) => {
+      try {
+        replaced = replaced.replace(entry.pattern, entry[target] || entry.en || "");
+      } catch (_) {}
+    });
+
+    replaced = replaced
+      .replace(/__catalog_codes__/g, target === "fr" ? "Codes" : "Codes")
+      .replace(/__catalog_offers__/g, target === "fr" ? "Offres" : "Offers")
+      .replace(/__catalog_bot__/g, target === "fr" ? "Bot" : "Bot");
+
+    if (replaced !== text) return replaced.replace(/\s{2,}/g, " ").trim();
+    return "";
+  }
+
   function translateCatalogDynamicText(rawText) {
-    return rawText == null ? "" : String(rawText);
+    const text = normalizeCatalogDictKey(rawText);
+    if (!text) return "";
+    const target = getCatalogUiLang();
+    if (!target || target === "ar" || target === "off") return text;
+
+    try {
+      if (typeof window.translateCatalogDynamicText === "function" && window.translateCatalogDynamicText !== translateCatalogDynamicText) {
+        const globalHit = normalizeCatalogDictKey(window.translateCatalogDynamicText(text));
+        if (globalHit && globalHit !== text) return globalHit;
+      }
+    } catch (_) {}
+
+    const direct = lookupCatalogDynamicOverride(text, target);
+    if (direct) return direct;
+
+    const dictHit = lookupCatalogDictionaryTranslation(text, target);
+    if (dictHit) return dictHit;
+
+    const patternHit = applyCatalogDynamicPatterns(text, target);
+    if (patternHit) return patternHit;
+
+    return text;
   }
 
   function translateCatalogUi(key, fallback) {
@@ -15463,7 +15528,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
 
   function formatItemLabel(item) {
     const base = (item?.label || item?.name || item?.title || item?.id || "").toString().trim();
-    if (!base) return typeof translateCatalogUi === "function" ? translateCatalogUi("catalog.item", "عنصر") : "Item";
+    if (!base) return typeof translateCatalogUi === "function" ? translateCatalogUi("catalog.item", "Item") : "Item";
     return typeof translateCatalogDynamicText === "function" ? translateCatalogDynamicText(base) : base;
   }
 
@@ -16317,17 +16382,26 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
 
   function formatQtyHint(min, max, options) {
     const allowed = normalizeQtyOptions(options);
+    const lang = typeof getCatalogUiLang === "function" ? getCatalogUiLang() : "ar";
     if (allowed.length) {
       const listText = formatQtyOptionsText(allowed, 10);
+      if (lang === "en") return `Available quantities: ${listText}`;
+      if (lang === "fr") return `Quantitأ©s disponibles : ${listText}`;
       return `الكميات المتاحة: ${listText}`;
     }
     const hasMin = Number.isFinite(min) && min > 0;
     const hasMax = Number.isFinite(max) && max > 0;
     if (!hasMin && !hasMax) {
+      if (lang === "en") return "Enter required quantity.";
+      if (lang === "fr") return "Entrez la quantitأ© requise.";
       return "أدخل الكمية المطلوبة.";
     }
-    const minText = hasMin ? `الحد الأدنى ${min}` : "بدون حد أدنى";
-    const maxText = hasMax ? `الحد الأقصى ${max}` : "بدون حد أقصى";
+    const minText = hasMin
+      ? (lang === "en" ? `Minimum ${min}` : (lang === "fr" ? `Minimum ${min}` : `الحد الأدنى ${min}`))
+      : (lang === "en" ? "No minimum" : (lang === "fr" ? "Pas de minimum" : "بدون حد أدنى"));
+    const maxText = hasMax
+      ? (lang === "en" ? `Maximum ${max}` : (lang === "fr" ? `Maximum ${max}` : `الحد الأقصى ${max}`))
+      : (lang === "en" ? "No maximum" : (lang === "fr" ? "Pas de maximum" : "بدون حد أقصى"));
     return `${minText} - ${maxText}`;
   }
 
@@ -17023,14 +17097,6 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     try { control.setAttribute("autocapitalize", "off"); } catch (_) {}
     try { control.setAttribute("autocorrect", "off"); } catch (_) {}
     try { control.spellcheck = false; } catch (_) {}
-    // Keep page translators (Google Translate / iOS Safari translate) out of the
-    // field. On iOS a translated page restructures the text nodes around an
-    // input and merges neighbouring text (placeholder, description, the
-    // back/buy buttons) into the field area on paste/type. translate="no" +
-    // .notranslate tell the translator to leave the control untouched; both are
-    // inert when no translator is active, so other phones are unaffected.
-    try { control.setAttribute("translate", "no"); } catch (_) {}
-    try { control.classList.add("notranslate"); } catch (_) {}
     // Password managers / extensions ignore hints.
     try { control.setAttribute("data-1p-ignore", "true"); } catch (_) {}
     try { control.setAttribute("data-lpignore", "true"); } catch (_) {}
@@ -17648,8 +17714,22 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
 
   function buildProfessionalPlaceholder(label) {
     const cleaned = cleanLabelForPlaceholder(label);
+    const lang = typeof getCatalogUiLang === "function" ? getCatalogUiLang() : "ar";
     if (!cleaned) {
+      if (lang === "en") return "Enter the required information";
+      if (lang === "fr") return "Entrez les informations requises";
       return "يرجى كتابة البيانات هنا";
+    }
+    const translatedLabel = typeof translateCatalogDynamicText === "function"
+      ? translateCatalogDynamicText(cleaned)
+      : cleaned;
+    if (lang === "en") {
+      if (/^player id:?$/i.test(String(translatedLabel || "").trim())) return "Enter Player ID";
+      return `Enter ${translatedLabel}`;
+    }
+    if (lang === "fr") {
+      if (/^id du joueur\s*:?\s*$/i.test(String(translatedLabel || "").trim())) return "Entrez l'ID du joueur";
+      return `Entrez ${translatedLabel}`;
     }
     return `يرجى كتابة ${cleaned} هنا`;
   }
@@ -19028,7 +19108,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     if (dom.gameCategory) {
       const span = dom.gameCategory.querySelector("span") || dom.gameCategory;
       const categoryLabel = typeof translateCatalogUi === "function"
-        ? translateCatalogUi("catalog.categoryLabel", "الفئة")
+        ? translateCatalogUi("catalog.categoryLabel", "Category")
         : "Category";
       const rawCategory = String(game.category || "").trim();
       const translatedCategory = rawCategory && typeof translateCatalogDynamicText === "function"
@@ -19431,8 +19511,15 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     const total = calcItemTotal(item, quantity);
     const tierPrice = resolveQtyTierPrice(item, quantity);
     const hasTierPrice = Number.isFinite(tierPrice);
+    const lang = typeof getCatalogUiLang === "function" ? getCatalogUiLang() : "ar";
     const unitText = hasTierPrice
-      ? `سعر الفئة ${quantity}: ${formatPrice(tierPrice, item.currency)}`
+      ? (
+          lang === "en"
+            ? `Tier price ${quantity}: ${formatPrice(tierPrice, item.currency)}`
+            : (lang === "fr"
+              ? `Prix du palier ${quantity} : ${formatPrice(tierPrice, item.currency)}`
+              : `سعر الفئة ${quantity}: ${formatPrice(tierPrice, item.currency)}`)
+        )
       : formatPrice(item.price, item.currency);
     const totalText = formatPrice(total, item.currency);
     const qtyPrefix = typeof translateCatalogDynamicText === "function"
@@ -30154,6 +30241,8 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
             if (!raw) raw = document.documentElement.getAttribute('data-lang') || document.documentElement.getAttribute('lang') || 'ar';
             raw = String(raw || '').toLowerCase();
             if (raw === 'off') raw = String(document.documentElement.getAttribute('lang') || 'ar').toLowerCase();
+            if (raw.indexOf('en') === 0) return 'en';
+            if (raw.indexOf('fr') === 0) return 'fr';
             return 'ar';
           } catch(_){
             return 'ar';
@@ -30168,7 +30257,10 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           return getAgentsUiLang() === 'ar' ? 'rtl' : 'ltr';
         }
 
-        function agentsT(ar){
+        function agentsT(ar, en, fr){
+          var lang = getAgentsUiLang();
+          if (lang === 'en') return String(en || ar || '');
+          if (lang === 'fr') return String(fr || en || ar || '');
           return String(ar || '');
         }
 
@@ -30348,7 +30440,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           if (!state.refs || !state.refs.list) return;
           var agents = readAgentsState();
           if (state.refs.title) {
-            state.refs.title.textContent = agentsT('وكلاؤنا');
+            state.refs.title.textContent = agentsT('وكلاؤنا', 'Our Agents', 'Nos agents');
           }
           if (state.refs.description) {
             var hasItemDescriptions = agents.items.some(function(item){
@@ -30360,7 +30452,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           }
           if (!agents.items.length) {
             state.openId = '';
-            state.refs.list.innerHTML = '<div class="agents-empty">' + escHtml(agentsT('لا توجد بيانات وكلاء متاحة الآن.')) + '</div>';
+            state.refs.list.innerHTML = '<div class="agents-empty">' + escHtml(agentsT('لا توجد بيانات وكلاء متاحة الآن.', 'No agents are available right now.', 'Aucun agent n\'est disponible pour le moment.')) + '</div>';
             return;
           }
           ensureOpenAgent(agents);
@@ -30373,11 +30465,11 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
               ? (phoneHref
                 ? '<a class="agents-detail-link agents-detail-value-ltr" href="' + attrHtml(phoneHref) + '" dir="ltr">' + escHtml(item.phone) + '</a>'
                 : '<span class="agents-detail-value-ltr" dir="ltr">' + escHtml(item.phone) + '</span>')
-              : '<span>' + escHtml(agentsT('غير متوفر')) + '</span>';
+              : '<span>' + escHtml(agentsT('غير متوفر', 'Unavailable', 'Non disponible')) + '</span>';
             var descriptionText = String(item && item.description || '').trim();
-            var cardSummary = String(descriptionText || item && (item.address || item.phone) || '').trim() || agentsT('اضغط لعرض التفاصيل');
+            var cardSummary = String(descriptionText || item && (item.address || item.phone) || '').trim() || agentsT('اضغط لعرض التفاصيل', 'Tap to view details', 'Touchez pour voir les details');
             var descriptionLine = descriptionText
-              ? '      <div class="agents-detail-line"><strong>' + escHtml(agentsT('الوصف:')) + '</strong><span dir="auto">' + escHtml(descriptionText) + '</span></div>'
+              ? '      <div class="agents-detail-line"><strong>' + escHtml(agentsT('الوصف:', 'Description:', 'Description :')) + '</strong><span dir="auto">' + escHtml(descriptionText) + '</span></div>'
               : '';
             return [
               '<article class="agents-card' + (isOpen ? ' is-open' : '') + '">',
@@ -30392,8 +30484,8 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
               '    <div class="agents-card-divider"></div>',
               '    <div class="agents-card-details">',
               descriptionLine,
-              '      <div class="agents-detail-line"><strong>' + escHtml(agentsT('العنوان:')) + '</strong><span dir="auto">' + escHtml(item.address || agentsT('غير محدد')) + '</span></div>',
-              '      <div class="agents-detail-line"><strong>' + escHtml(agentsT('رقم الهاتف:')) + '</strong>' + phoneHtml + '</div>',
+              '      <div class="agents-detail-line"><strong>' + escHtml(agentsT('العنوان:', 'Address:', 'Adresse :')) + '</strong><span dir="auto">' + escHtml(item.address || agentsT('غير محدد', 'Not specified', 'Non precise')) + '</span></div>',
+              '      <div class="agents-detail-line"><strong>' + escHtml(agentsT('رقم الهاتف:', 'Phone:', 'Telephone :')) + '</strong>' + phoneHtml + '</div>',
               '    </div>',
               '  </div>',
               '</article>'
@@ -36081,7 +36173,61 @@ function normalizeCategory(value){
           "misc": "catalog.category.misc"
         };
 
+        var CATALOG_DYNAMIC_TEXT_OVERRIDES = {
+          "\u062F\u0641\u0639\u0627\u062A\u064A": { en: "My Payments", fr: "Mes paiements" },
+          "\u0627\u064A\u062F\u064A \u0627\u0644\u0644\u0627\u0639\u0628": { en: "Player ID", fr: "ID du joueur" },
+          "\u0627\u064A\u062F\u064A \u0627\u0644\u0644\u0627\u0639\u0628:": { en: "Player ID:", fr: "ID du joueur :" },
+          "\u0627\u062F\u062E\u0644 \u0627\u064A\u062F\u064A \u0627\u0644\u0644\u0627\u0639\u0628": { en: "Enter Player ID", fr: "Entrez l'ID du joueur" },
+          "\u0627\u062F\u062E\u0644 \u0627\u0644\u0627\u064A\u062F\u064A \u0647\u0646\u0627": { en: "Enter Player ID", fr: "Entrez l'ID du joueur" },
+          "\u0634\u0631\u0627\u0621": { en: "Buy", fr: "Acheter" },
+          "\u0634\u0631\u0627\u0621 \u0627\u0644\u0622\u0646": { en: "Buy Now", fr: "Acheter maintenant" },
+          "\u0631\u062C\u0648\u0639": { en: "Back", fr: "Retour" },
+          "\u0645\u0633\u062D": { en: "Clear", fr: "Effacer" },
+          "\u063A\u064A\u0631 \u0645\u062A\u0648\u0641\u0631": { en: "Unavailable", fr: "Indisponible" },
+          "\u0644\u0639\u0628\u0629 \u0627\u0644\u0643\u062A\u0627\u0644\u0648\u062C": { en: "Catalog Game", fr: "Jeu du catalogue" },
+          "\u0627\u0633\u062A\u0639\u0631\u0636 \u0627\u0644\u0628\u0627\u0642\u0627\u062A \u0648\u0627\u062E\u062A\u0631 \u0645\u0627 \u064A\u0646\u0627\u0633\u0628\u0643 \u0644\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u0637\u0644\u0628.": { en: "Browse packages and choose what suits you to complete the order.", fr: "Parcourez les forfaits et choisissez celui qui vous convient pour finaliser la commande." },
+          "\u0627\u0644\u062E\u062F\u0645\u0629 \u062A\u0644\u0642\u0627\u0626\u064A\u0629 \u0648\u062A\u0639\u0645\u0644 \u0639\u0644\u0649 \u0645\u062F\u0627\u0631 \u0627\u064424 \u0633\u0627\u0639\u0629": { en: "The service is automatic and operates 24 hours a day", fr: "Le service est automatique et fonctionne 24h/24" },
+          "\u0647\u0630\u0627 \u0627\u0644\u0645\u0646\u062A\u062C \u064A\u0639\u0645\u0644 \u0628\u0634\u0643\u0644 \u062A\u0644\u0642\u0627\u0626\u064A 24 \u0633\u0627\u0639\u0629": { en: "This product works automatically 24/7", fr: "Ce produit fonctionne automatiquement 24h/24" },
+          "\u0627\u0644\u0641\u0626\u0629": { en: "Category", fr: "Catأ©gorie" },
+          "\u0644\u0635\u0642": { en: "Paste", fr: "Coller" },
+          "\u0627\u062E\u062A\u0631 \u0627\u0644\u0643\u0645\u064A\u0629": { en: "Choose quantity", fr: "Choisir la quantitأ©" },
+          "\u0627\u0644\u0643\u0645\u064A\u0629 \u0627\u0644\u0645\u0637\u0644\u0648\u0628\u0629": { en: "Required Quantity", fr: "Quantitأ© requise" },
+          "\u0623\u062F\u062E\u0644 \u0627\u0644\u0643\u0645\u064A\u0629 \u0627\u0644\u0645\u0637\u0644\u0648\u0628\u0629": { en: "Enter required quantity", fr: "Entrez la quantitأ© requise" },
+          "\u0644\u0645 \u064A\u062A\u0645 \u0627\u062E\u062A\u064A\u0627\u0631 \u0623\u064A \u0639\u0631\u0636.": { en: "No offer selected.", fr: "Aucune offre sأ©lectionnأ©e." },
+          "\u0627\u0644\u0643\u0645\u064A\u0629": { en: "Qty", fr: "Qtأ©" },
+          "\u0627\u062E\u062A\u0631 \u0627\u0644\u0643\u0645\u064A\u0629 \u0645\u0646 \u0627\u0644\u0642\u0627\u0626\u0645\u0629.": { en: "Choose quantity from the list.", fr: "Choisissez la quantitأ© dans la liste." }
+        };
+
+        var CATALOG_DYNAMIC_TITLE_ALIASES = {
+          "\u0628\u0628\u062C\u064A": { en: "PUBG Mobile", fr: "PUBG Mobile" },
+          "\u0628\u0628\u062C\u064A \u0645\u0648\u0628\u0627\u064A\u0644": { en: "PUBG Mobile", fr: "PUBG Mobile" },
+          "\u0641\u0631\u064A \u0641\u0627\u064A\u0631": { en: "Free Fire", fr: "Free Fire" },
+          "\u062C\u0648\u0627\u0643\u0631": { en: "Jawaker", fr: "Jawaker" },
+          "\u0645\u0648\u0628\u0627\u064A\u0644 \u0644\u064A\u062C\u0646\u062F": { en: "Mobile Legends", fr: "Mobile Legends" },
+          "\u0645\u0627\u064A\u0646 \u0643\u0631\u0627\u0641\u062A": { en: "Minecraft", fr: "Minecraft" },
+          "\u0643\u0644\u0627\u0634 \u0627\u0648\u0641 \u0643\u0644\u0627\u0646\u0633": { en: "Clash of Clans", fr: "Clash of Clans" },
+          "\u0643\u0644\u0627\u0634 \u0631\u0648\u064A\u0627\u0644": { en: "Clash Royale", fr: "Clash Royale" },
+          "\u0628\u0631\u0627\u0648\u0644 \u0633\u062A\u0627\u0631\u0632": { en: "Brawl Stars", fr: "Brawl Stars" },
+          "\u0628\u0644\u0648\u062F \u0633\u062A\u0631\u0627\u064A\u0643": { en: "Blood Strike", fr: "Blood Strike" },
+          "\u0648\u064A \u0628\u0644\u0627\u064A": { en: "WePlay", fr: "WePlay" },
+          "\u0644\u064A\u0628\u064A": { en: "Ludo", fr: "Ludo" },
+          "\u0627\u0648\u0631\u0644\u064A": { en: "Orly", fr: "Orly" },
+          "\u0627\u0643\u0648\u0627\u062F": { en: "Codes", fr: "Codes" },
+          "\u0639\u0631\u0648\u0636": { en: "Offers", fr: "Offres" },
+          "\u0631\u0648\u0628\u0648\u062A": { en: "Bot", fr: "Bot" },
+          "\u062C\u0648\u0647\u0631\u0629": { en: "Gem", fr: "Gemme" },
+          "\u062C\u0648\u0627\u0647\u0631": { en: "Gems", fr: "Gemmes" }
+        };
+
         function getCatalogUiLang(){
+          try {
+            if (window.__I18N__ && typeof window.__I18N__.getLang === "function") {
+              return String(window.__I18N__.getLang() || "ar").trim().toLowerCase() || "ar";
+            }
+          } catch(_){}
+          try {
+            return String(document.documentElement.getAttribute("data-lang") || "ar").trim().toLowerCase() || "ar";
+          } catch(_){}
           return "ar";
         }
 
@@ -36092,9 +36238,114 @@ function normalizeCategory(value){
             .trim();
         }
 
-        // Catalog translation removed — Arabic-only. Identity passthrough.
+        function lookupCatalogDictionaryTranslation(rawText, lang){
+          try {
+            var text = normalizeCatalogDictKey(rawText);
+            if (!text) return "";
+            var target = String(lang || getCatalogUiLang() || "ar").trim().toLowerCase();
+            if (!target || target === "ar" || target === "off") return "";
+            var dictRoot = {};
+            var sourceDict = /[\u0600-\u06FF]/.test(text)
+              ? (dictRoot.byAr || null)
+              : (/[A-Za-z]/.test(text) ? (dictRoot.byEn || null) : null);
+            if (!sourceDict) return "";
+            var entry = sourceDict[text];
+            if (!entry || !entry[target]) return "";
+            return String(entry[target] || "").trim();
+          } catch(_){}
+          return "";
+        }
+
+        function lookupCatalogDynamicOverride(rawText, lang){
+          var text = normalizeCatalogDictKey(rawText);
+          if (!text) return "";
+          var target = String(lang || getCatalogUiLang() || "ar").trim().toLowerCase();
+          if (!target || target === "ar" || target === "off") return "";
+          var override = CATALOG_DYNAMIC_TEXT_OVERRIDES[text] || CATALOG_DYNAMIC_TITLE_ALIASES[text] || null;
+          if (!override || !override[target]) return "";
+          return String(override[target] || "").trim();
+        }
+
+        function applyCatalogDynamicPatterns(rawText, lang){
+          var text = normalizeCatalogDictKey(rawText);
+          if (!text) return "";
+          var target = String(lang || getCatalogUiLang() || "ar").trim().toLowerCase();
+          if (!target || target === "ar" || target === "off") return "";
+          var match = text.match(/^(?:\u0634\u062F\u0629|\u0634\u062F\u0627\u062A)\s*(\d+(?:\.\d+)?)$/);
+          if (!match) match = text.match(/^(\d+(?:\.\d+)?)\s*(?:\u0634\u062F\u0629|\u0634\u062F\u0627\u062A)$/);
+          if (match) return `${match[1]} UC`;
+          var gemUnit = function(amount){
+            var numeric = Number(String(amount || "").replace(/,/g, ""));
+            var singular = Number.isFinite(numeric) && numeric === 1;
+            if (target === "fr") return singular ? "gemme" : "gemmes";
+            return singular ? "Gem" : "Gems";
+          };
+          match = text.match(/^(?:\u062C\u0648\u0627\u0647\u0631|\u062C\u0648\u0647\u0631\u0629)\s*(\d+(?:\.\d+)?)$/);
+          if (!match) match = text.match(/^(\d+(?:\.\d+)?)\s*(?:\u062C\u0648\u0627\u0647\u0631|\u062C\u0648\u0647\u0631\u0629)$/);
+          if (match) return `${match[1]} ${gemUnit(match[1])}`;
+          match = text.match(/^\u0643\u0648\u062F\s*(\d+(?:\.\d+)?)\s*(?:\u062C\u0648\u0627\u0647\u0631|\u062C\u0648\u0647\u0631\u0629)$/);
+          if (match) return target === "fr" ? `Code ${match[1]} ${gemUnit(match[1])}` : `${match[1]} ${gemUnit(match[1])} Code`;
+          var replaced = text;
+          var mixedLabelPatterns = [
+            { pattern: /^\u0627\u0643\u0648\u0627\u062F\s+(.+)$/i, value: "$1 __catalog_codes__" },
+            { pattern: /^\u0639\u0631\u0648\u0636\s+(.+)$/i, value: "$1 __catalog_offers__" },
+            { pattern: /^\u0631\u0648\u0628\u0648\u062A\s+(.+)$/i, value: "$1 __catalog_bot__" },
+            { pattern: /^(.+)\s+\u0627\u0643\u0648\u0627\u062F$/i, value: "$1 __catalog_codes__" },
+            { pattern: /^(.+)\s+\u0639\u0631\u0648\u0636$/i, value: "$1 __catalog_offers__" },
+            { pattern: /^(.+)\s+\u0631\u0648\u0628\u0648\u062A$/i, value: "$1 __catalog_bot__" }
+          ];
+          mixedLabelPatterns.forEach(function(entry){
+            try {
+              var next = replaced.replace(entry.pattern, entry.value);
+              if (next !== replaced) replaced = next;
+            } catch(_){}
+          });
+          var replacements = [
+            { pattern: /\u0628\u0628\u062C\u064A\s*\u0645\u0648\u0628\u0627\u064A\u0644/gi, en: "PUBG Mobile", fr: "PUBG Mobile" },
+            { pattern: /\u0628\u0628\u062C\u064A/gi, en: "PUBG Mobile", fr: "PUBG Mobile" },
+            { pattern: /\u0641\u0631\u064A\s*\u0641\u0627\u064A\u0631/gi, en: "Free Fire", fr: "Free Fire" },
+            { pattern: /\u062C\u0648\u0627\u0643\u0631/gi, en: "Jawaker", fr: "Jawaker" },
+            { pattern: /\u0645\u0648\u0628\u0627\u064A\u0644\s*\u0644\u064A\u062C\u0646\u062F/gi, en: "Mobile Legends", fr: "Mobile Legends" },
+            { pattern: /\u0645\u0627\u064A\u0646\s*\u0643\u0631\u0627\u0641\u062A/gi, en: "Minecraft", fr: "Minecraft" },
+            { pattern: /\u0643\u0644\u0627\u0634\s*\u0627\u0648\u0641\s*\u0643\u0644\u0627\u0646\u0633/gi, en: "Clash of Clans", fr: "Clash of Clans" },
+            { pattern: /\u0643\u0644\u0627\u0634\s*\u0631\u0648\u064A\u0627\u0644/gi, en: "Clash Royale", fr: "Clash Royale" },
+            { pattern: /\u0628\u0631\u0627\u0648\u0644\s*\u0633\u062A\u0627\u0631\u0632/gi, en: "Brawl Stars", fr: "Brawl Stars" },
+            { pattern: /\u0628\u0644\u0648\u062F\s*\u0633\u062A\u0631\u0627\u064A\u0643/gi, en: "Blood Strike", fr: "Blood Strike" },
+            { pattern: /\u0648\u064A\s*\u0628\u0644\u0627\u064A/gi, en: "WePlay", fr: "WePlay" },
+            { pattern: /\u0644\u064A\u0628\u064A/gi, en: "Ludo", fr: "Ludo" },
+            { pattern: /\u0627\u0648\u0631\u0644\u064A/gi, en: "Orly", fr: "Orly" }
+          ];
+          replacements.forEach(function(entry){
+            try {
+              replaced = replaced.replace(entry.pattern, entry[target] || entry.en || "");
+            } catch(_){}
+          });
+          replaced = replaced
+            .replace(/__catalog_codes__/g, target === "fr" ? "Codes" : "Codes")
+            .replace(/__catalog_offers__/g, target === "fr" ? "Offres" : "Offers")
+            .replace(/__catalog_bot__/g, target === "fr" ? "Bot" : "Bot");
+          if (replaced !== text) return replaced;
+          return "";
+        }
+
         function translateCatalogDynamicText(rawText){
-          return rawText == null ? "" : String(rawText);
+          var text = normalizeCatalogDictKey(rawText);
+          if (!text) return "";
+          var target = getCatalogUiLang();
+          if (!target || target === "ar" || target === "off") return text;
+          try {
+            if (typeof window.translateCatalogDynamicText === "function" && window.translateCatalogDynamicText !== translateCatalogDynamicText) {
+              var globalHit = normalizeCatalogDictKey(window.translateCatalogDynamicText(text));
+              if (globalHit && globalHit !== text) return globalHit;
+            }
+          } catch(_){}
+          var direct = lookupCatalogDynamicOverride(text, target);
+          if (direct) return direct;
+          var dictHit = lookupCatalogDictionaryTranslation(text, target);
+          if (dictHit) return dictHit;
+          var patternHit = applyCatalogDynamicPatterns(text, target);
+          if (patternHit) return patternHit;
+          return text;
         }
 
         function translateCatalogUi(key, fallback){
