@@ -5840,12 +5840,34 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
     try { return document.getElementById('depositInlineApp'); } catch (_) {}
     return null;
   }
+  // Hide/show the deposit options (grid + search) reliably via inline !important so
+  // the recharge page takes over the screen like a normal deposit method page.
+  // (CSS-only hiding loses the specificity war against the grid's display:grid !important.)
+  function setInlineRechargeOptionsHidden(hidden){
+    try {
+      var app = getInlineRechargeAppEl();
+      var scope = app || (grid && grid.parentNode) || (typeof document !== 'undefined' ? document : null);
+      var nodes = [];
+      try { if (grid) nodes.push(grid); } catch (_) {}
+      if (scope && scope.querySelectorAll) {
+        ['#grid', '.categories', '.search-container', '.where', '#whereText'].forEach(function(sel){
+          try { Array.prototype.forEach.call(scope.querySelectorAll(sel), function(el){ nodes.push(el); }); } catch (_) {}
+        });
+      }
+      nodes.forEach(function(el){
+        if (!el || !el.style) return;
+        if (hidden) el.style.setProperty('display', 'none', 'important');
+        else el.style.removeProperty('display');
+      });
+    } catch (_) {}
+  }
   function closeInlineRechargeRedeemPage(){
     try {
       var app = getInlineRechargeAppEl();
       if (app && app.classList) app.classList.remove('recharge-page-open');
       var existing = document.getElementById('rechargeInlinePage');
       if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+      setInlineRechargeOptionsHidden(false);
     } catch (_) {}
   }
   // Recharge redeem is shown as an inline page (like the deposit method forms),
@@ -5885,6 +5907,7 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
         + '</div>';
       host.appendChild(page);
       if (app && app.classList) app.classList.add('recharge-page-open');
+      setInlineRechargeOptionsHidden(true);
       var input = page.querySelector('#rechargeRedeemInput');
       var statusEl = page.querySelector('#rechargeRedeemStatus');
       var submitBtn = page.querySelector('#rechargeRedeemSubmit');
@@ -6001,8 +6024,10 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       });
       grid.appendChild(node);
     });
-    // Recharge-code redeem card always sits at the end of the deposit options.
-    appendInlineRechargeRedeemCard(activeFlow);
+    // Recharge-code redeem card sits at the end of the deposit options, but only
+    // once the real server methods have loaded — so it appears WITH the methods,
+    // not from page entry, and the normal loading state shows first.
+    if (rootEntries.length) appendInlineRechargeRedeemCard(activeFlow);
     const rootEmpty = rootEntries.length === 0;
     const rootEmptyVisible = setInlineDepositNoResultsVisible(rootEmpty);
     if (!currentCountry) setCountriesRetryButtonVisible(rootEmptyVisible, rootEntries.length ? '' : 'countries_empty');
