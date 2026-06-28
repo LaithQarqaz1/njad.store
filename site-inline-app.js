@@ -2198,6 +2198,26 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       '#depositInlineApp.method-modal-open .search-container,',
       '#depositInlineApp.method-modal-open .where,',
       '#depositInlineApp.method-modal-open #whereText{display:none !important;}',
+      '#depositInlineApp.recharge-page-open #grid,',
+      '#depositInlineApp.recharge-page-open .categories,',
+      '#depositInlineApp.recharge-page-open .search-container,',
+      '#depositInlineApp.recharge-page-open .where,',
+      '#depositInlineApp.recharge-page-open #whereText{display:none !important;}',
+      '#depositInlineApp .recharge-inline-page{position:relative !important;display:block !important;width:min(720px,100%) !important;margin:0 auto !important;padding:clamp(14px,2.8vw,26px) 14px calc(96px + env(safe-area-inset-bottom)) !important;box-sizing:border-box !important;}',
+      '#depositInlineApp .recharge-inline-page .recharge-inline-back{position:absolute !important;top:6px !important;inset-inline-start:6px !important;width:40px !important;height:40px !important;border-radius:50% !important;border:1px solid rgba(var(--site-accent-rgb,148,163,184),.32) !important;background:var(--bg-app) !important;color:var(--text) !important;display:inline-flex !important;align-items:center !important;justify-content:center !important;cursor:pointer !important;}',
+      '#depositInlineApp .recharge-inline-page .recharge-inline-card{width:100% !important;max-width:480px !important;margin:0 auto !important;display:flex !important;flex-direction:column !important;gap:12px !important;}',
+      '#depositInlineApp .recharge-inline-page .recharge-inline-head{display:flex !important;flex-direction:column !important;align-items:center !important;gap:6px !important;text-align:center !important;margin-bottom:4px !important;}',
+      '#depositInlineApp .recharge-inline-page .recharge-inline-icon{width:64px !important;height:64px !important;border-radius:18px !important;display:inline-flex !important;align-items:center !important;justify-content:center !important;background:rgba(var(--site-accent-rgb,148,163,184),.16) !important;color:var(--site-accent-runtime,#38bdf8) !important;font-size:1.6rem !important;overflow:hidden !important;}',
+      '#depositInlineApp .recharge-inline-page .recharge-inline-icon img{width:100% !important;height:100% !important;object-fit:cover !important;}',
+      '#depositInlineApp .recharge-inline-page .recharge-inline-title{margin:0 !important;font-size:clamp(1.25rem,2.6vw,1.6rem) !important;font-weight:900 !important;color:var(--text) !important;}',
+      '#depositInlineApp .recharge-inline-page .recharge-inline-sub{margin:0 !important;font-size:.9rem !important;color:var(--muted,#9aa4b2) !important;}',
+      '#depositInlineApp .recharge-inline-page .recharge-inline-fee{margin:0 !important;text-align:center !important;font-size:.85rem !important;font-weight:800 !important;color:var(--site-accent-runtime,#38bdf8) !important;}',
+      '#depositInlineApp .recharge-inline-page .recharge-inline-label{font-size:.8rem !important;font-weight:800 !important;color:var(--text) !important;align-self:flex-start !important;}',
+      '#depositInlineApp .recharge-inline-page #rechargeRedeemInput{width:100% !important;height:50px !important;border-radius:999px !important;border:1px solid rgba(var(--site-accent-rgb,148,163,184),.40) !important;background:var(--bg-app) !important;color:var(--text) !important;text-align:center !important;letter-spacing:2px !important;font-size:1rem !important;font-family:monospace !important;box-sizing:border-box !important;}',
+      '#depositInlineApp .recharge-inline-page .recharge-inline-status{min-height:18px !important;font-size:.85rem !important;color:#f87171 !important;text-align:center !important;}',
+      '#depositInlineApp .recharge-inline-page .recharge-inline-actions{display:flex !important;flex-direction:column !important;gap:10px !important;margin-top:4px !important;}',
+      '#depositInlineApp .recharge-inline-page .recharge-inline-actions .btn{width:100% !important;height:50px !important;border-radius:999px !important;font-weight:800 !important;cursor:pointer !important;border:1px solid rgba(var(--site-accent-rgb,148,163,184),.32) !important;background:transparent !important;color:var(--text) !important;}',
+      '#depositInlineApp .recharge-inline-page .recharge-inline-actions .btn-primary{border:0 !important;background:var(--site-accent-runtime-strong,var(--site-accent-runtime,#0b6388)) !important;color:#fff !important;}',
       '#depositInlineApp #methodModal.hidden, body[data-inline-route="deposit"] #methodModal.hidden, body[data-inline-route="edaa"] #methodModal.hidden, #depositInlineApp #methodModal[aria-hidden="true"]{display:none !important;}',
       '#depositInlineApp #methodModal:not(.hidden){position:static !important;inset:auto !important;width:100% !important;min-height:auto !important;height:auto !important;display:block !important;padding:0 !important;margin:0 !important;background:transparent !important;overflow:visible !important;-webkit-backdrop-filter:none !important;backdrop-filter:none !important;}',
       'body[data-inline-route="deposit"] #methodModal:not(.hidden), body[data-inline-route="edaa"] #methodModal:not(.hidden){position:static !important;inset:auto !important;width:100% !important;min-height:auto !important;height:auto !important;display:block !important;padding:0 !important;margin:0 !important;background:transparent !important;overflow:visible !important;-webkit-backdrop-filter:none !important;backdrop-filter:none !important;}',
@@ -5793,38 +5813,85 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       return { ok: false };
     }
   }
+  function getInlineRechargeCardConfig(){
+    var cfg = null;
+    try {
+      var b = window.__SITE_BRAND__ || {};
+      if (b && b.rechargeCard && typeof b.rechargeCard === 'object') cfg = b.rechargeCard;
+    } catch (_) { cfg = null; }
+    try {
+      if (!cfg && window.__SITE_RUNTIME__ && window.__SITE_RUNTIME__.brand && window.__SITE_RUNTIME__.brand.rechargeCard && typeof window.__SITE_RUNTIME__.brand.rechargeCard === 'object') {
+        cfg = window.__SITE_RUNTIME__.brand.rechargeCard;
+      }
+    } catch (_) {}
+    cfg = cfg && typeof cfg === 'object' ? cfg : {};
+    var storeName = getInlineStoreBrandName();
+    var name = String(cfg.name || cfg.title || '').trim() || ('كود شحن ' + storeName);
+    var description = String(cfg.description || cfg.desc || '').trim() || 'أدخل كود الشحن لإضافة الرصيد';
+    var imageUrl = String(cfg.imageUrl || cfg.image || cfg.icon || '').trim();
+    var feePercent = Number(cfg.feePercent != null ? cfg.feePercent : cfg.fee);
+    if (!isFinite(feePercent) || feePercent < 0) feePercent = 0;
+    if (feePercent > 100) feePercent = 100;
+    var enabled = cfg.enabled !== false;
+    return { name: name, description: description, imageUrl: imageUrl, feePercent: feePercent, enabled: enabled };
+  }
+  function getInlineRechargeAppEl(){
+    try { if (grid && grid.closest) return grid.closest('#depositInlineApp'); } catch (_) {}
+    try { return document.getElementById('depositInlineApp'); } catch (_) {}
+    return null;
+  }
+  function closeInlineRechargeRedeemPage(){
+    try {
+      var app = getInlineRechargeAppEl();
+      if (app && app.classList) app.classList.remove('recharge-page-open');
+      var existing = document.getElementById('rechargeInlinePage');
+      if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+    } catch (_) {}
+  }
+  // Recharge redeem is shown as an inline page (like the deposit method forms),
+  // not a popup overlay: hide the options grid and render a full-width panel.
   function openInlineRechargeRedeemModal(){
     try {
-      var existing = document.getElementById('rechargeRedeemModal');
-      if (existing) { try { existing.remove(); } catch (_) {} }
-      var storeName = getInlineStoreBrandName();
-      var overlay = document.createElement('div');
-      overlay.id = 'rechargeRedeemModal';
-      overlay.setAttribute('role', 'dialog');
-      overlay.setAttribute('aria-modal', 'true');
-      overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(0,0,0,.55);';
-      overlay.innerHTML =
-        '<div class="card" style="width:min(420px,100%);background:var(--bg-app,#0e1726);border:1px solid var(--line,rgba(255,255,255,.12));border-radius:18px;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.45);">'
-        + '<div style="display:flex;align-items:center;gap:10px;">'
-        +   '<span style="width:42px;height:42px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;background:rgba(var(--site-accent-rgb,148,163,184),.16);color:var(--site-accent-runtime,#38bdf8);"><i class="fa-solid fa-credit-card"></i></span>'
-        +   '<div><div style="font-weight:800;font-size:1.05rem;">' + rechargeEscHtml('كود شحن ' + storeName) + '</div>'
-        +     '<div style="font-size:.82rem;color:var(--muted,#9aa4b2);">' + rechargeEscHtml('أدخل كود الشحن لإضافة الرصيد') + '</div></div>'
-        + '</div>'
-        + '<input id="rechargeRedeemInput" type="text" autocomplete="off" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX" dir="ltr" style="width:100%;margin-top:14px;height:48px;border-radius:12px;border:1px solid var(--line,rgba(255,255,255,.16));background:var(--bg-elev,rgba(255,255,255,.04));color:var(--text,#e7edf5);text-align:center;letter-spacing:2px;font-size:1rem;font-family:monospace;">'
-        + '<div id="rechargeRedeemStatus" style="min-height:18px;margin-top:8px;font-size:.85rem;color:#f87171;text-align:center;"></div>'
-        + '<div style="display:flex;gap:10px;margin-top:12px;">'
-        +   '<button id="rechargeRedeemCancel" type="button" class="btn" style="flex:1;height:46px;border-radius:999px;border:1px solid var(--line,rgba(255,255,255,.16));background:transparent;color:var(--text,#e7edf5);font-weight:700;cursor:pointer;">' + rechargeEscHtml('إلغاء') + '</button>'
-        +   '<button id="rechargeRedeemSubmit" type="button" class="btn btn-primary" style="flex:2;height:46px;border-radius:999px;border:0;background:var(--site-accent-runtime-strong,var(--site-accent-runtime,#0b6388));color:#fff;font-weight:800;cursor:pointer;">' + rechargeEscHtml('استبدال') + '</button>'
-        + '</div>'
+      var app = getInlineRechargeAppEl();
+      var host = app || (grid && grid.parentNode) || document.body;
+      closeInlineRechargeRedeemPage();
+      var c = getInlineRechargeCardConfig();
+      var page = document.createElement('section');
+      page.id = 'rechargeInlinePage';
+      page.className = 'recharge-inline-page';
+      page.setAttribute('role', 'form');
+      var iconHtml = c.imageUrl
+        ? ('<img src="' + rechargeEscHtml(c.imageUrl) + '" alt="" loading="lazy">')
+        : '<i class="fa-solid fa-credit-card"></i>';
+      var feeNote = c.feePercent > 0
+        ? ('<p class="recharge-inline-fee">' + rechargeEscHtml('عمولة الاستبدال: ' + c.feePercent + '%') + '</p>')
+        : '';
+      page.innerHTML = ''
+        + '<button type="button" id="rechargeInlineBack" class="recharge-inline-back" aria-label="رجوع"><i class="fa-solid fa-arrow-right"></i></button>'
+        + '<div class="recharge-inline-card">'
+        +   '<div class="recharge-inline-head">'
+        +     '<span class="recharge-inline-icon">' + iconHtml + '</span>'
+        +     '<h2 class="recharge-inline-title">' + rechargeEscHtml(c.name) + '</h2>'
+        +     '<p class="recharge-inline-sub">' + rechargeEscHtml(c.description) + '</p>'
+        +   '</div>'
+        +   feeNote
+        +   '<label class="recharge-inline-label" for="rechargeRedeemInput">' + rechargeEscHtml('كود الشحن') + '</label>'
+        +   '<input id="rechargeRedeemInput" type="text" autocomplete="off" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX" dir="ltr">'
+        +   '<div id="rechargeRedeemStatus" class="recharge-inline-status"></div>'
+        +   '<div class="recharge-inline-actions">'
+        +     '<button id="rechargeRedeemSubmit" type="button" class="btn btn-primary">' + rechargeEscHtml('استبدال') + '</button>'
+        +     '<button id="rechargeRedeemCancel" type="button" class="btn">' + rechargeEscHtml('إلغاء') + '</button>'
+        +   '</div>'
         + '</div>';
-      document.body.appendChild(overlay);
-      var input = overlay.querySelector('#rechargeRedeemInput');
-      var statusEl = overlay.querySelector('#rechargeRedeemStatus');
-      var submitBtn = overlay.querySelector('#rechargeRedeemSubmit');
-      var cancelBtn = overlay.querySelector('#rechargeRedeemCancel');
-      function closeModal(){ try { overlay.remove(); } catch (_) {} }
-      cancelBtn.addEventListener('click', closeModal);
-      overlay.addEventListener('click', function(ev){ if (ev.target === overlay) closeModal(); });
+      host.appendChild(page);
+      if (app && app.classList) app.classList.add('recharge-page-open');
+      var input = page.querySelector('#rechargeRedeemInput');
+      var statusEl = page.querySelector('#rechargeRedeemStatus');
+      var submitBtn = page.querySelector('#rechargeRedeemSubmit');
+      var cancelBtn = page.querySelector('#rechargeRedeemCancel');
+      var backBtn = page.querySelector('#rechargeInlineBack');
+      if (cancelBtn) cancelBtn.addEventListener('click', closeInlineRechargeRedeemPage);
+      if (backBtn) backBtn.addEventListener('click', closeInlineRechargeRedeemPage);
       async function doSubmit(){
         var code = String((input && input.value) || '').trim();
         if (!code) { if (statusEl) statusEl.textContent = 'أدخل كود الشحن.'; return; }
@@ -5835,19 +5902,21 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
         var result = await submitInlineRechargeCode(code, statusEl);
         submitBtn.disabled = false;
         submitBtn.innerHTML = prev;
-        if (result && result.ok) closeModal();
+        if (result && result.ok) closeInlineRechargeRedeemPage();
       }
-      submitBtn.addEventListener('click', doSubmit);
-      input.addEventListener('keydown', function(ev){ if (ev && ev.key === 'Enter') { try { ev.preventDefault(); } catch (_) {} doSubmit(); } });
-      try { input.focus(); } catch (_) {}
+      if (submitBtn) submitBtn.addEventListener('click', doSubmit);
+      if (input) input.addEventListener('keydown', function(ev){ if (ev && ev.key === 'Enter') { try { ev.preventDefault(); } catch (_) {} doSubmit(); } });
+      try { if (input && input.focus) input.focus(); } catch (_) {}
     } catch (_) {}
   }
   function buildInlineRechargeRedeemCardInner(){
+    var c = getInlineRechargeCardConfig();
+    var media = c.imageUrl
+      ? ('<div class="catalog-card-media"><img src="' + rechargeEscHtml(c.imageUrl) + '" alt="" loading="lazy"></div>')
+      : '<div class="catalog-card-media is-empty"><div class="depositTreeThumbFallback"><i class="fa-solid fa-credit-card"></i></div></div>';
     return ''
-      + '<div class="catalog-card-media is-empty">'
-      + '<div class="depositTreeThumbFallback"><i class="fa-solid fa-credit-card"></i></div>'
-      + '</div>'
-      + '<h2 class="depositTreeTitle">' + rechargeEscHtml('كود شحن ' + getInlineStoreBrandName()) + '</h2>'
+      + media
+      + '<h2 class="depositTreeTitle">' + rechargeEscHtml(c.name) + '</h2>'
       + '<span class="offer-price">' + rechargeEscHtml('إدخال كود الشحن') + '</span>';
   }
   function appendInlineRechargeRedeemCard(activeFlow){
@@ -5855,6 +5924,7 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       if (!grid) return;
       var flow = normalizeInlineFlow(activeFlow || getCurrentInlineFlowKind());
       if (flow !== 'deposit') return; // recharge codes credit the wallet => deposit flow only
+      if (!getInlineRechargeCardConfig().enabled) return; // admin can hide the card
       if (grid.querySelector('[data-recharge-redeem-card="1"]')) return;
       var node = document.createElement('a');
       node.href = 'javascript:void(0)';
