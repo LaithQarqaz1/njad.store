@@ -12307,7 +12307,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
         getIdToken: async () => idToken
       };
     }
-    if (!hasSession && !hasAuthKey) return null;
+    if (!hasSession) return null; // session is the credential; authkey no longer required
     return {
       uid,
       email: payload.email || "",
@@ -23672,12 +23672,8 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
             state.currentUid = user.uid;
             updateField(state.refs.email, user.email || '--');
             tryRenderCachedBalance(user.uid);
-            state.db.collection('users').doc(user.uid).get().then(function(doc){
+            var renderAccountFields = function(data){
               if (!state.refs) return;
-              if (!doc || !doc.exists){
-                return;
-              }
-              var data = doc.data() || {};
               var levelLabel = data.level || '--';
               try {
                 var resolvedSiteState = (typeof window.__getResolvedSiteStateData === 'function')
@@ -23736,9 +23732,47 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
               updateField(state.refs.webuid, data.webuid || '--');
               renderBalance(data.balance == null ? 0 : data.balance);
               try { if (typeof writeBalanceMemory === 'function') writeBalanceMemory(user.uid, Number(data.balance == null ? 0 : data.balance) || 0); } catch(_){}
-            }).catch(function(){
-              showToast('تعذر تحميل البيانات', false);
-            });
+            };
+            var loadAccountFromFirebase = function(){
+              state.db.collection('users').doc(user.uid).get().then(function(doc){
+                if (!state.refs) return;
+                if (!doc || !doc.exists){ return; }
+                renderAccountFields(doc.data() || {});
+              }).catch(function(){
+                showToast('تعذر تحميل البيانات', false);
+              });
+            };
+            // Read the account (balance + settings) FROM THE SERVER (D1 profile + Neon
+            // balance); fall back to Firebase on ANY failure so this can never regress.
+            if (typeof window.__fetchAccountInfoFromServer === 'function') {
+              window.__fetchAccountInfoFromServer(user.uid).then(function(info){
+                if (!state.refs) return;
+                if (info && info.account) {
+                  var acc = info.account;
+                  if (acc.email) updateField(state.refs.email, acc.email);
+                  renderAccountFields({
+                    username: acc.username,
+                    level: acc.level,
+                    levelId: acc.levelId,
+                    levelNo: acc.levelNo,
+                    phone: acc.phone,
+                    webuid: acc.webuid,
+                    totalspent: acc.totalspent,
+                    balance: (info.balance == null ? 0 : info.balance)
+                  });
+                  if (info.needsInput && Array.isArray(info.missingFields) && info.missingFields.indexOf('phone') !== -1) {
+                    try {
+                      if (typeof window.__promptAccountMissingPhone === 'function') window.__promptAccountMissingPhone(user.uid, info.missingFields);
+                      else showToast('يرجى إكمال رقم هاتفك من إعدادات الحساب.', false);
+                    } catch(_){}
+                  }
+                  return;
+                }
+                loadAccountFromFirebase();
+              }).catch(function(){ loadAccountFromFirebase(); });
+            } else {
+              loadAccountFromFirebase();
+            }
           });
         }
 

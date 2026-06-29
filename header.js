@@ -8226,7 +8226,7 @@ function buildFallbackUserFromPayload(payload){
       getIdToken: async () => idToken
     };
   }
-  if (!hasSession && !hasAuthKey) return null;
+  if (!hasSession) return null; // session is the credential; authkey no longer required
   return {
     uid,
     email: payload.email || '',
