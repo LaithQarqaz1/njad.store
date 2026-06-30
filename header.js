@@ -8405,6 +8405,90 @@ async function tryRestoreAuthFromPostLogin(){
 }
 try { window.__ensureAuthReady = async function(){ await initFirebaseApp(); return tryRestoreAuthFromPostLogin(); }; } catch {}
 
+// Resolve the customer's session credential the same way the rest of the header
+// does — the post-login payload first, then the persisted sessionKeyInfo.
+function getHeaderSessionAuth(uid){
+  const wantUid = String(uid || '').trim();
+  let sessionKey = '';
+  let resolvedUid = wantUid;
+  try {
+    const payload = readPostLoginPayload() || {};
+    if (payload.sessionKey || payload.session_key) sessionKey = String(payload.sessionKey || payload.session_key || '').trim();
+    if (!resolvedUid && payload.uid) resolvedUid = String(payload.uid || '').trim();
+  } catch {}
+  if (!sessionKey) {
+    try {
+      const cached = JSON.parse(localStorage.getItem('sessionKeyInfo') || 'null');
+      if (cached && typeof cached === 'object') {
+        sessionKey = String(cached.sessionKey || '').trim();
+        if (!resolvedUid) resolvedUid = String(cached.uid || cached.useruid || '').trim();
+      }
+    } catch {}
+  }
+  return { uid: resolvedUid, sessionKey };
+}
+
+// Request the customer's profile + balance FROM THE SERVER (carrying the session
+// key) instead of reading Firebase users/{uid} directly. Returns:
+//   { ok:true, info }                                -> success payload
+//   { ok:false, banned:true, banReason, webuid }     -> server reports the account banned
+//   null                                             -> server unavailable / not authed
+//                                                       (caller falls back to Firebase)
+async function fetchHeaderAccountFromServer(user){
+  const uid = String(user && user.uid || '').trim();
+  if (!uid) return null;
+  const auth = getHeaderSessionAuth(uid);
+  if (!auth.sessionKey) return null;
+  let url;
+  try {
+    url = new URL(getCatalogRouterBase());
+    url.search = '';
+    url.hash = '';
+    url.searchParams.set('action', 'pru');
+    url.searchParams.set('mode', 'account-info');
+    url.searchParams.set('useruid', auth.uid || uid);
+    url.searchParams.set('sessionKey', auth.sessionKey);
+  } catch { return null; }
+  try {
+    const res = await fetch(url.toString(), { method: 'GET', cache: 'no-store' });
+    const data = await res.json().catch(() => ({}));
+    if (data && (data.code === 'user_banned' || data.isBanned === true)) {
+      const details = (data.details && typeof data.details === 'object') ? data.details : data;
+      return {
+        ok: false, banned: true,
+        banReason: String(details.banReason || '').trim(),
+        webuid: String(details.webuid || '').trim()
+      };
+    }
+    if (!res.ok || data.ok === false) return null;
+    return { ok: true, info: data };
+  } catch { return null; }
+}
+
+// Maps the server account-info payload into the same shape the Firebase users/{uid}
+// snapshot produced, so the existing render path is unchanged. displayName/photoURL/
+// email come from the Firebase AUTH user object (the identity provider stays) — NOT
+// from a users/{uid} document read.
+function mapServerInfoToHeaderData(info, user){
+  const acc = (info && info.account) || {};
+  return {
+    isBanned: false,
+    banReason: '',
+    displayName: String((user && user.displayName) || acc.username || '').trim(),
+    name: String((user && user.displayName) || '').trim(),
+    username: String(acc.username || '').trim(),
+    email: String(acc.email || (user && user.email) || '').trim(),
+    photoURL: String((user && user.photoURL) || '').trim(),
+    level: String(acc.level || '').trim(),
+    levelId: acc.levelId ?? null,
+    levelNo: acc.levelNo ?? null,
+    accountNo: acc.accountNo ?? null,
+    apiAccessEnabled: info && info.apiAccess === true,
+    balance: (info && info.balance != null) ? info.balance : 0,
+    webuid: acc.webuid || ''
+  };
+}
+
 function bootHeaderFirebaseWhenIdle(){
 try {
   (async ()=>{
@@ -8533,16 +8617,33 @@ try {
           writeCachedBalance(user.uid, 0); broadcastBalance(0);
         }
       };
-      if (shouldEnableRealtime('balance')) {
-        unsubscribeBalance = docRef.onSnapshot(handleBalanceSnap, err => {
-          console.error('Balance listener error:', err);
-          setHeaderBalance('تعذر التحميل');
-        });
+      const loadHeaderFromFirebase = () => {
+        if (shouldEnableRealtime('balance')) {
+          unsubscribeBalance = docRef.onSnapshot(handleBalanceSnap, err => {
+            console.error('Balance listener error:', err);
+            setHeaderBalance('تعذر التحميل');
+          });
+        } else {
+          docRef.get().then(handleBalanceSnap).catch(err => {
+            console.error('Balance fetch error:', err);
+            setHeaderBalance('تعذر التحميل');
+          });
+        }
+      };
+      // Server-first: request profile + balance from the server (carrying the
+      // session key) instead of a direct Firebase users/{uid} read. Firebase stays
+      // an automatic fallback ONLY when the server is unavailable, so the header can
+      // never blank out or log anyone out during/after the migration. handleBalanceSnap
+      // only reads snap.exists + snap.data(), so a synthetic snap reuses the exact
+      // same render path.
+      const headerServerInfo = await fetchHeaderAccountFromServer(user).catch(() => null);
+      if (headerServerInfo && headerServerInfo.banned) {
+        markBannedSessionUid(user.uid);
+        handleBannedAccount(headerServerInfo.banReason, headerServerInfo.webuid || user.uid || '', user.uid);
+      } else if (headerServerInfo && headerServerInfo.ok) {
+        handleBalanceSnap({ exists: true, data: () => mapServerInfoToHeaderData(headerServerInfo.info, user) });
       } else {
-        docRef.get().then(handleBalanceSnap).catch(err => {
-          console.error('Balance fetch error:', err);
-          setHeaderBalance('تعذر التحميل');
-        });
+        loadHeaderFromFirebase();
       }
     } else {
       clearBannedSessionUid();

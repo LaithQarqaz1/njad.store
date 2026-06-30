@@ -4637,15 +4637,36 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       root.extraFieldsDef,
       root.requiredFields
     ];
+    let base = [];
     for (let i = 0; i < buckets.length; i += 1) {
       const normalized = normalizeInlineExtraFields(buckets[i]);
       if (normalized.length) {
-        return normalized.filter(function(field){
+        base = normalized.filter(function(field){
           return !inlineExtraFieldLooksLikeLegacyPlaceholder(field);
         });
+        break;
       }
     }
-    return [];
+    // SMS deposit auto-confirmation: the customer must supply the transfer's
+    // reference number. Inject it as a required field so it renders + is collected
+    // like any extra field and rides along to /deposit/submit under key
+    // referenceNumber (which the server matches the bank SMS against).
+    const sms = (data && data.smsReceipt) || (root && root.smsReceipt);
+    if (sms && sms.enabled === true) {
+      const hasRef = base.some(function(field){
+        return String(field && field.key || '').toLowerCase() === 'referencenumber';
+      });
+      if (!hasRef) {
+        base = base.concat([{
+          key: 'referenceNumber',
+          label: 'الرقم المرجعي',
+          required: true,
+          kind: 'text',
+          placeholder: 'الرقم المرجعي للحوالة'
+        }]);
+      }
+    }
+    return base;
   }
 
   function inlineExtraFieldLooksLikeLegacyPlaceholder(field){
@@ -29717,29 +29738,47 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           try{
             setFormDisabled(true);
             showStatus("info","جاري تحميل بياناتك...");
-            var profilePromise = state.db.collection("users").doc(uid).get().then(function(doc){
-              if (!doc || !doc.exists){
-                throw new Error("لا توجد بيانات حساب متاحة.");
-              }
-              var data = doc.data() || {};
+            var applyTransferProfile = function(webuid, balance){
               state.profile = {
                 uid: uid,
-                webuid: data.webuid || data.webUid || uid,
-                balance: parseNumber(data.balance || data.balanceUsd || data.balanceUSD)
+                webuid: webuid || uid,
+                balance: parseNumber(balance)
               };
               state.profileLoadedAt = Date.now();
               updateProfileUI();
               showStatus();
               setFormDisabled(false);
               return state.profile;
-            }).catch(function(err){
+            };
+            var onProfileFail = function(err){
               state.profile = null;
               state.profileLoadedAt = 0;
               updateProfileUI();
               setFormDisabled(true);
               showStatus("error", err && err.message ? err.message : "تعذر تحميل بيانات المستخدم.");
               return null;
-            }).finally(function(){
+            };
+            var loadProfileFromFirebase = function(){
+              return state.db.collection("users").doc(uid).get().then(function(doc){
+                if (!doc || !doc.exists){
+                  throw new Error("لا توجد بيانات حساب متاحة.");
+                }
+                var data = doc.data() || {};
+                return applyTransferProfile(data.webuid || data.webUid || uid, data.balance || data.balanceUsd || data.balanceUSD);
+              }).catch(onProfileFail);
+            };
+            // Server-first: request the balance + webuid from the server (with the
+            // session key) instead of a direct Firebase users/{uid} read. Falls back
+            // to Firebase only when the server is unavailable, so it can't regress.
+            var profilePromise = (typeof window.__fetchAccountInfoFromServer === "function"
+              ? window.__fetchAccountInfoFromServer(uid).then(function(info){
+                  if (info && info.account) {
+                    return applyTransferProfile(info.account.webuid, info.balance);
+                  }
+                  return loadProfileFromFirebase();
+                }).catch(function(){ return loadProfileFromFirebase(); })
+              : loadProfileFromFirebase()
+            ).finally(function(){
               if (state.profilePromise === profilePromise) {
                 state.profilePromise = null;
                 state.profileUid = "";
