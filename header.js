@@ -8518,7 +8518,6 @@ try {
         const cachedProfile = readCachedProfile(user.uid);
         if (cachedProfile) renderHeaderLevelBadge(cachedProfile);
       } catch {}
-      const docRef = firebase.firestore().collection('users').doc(user.uid);
       const handleBalanceSnap = (snap) => {
         if (snap && snap.exists) {
           const data = snap.data() || {};
@@ -8617,33 +8616,37 @@ try {
           writeCachedBalance(user.uid, 0); broadcastBalance(0);
         }
       };
-      const loadHeaderFromFirebase = () => {
-        if (shouldEnableRealtime('balance')) {
-          unsubscribeBalance = docRef.onSnapshot(handleBalanceSnap, err => {
-            console.error('Balance listener error:', err);
-            setHeaderBalance('تعذر التحميل');
-          });
-        } else {
-          docRef.get().then(handleBalanceSnap).catch(err => {
-            console.error('Balance fetch error:', err);
-            setHeaderBalance('تعذر التحميل');
-          });
+      // Customer profile + balance come ONLY from the server (D1 profile + Neon
+      // balance), carrying the session key. We NEVER read Firebase users/{uid} from
+      // the client anymore — that path is intentionally closed on the rules side, so
+      // a direct read would just fail with "تعذر التحميل". handleBalanceSnap only
+      // reads snap.exists + snap.data(), so a synthetic snap reuses the exact same
+      // render path. On a transient miss (the session key is still being persisted
+      // right after login, or a network blip) we retry briefly; on a hard miss we
+      // keep whatever the cached profile/balance already rendered — never Firebase,
+      // never a false logout.
+      let headerLoadedFromServer = false;
+      for (let attempt = 0; attempt < 4 && !headerLoadedFromServer; attempt++) {
+        const headerServerInfo = await fetchHeaderAccountFromServer(user).catch(() => null);
+        if (headerServerInfo && headerServerInfo.banned) {
+          markBannedSessionUid(user.uid);
+          handleBannedAccount(headerServerInfo.banReason, headerServerInfo.webuid || user.uid || '', user.uid);
+          headerLoadedFromServer = true;
+        } else if (headerServerInfo && headerServerInfo.ok) {
+          handleBalanceSnap({ exists: true, data: () => mapServerInfoToHeaderData(headerServerInfo.info, user) });
+          headerLoadedFromServer = true;
+        } else if (attempt < 3) {
+          // Not ready yet (no session key landed / network blip). Wait, then retry —
+          // do NOT touch Firebase.
+          await new Promise(resolve => setTimeout(resolve, 500 + attempt * 400));
         }
-      };
-      // Server-first: request profile + balance from the server (carrying the
-      // session key) instead of a direct Firebase users/{uid} read. Firebase stays
-      // an automatic fallback ONLY when the server is unavailable, so the header can
-      // never blank out or log anyone out during/after the migration. handleBalanceSnap
-      // only reads snap.exists + snap.data(), so a synthetic snap reuses the exact
-      // same render path.
-      const headerServerInfo = await fetchHeaderAccountFromServer(user).catch(() => null);
-      if (headerServerInfo && headerServerInfo.banned) {
-        markBannedSessionUid(user.uid);
-        handleBannedAccount(headerServerInfo.banReason, headerServerInfo.webuid || user.uid || '', user.uid);
-      } else if (headerServerInfo && headerServerInfo.ok) {
-        handleBalanceSnap({ exists: true, data: () => mapServerInfoToHeaderData(headerServerInfo.info, user) });
-      } else {
-        loadHeaderFromFirebase();
+      }
+      if (!headerLoadedFromServer) {
+        // Server unreachable after retries: keep the cached balance already on
+        // screen; only surface a load error when there is no cache to fall back on.
+        let hadCachedBalance = false;
+        try { hadCachedBalance = readCachedBalance(user.uid) != null; } catch {}
+        if (!hadCachedBalance) setHeaderBalance('تعذر التحميل');
       }
     } else {
       clearBannedSessionUid();

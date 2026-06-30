@@ -23754,17 +23754,17 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
               renderBalance(data.balance == null ? 0 : data.balance);
               try { if (typeof writeBalanceMemory === 'function') writeBalanceMemory(user.uid, Number(data.balance == null ? 0 : data.balance) || 0); } catch(_){}
             };
-            var loadAccountFromFirebase = function(){
-              state.db.collection('users').doc(user.uid).get().then(function(doc){
-                if (!state.refs) return;
-                if (!doc || !doc.exists){ return; }
-                renderAccountFields(doc.data() || {});
-              }).catch(function(){
-                showToast('تعذر تحميل البيانات', false);
-              });
+            // Customer account data comes ONLY from the server (D1 profile + Neon
+            // balance) carrying the session key — never a direct Firebase users/{uid}
+            // read (that path is closed on the rules side). On a hard miss we prompt
+            // re-login instead of touching Firebase.
+            var onAccountServerMiss = function(){
+              if (!state.refs) return;
+              showToast('تعذر تحميل البيانات من الخادم. أعد تسجيل الدخول وحاول مجدداً.', false);
             };
             // Read the account (balance + settings) FROM THE SERVER (D1 profile + Neon
-            // balance); fall back to Firebase on ANY failure so this can never regress.
+            // balance). If the server reports required data missing (e.g. a skipped
+            // phone) → open the input form.
             if (typeof window.__fetchAccountInfoFromServer === 'function') {
               window.__fetchAccountInfoFromServer(user.uid).then(function(info){
                 if (!state.refs) return;
@@ -23789,10 +23789,10 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
                   }
                   return;
                 }
-                loadAccountFromFirebase();
-              }).catch(function(){ loadAccountFromFirebase(); });
+                onAccountServerMiss();
+              }).catch(function(){ onAccountServerMiss(); });
             } else {
-              loadAccountFromFirebase();
+              onAccountServerMiss();
             }
           });
         }
@@ -29758,26 +29758,21 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
               showStatus("error", err && err.message ? err.message : "تعذر تحميل بيانات المستخدم.");
               return null;
             };
-            var loadProfileFromFirebase = function(){
-              return state.db.collection("users").doc(uid).get().then(function(doc){
-                if (!doc || !doc.exists){
-                  throw new Error("لا توجد بيانات حساب متاحة.");
-                }
-                var data = doc.data() || {};
-                return applyTransferProfile(data.webuid || data.webUid || uid, data.balance || data.balanceUsd || data.balanceUSD);
-              }).catch(onProfileFail);
+            // Customer balance + webuid come ONLY from the server (D1 + Neon) carrying
+            // the session key — never a direct Firebase users/{uid} read (that path is
+            // closed on the rules side). On a hard miss (dead session) we surface a
+            // re-login prompt rather than touching Firebase.
+            var onProfileServerMiss = function(){
+              return onProfileFail(new Error("تعذر تحميل بياناتك من الخادم. أعد تسجيل الدخول وحاول مجدداً."));
             };
-            // Server-first: request the balance + webuid from the server (with the
-            // session key) instead of a direct Firebase users/{uid} read. Falls back
-            // to Firebase only when the server is unavailable, so it can't regress.
             var profilePromise = (typeof window.__fetchAccountInfoFromServer === "function"
               ? window.__fetchAccountInfoFromServer(uid).then(function(info){
                   if (info && info.account) {
                     return applyTransferProfile(info.account.webuid, info.balance);
                   }
-                  return loadProfileFromFirebase();
-                }).catch(function(){ return loadProfileFromFirebase(); })
-              : loadProfileFromFirebase()
+                  return onProfileServerMiss();
+                }).catch(onProfileServerMiss)
+              : onProfileServerMiss()
             ).finally(function(){
               if (state.profilePromise === profilePromise) {
                 state.profilePromise = null;
