@@ -22302,22 +22302,27 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
         }
       });
 
+      // Post-cutover (USERS_D1_SOURCE): the customer profile + session live in D1 and
+      // the Firestore users/{uid} doc is gone with CLIENT reads closed on the rules
+      // side. Reading users/{uid} here throws "Missing or insufficient permissions",
+      // and that throw used to skip syncAuthBootstrap below — leaving the browser on a
+      // stale pre-cutover session so account/settings server reads 401'd ("تعذر تحميل
+      // البيانات من الخادم"). So DON'T read users/{uid}; mint/refresh the D1 session
+      // directly, once per signed-in uid (syncAuthBootstrap/handleSync is idempotent).
+      let bootstrapSyncedUid = '';
       auth.onAuthStateChanged(async (user) => {
         if (user) {
+          const uidNow = String(user.uid || '').trim();
+          if (!uidNow || bootstrapSyncedUid === uidNow) return;
+          bootstrapSyncedUid = uidNow;
           try {
-            const userRef = db.collection('users').doc(user.uid);
-            const docSnap = await userRef.get();
-            if (docSnap.exists) {
-              const data = docSnap.data() || {};
-              const authkey = String(data.authkey || '').trim();
-              if (!authkey) await syncAuthBootstrap(user);
-            } else {
-              await syncAuthBootstrap(user);
-            }
+            await syncAuthBootstrap(user);
           } catch (err) {
+            bootstrapSyncedUid = '';
             console.warn('auth bootstrap sync failed:', err?.message || err);
           }
         } else {
+          bootstrapSyncedUid = '';
           const el = document.getElementById('balanceAmount');
           if (el) el.textContent = 'يجب تسجيل الدخول اولا';
         }
