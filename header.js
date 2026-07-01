@@ -8381,7 +8381,7 @@ async function __syncCatalogAuthFromTokenImpl(idToken, payload){
       photoURL: String(payload?.photoURL || '')
     };
     writePostLoginPayload(nextPayload);
-    return { sessionKey: nextSessionKey, uid: nextUid, authkey, customToken, payload: nextPayload };
+    return { sessionKey: nextSessionKey, uid: nextUid, authkey, customToken, payload: nextPayload, info: data };
   } catch {
     return null;
   }

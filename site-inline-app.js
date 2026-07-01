@@ -23831,7 +23831,24 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
                 return window.__syncCatalogAuthFromToken(idToken, { uid: user.uid, email: user.email || '' });
               }).then(function(synced){
                 if (!synced || !synced.sessionKey) return null;
-                return loadAccountFromServer();
+                // Retry the dedicated account-info fetch (authoritative Neon balance +
+                // full profile). If it still can't deliver, fall back to the profile the
+                // sync response now CARRIES (name/level/phone/id/spending) — so the page
+                // renders from the auth response it already got. Keep the Neon-sourced
+                // cached balance so the sync's D1 display-mirror can't regress it.
+                return loadAccountFromServer().then(function(info2){
+                  if (info2 && info2.account) return info2;
+                  if (synced.info && synced.info.account) {
+                    var fromSync = synced.info;
+                    try {
+                      var rawBal = localStorage.getItem('balance:cache:' + user.uid);
+                      var cachedBal = (rawBal == null || rawBal === '') ? NaN : Number(rawBal);
+                      if (Number.isFinite(cachedBal)) fromSync = Object.assign({}, fromSync, { balance: cachedBal });
+                    } catch(_){}
+                    return fromSync;
+                  }
+                  return info2;
+                });
               }).catch(function(){ return null; });
             };
             loadAccountFromServer().then(function(info){
