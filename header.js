@@ -6169,29 +6169,85 @@ function buildContainedInstallAppIconDataUrl(iconUrl){
   ].join("");
   return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
 }
+// Icons for a REAL Android install (WebAPK) must be usable raster icons at 192/512.
+// A remote image referenced directly as an icon `src` is fetched by the browser (no
+// CORS needed) and is installable + visible, so it is always our synchronous floor.
+// When CORS allows, we additionally rasterize the admin image to exact 192/512 PNGs
+// via <canvas> for crisp, correctly-sized icons, then refresh the manifest.
+let siteInstallRasterIcons = { key: "", entries: null };
+let siteInstallRasterPending = "";
+function buildSiteInstallRawIconEntries(iconUrl){
+  const src = resolveInstallAppAbsoluteUrl(iconUrl, "");
+  if (!src) return [];
+  const type = guessInstallAppIconMimeType(src);
+  if (type === "image/svg+xml") {
+    return [{ src: src, sizes: "any", type: type, purpose: "any" }];
+  }
+  // Declare the sizes Chrome needs for installability; it uses the actual bitmap when
+  // minting the WebAPK, so declaring 512/192 on any square-ish image is safe.
+  return [
+    { src: src, sizes: "512x512", type: type, purpose: "any" },
+    { src: src, sizes: "192x192", type: type, purpose: "any" }
+  ];
+}
+function rasterizeSiteInstallIcon(img, size){
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return "";
+    const iw = img.naturalWidth || img.width;
+    const ih = img.naturalHeight || img.height;
+    if (!iw || !ih) return "";
+    const scale = Math.min(size / iw, size / ih);
+    const dw = Math.max(1, Math.round(iw * scale));
+    const dh = Math.max(1, Math.round(ih * scale));
+    ctx.drawImage(img, Math.round((size - dw) / 2), Math.round((size - dh) / 2), dw, dh);
+    return canvas.toDataURL("image/png");
+  } catch (_) {
+    return "";
+  }
+}
+function prepareSiteInstallRasterIcons(iconUrl){
+  const src = resolveInstallAppAbsoluteUrl(iconUrl, "");
+  if (!src) { siteInstallRasterIcons = { key: "", entries: null }; return; }
+  if (siteInstallRasterIcons.key === src && siteInstallRasterIcons.entries) return;
+  if (siteInstallRasterPending === src) return;
+  if (typeof Image !== "function" || typeof document === "undefined") return;
+  siteInstallRasterPending = src;
+  let img;
+  try { img = new Image(); } catch (_) { siteInstallRasterPending = ""; return; }
+  try { img.crossOrigin = "anonymous"; } catch (_) {}
+  img.onload = function(){
+    const big = rasterizeSiteInstallIcon(img, 512);
+    const small = rasterizeSiteInstallIcon(img, 192);
+    siteInstallRasterPending = "";
+    const entries = [];
+    if (big) entries.push({ src: big, sizes: "512x512", type: "image/png", purpose: "any" });
+    if (small) entries.push({ src: small, sizes: "192x192", type: "image/png", purpose: "any" });
+    if (!entries.length) return; // canvas tainted (no CORS) — keep the raw-URL floor
+    siteInstallRasterIcons = { key: src, entries: entries };
+    try { ensureSiteInstallManifest(); } catch (_) {}
+    try { if (typeof window.__refreshDynamicSiteManifestHead === "function") window.__refreshDynamicSiteManifestHead(); } catch (_) {}
+  };
+  img.onerror = function(){ siteInstallRasterPending = ""; };
+  try { img.src = src; } catch (_) { siteInstallRasterPending = ""; }
+}
+function getSiteInstallIconEntries(iconUrl){
+  const src = resolveInstallAppAbsoluteUrl(iconUrl, "");
+  if (!src) return [];
+  if (siteInstallRasterIcons.key === src && siteInstallRasterIcons.entries && siteInstallRasterIcons.entries.length) {
+    return siteInstallRasterIcons.entries.slice();
+  }
+  try { prepareSiteInstallRasterIcons(src); } catch (_) {}
+  return buildSiteInstallRawIconEntries(src);
+}
 function buildSiteInstallManifestPayload(){
   const name = readInstallAppBrandName() || "Njad store";
   const shortName = normalizeInstallAppText(name).slice(0, 24) || "Njad";
-  const rawIcon = readInstallAppIconUrl();
-  const iconUrl = resolveInstallAppAbsoluteUrl(rawIcon, "");
-  const containedIcon = buildContainedInstallAppIconDataUrl(iconUrl);
-  const icons = [];
-  if (containedIcon) {
-    icons.push({
-      src: containedIcon,
-      sizes: "any",
-      type: "image/svg+xml",
-      purpose: "any"
-    });
-  }
-  if (iconUrl) {
-    icons.push({
-      src: iconUrl,
-      sizes: "any",
-      type: guessInstallAppIconMimeType(iconUrl),
-      purpose: "any"
-    });
-  }
+  const iconEntries = getSiteInstallIconEntries(readInstallAppIconUrl());
+  const icons = Array.isArray(iconEntries) ? iconEntries : [];
   // NOTE: icons are optional — the installed-app NAME (admin's Design store name)
   // must apply even when no custom icon is set, so we no longer bail out here.
   return {
