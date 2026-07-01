@@ -9042,8 +9042,12 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
   }
 
   function suppressInlineAutoDepositConfirm(confirmPayload){
-    if (!isCurrentInlineAutoDepositMethod()) return false;
     const recentPayload = getRecentInlineAutoDepositPayload();
+    // Suppress the pending "submitted" modal for client-flagged auto methods
+    // (Binance/USDT) AND when the server just auto-confirmed THIS deposit — e.g. an
+    // SMS deposit whose bank receipt already arrived, so the submit response was
+    // reshaped to the auto-deposit contract and the interceptor stashed it here.
+    if (!isCurrentInlineAutoDepositMethod() && !recentPayload) return false;
     if (recentPayload) {
       applyInlineAutoDepositSuccessPayload(recentPayload);
     } else {
@@ -23753,6 +23757,22 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
               updateField(state.refs.webuid, data.webuid || '--');
               renderBalance(data.balance == null ? 0 : data.balance);
               try { if (typeof writeBalanceMemory === 'function') writeBalanceMemory(user.uid, Number(data.balance == null ? 0 : data.balance) || 0); } catch(_){}
+              // Propagate the authoritative server balance (Neon) to the SHARED header
+              // display + its localStorage cache (balance:cache:<uid>) too — otherwise the
+              // account screen shows the fresh balance while the header stays on the stale
+              // boot-time value until the next reload ("لم يتحدث الرصيد في الهيدر/اللوكل ستوريج").
+              try {
+                var acctBalNum = Number(data.balance == null ? 0 : data.balance);
+                if (Number.isFinite(acctBalNum)) {
+                  var acctBalFmt = (typeof window.__formatHeaderBalanceDisplay === 'function')
+                    ? window.__formatHeaderBalanceDisplay(acctBalNum)
+                    : (acctBalNum.toFixed(3) + ' $');
+                  try { window.__BAL_BASE__ = acctBalNum; window.__BALANCE__ = acctBalNum; } catch(_){}
+                  try { if (typeof window.__setHeaderBalanceDisplay === 'function') window.__setHeaderBalanceDisplay(acctBalFmt); } catch(_){}
+                  try { localStorage.setItem('balance:cache:' + user.uid, String(acctBalNum)); } catch(_){}
+                  try { window.dispatchEvent(new CustomEvent('balance:change', { detail: { value: acctBalNum, formatted: acctBalFmt } })); } catch(_){}
+                }
+              } catch(_){}
             };
             // Customer account data comes ONLY from the server (D1 profile + Neon
             // balance) carrying the session key — never a direct Firebase users/{uid}
