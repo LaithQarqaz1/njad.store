@@ -8301,7 +8301,23 @@ async function ensureFirebaseAuthPersistenceLocal(){
   })().finally(() => { __AUTH_PERSISTENCE_PROMISE__ = null; });
   return __AUTH_PERSISTENCE_PROMISE__;
 }
-async function syncCatalogAuthFromToken(idToken, payload){
+// Single-flight the session sync per uid — see the note in site-bundle.js. Concurrent
+// syncs (header + account screen + wallet) each minted a fresh D1 session and overwrote
+// the single per-uid row, so the stored key diverged from D1 → account-info 401. One
+// sync per burst, shared result, keeps every caller on the same session.
+var __CATALOG_AUTH_SYNC_INFLIGHT__ = Object.create(null);
+function syncCatalogAuthFromToken(idToken, payload){
+  if (!idToken) return Promise.resolve(null);
+  var uidKey = String((payload && (payload.uid || payload.useruid)) || '').trim() || '__anon__';
+  var inflight = __CATALOG_AUTH_SYNC_INFLIGHT__[uidKey];
+  if (inflight) return inflight;
+  var p = __syncCatalogAuthFromTokenImpl(idToken, payload).finally(function(){
+    if (__CATALOG_AUTH_SYNC_INFLIGHT__[uidKey] === p) delete __CATALOG_AUTH_SYNC_INFLIGHT__[uidKey];
+  });
+  __CATALOG_AUTH_SYNC_INFLIGHT__[uidKey] = p;
+  return p;
+}
+async function __syncCatalogAuthFromTokenImpl(idToken, payload){
   if (!idToken) return null;
   let sessionKey = "";
   let sessionUid = "";
