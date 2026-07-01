@@ -23790,35 +23790,56 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
             // Read the account (balance + settings) FROM THE SERVER (D1 profile + Neon
             // balance). If the server reports required data missing (e.g. a skipped
             // phone) → open the input form.
-            if (typeof window.__fetchAccountInfoFromServer === 'function') {
-              window.__fetchAccountInfoFromServer(user.uid).then(function(info){
-                if (!state.refs) return;
-                if (info && info.account) {
-                  var acc = info.account;
-                  if (acc.email) updateField(state.refs.email, acc.email);
-                  renderAccountFields({
-                    username: acc.username,
-                    level: acc.level,
-                    levelId: acc.levelId,
-                    levelNo: acc.levelNo,
-                    phone: acc.phone,
-                    webuid: acc.webuid,
-                    totalspent: acc.totalspent,
-                    balance: (info.balance == null ? 0 : info.balance)
-                  });
-                  if (info.needsInput && Array.isArray(info.missingFields) && info.missingFields.indexOf('phone') !== -1) {
-                    try {
-                      if (typeof window.__promptAccountMissingPhone === 'function') window.__promptAccountMissingPhone(user.uid, info.missingFields);
-                      else showToast('يرجى إكمال رقم هاتفك من إعدادات الحساب.', false);
-                    } catch(_){}
-                  }
-                  return;
-                }
-                onAccountServerMiss();
-              }).catch(function(){ onAccountServerMiss(); });
-            } else {
-              onAccountServerMiss();
-            }
+            var applyAccountInfo = function(info){
+              if (!state.refs) return false;
+              if (!info || !info.account) return false;
+              var acc = info.account;
+              if (acc.email) updateField(state.refs.email, acc.email);
+              renderAccountFields({
+                username: acc.username,
+                level: acc.level,
+                levelId: acc.levelId,
+                levelNo: acc.levelNo,
+                phone: acc.phone,
+                webuid: acc.webuid,
+                totalspent: acc.totalspent,
+                balance: (info.balance == null ? 0 : info.balance)
+              });
+              if (info.needsInput && Array.isArray(info.missingFields) && info.missingFields.indexOf('phone') !== -1) {
+                try {
+                  if (typeof window.__promptAccountMissingPhone === 'function') window.__promptAccountMissingPhone(user.uid, info.missingFields);
+                  else showToast('يرجى إكمال رقم هاتفك من إعدادات الحساب.', false);
+                } catch(_){}
+              }
+              return true;
+            };
+            var loadAccountFromServer = function(){
+              if (typeof window.__fetchAccountInfoFromServer !== 'function') return Promise.resolve(null);
+              return Promise.resolve(window.__fetchAccountInfoFromServer(user.uid)).catch(function(){ return null; });
+            };
+            // If there is NO usable session yet (post-cutover first load / cleared storage),
+            // __fetchAccountInfoFromServer returns null WITHOUT sending a request — then we'd
+            // wrongly show the re-login toast to a genuinely signed-in user ("تظهر الرسالة
+            // مع انها لم ترسل طلباً للخادم أساساً"). So on a miss, mint a D1 session from the
+            // current Firebase user (the same server 'sync' the login uses) and retry ONCE.
+            var ensureServerSessionThenLoad = function(){
+              if (typeof window.__syncCatalogAuthFromToken !== 'function' || !user || typeof user.getIdToken !== 'function') {
+                return Promise.resolve(null);
+              }
+              return Promise.resolve(user.getIdToken(true)).then(function(idToken){
+                if (!idToken) return null;
+                return window.__syncCatalogAuthFromToken(idToken, { uid: user.uid, email: user.email || '' });
+              }).then(function(synced){
+                if (!synced || !synced.sessionKey) return null;
+                return loadAccountFromServer();
+              }).catch(function(){ return null; });
+            };
+            loadAccountFromServer().then(function(info){
+              if (applyAccountInfo(info)) return;
+              ensureServerSessionThenLoad().then(function(info2){
+                if (!applyAccountInfo(info2)) onAccountServerMiss();
+              });
+            });
           });
         }
 
