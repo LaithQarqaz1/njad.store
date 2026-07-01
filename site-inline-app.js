@@ -957,15 +957,29 @@
         var fallbackText = String(fallback == null ? '' : fallback).trim().slice(0, 160);
         return fallbackText && !LEGACY_RUNTIME_STORE_NAME_PATTERN.test(fallbackText) ? fallbackText : '';
       }
+      function resolveRuntimeAdminStoreName(){
+        var storeName = '';
+        try { storeName = String(window.__SITE_STORE_NAME__ || '').trim(); } catch(_){}
+        if (!storeName) {
+          try {
+            var brand = window.__SITE_BRAND__ || (window.__getSiteBrandConfig ? window.__getSiteBrandConfig() : {});
+            storeName = String(brand && (brand.storeName || brand.name) || '').trim();
+          } catch(_){}
+        }
+        return normalizeRuntimeStoreName(storeName, DEFAULT_STORE_NAME) || DEFAULT_STORE_NAME || 'Njad store';
+      }
       function buildRuntimeSeoStoreTitle(value){
-        var name = normalizeRuntimeStoreName(value, DEFAULT_STORE_NAME) || DEFAULT_STORE_NAME || 'Njad store';
-        return hasRuntimeArabicStoreName(name) ? name : (name + ' | ' + SITE_ARABIC_STORE_NAME);
+        // App/tab title is the admin's Design store name ONLY — no hardcoded brand suffix.
+        return normalizeRuntimeStoreName(value, DEFAULT_STORE_NAME) || DEFAULT_STORE_NAME || 'Njad store';
       }
       function appendRuntimeArabicSeoName(value){
+        // Route (sub-page) titles read "PageTitle - <admin store name>" — the store
+        // name comes from the admin Design section, never a hardcoded brand.
         var text = String(value == null ? '' : value).trim();
-        if (hasRuntimeArabicStoreName(text)) return text.slice(0, 320);
-        var base = text || buildRuntimeSeoStoreTitle(DEFAULT_STORE_NAME);
-        return (base + ' - ' + SITE_ARABIC_STORE_NAME).slice(0, 320);
+        var storeName = resolveRuntimeAdminStoreName();
+        if (!text) return storeName.slice(0, 320);
+        if (storeName && text.indexOf(storeName) !== -1) return text.slice(0, 320);
+        return (text + ' - ' + storeName).slice(0, 320);
       }
       var DEFAULT_TICKER_TEXT = (function(){
         try {
@@ -23817,46 +23831,37 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
               if (typeof window.__fetchAccountInfoFromServer !== 'function') return Promise.resolve(null);
               return Promise.resolve(window.__fetchAccountInfoFromServer(user.uid)).catch(function(){ return null; });
             };
-            // If there is NO usable session yet (post-cutover first load / cleared storage),
-            // __fetchAccountInfoFromServer returns null WITHOUT sending a request — then we'd
-            // wrongly show the re-login toast to a genuinely signed-in user ("تظهر الرسالة
-            // مع انها لم ترسل طلباً للخادم أساساً"). So on a miss, mint a D1 session from the
-            // current Firebase user (the same server 'sync' the login uses) and retry ONCE.
-            var ensureServerSessionThenLoad = function(){
-              if (typeof window.__syncCatalogAuthFromToken !== 'function' || !user || typeof user.getIdToken !== 'function') {
-                return Promise.resolve(null);
-              }
-              return Promise.resolve(user.getIdToken(true)).then(function(idToken){
+            // SINGLE server round-trip for the settings screen: the sync (?action=auth)
+            // both (re)establishes the D1 session AND returns the full profile (account
+            // block), so the page renders straight from it — NO separate account-info
+            // request. Keep the Neon-sourced cached balance so the sync's D1 display-mirror
+            // can't regress it. account-info is only a FALLBACK if the sync can't deliver a
+            // profile (older worker / edge). This is what makes the page one request, not two.
+            var applySyncedProfile = function(synced){
+              if (!synced || !synced.info || !synced.info.account) return false;
+              var info = synced.info;
+              try {
+                var rawBal = localStorage.getItem('balance:cache:' + user.uid);
+                var cachedBal = (rawBal == null || rawBal === '') ? NaN : Number(rawBal);
+                if (Number.isFinite(cachedBal)) info = Object.assign({}, info, { balance: cachedBal });
+              } catch(_){}
+              return applyAccountInfo(info);
+            };
+            if (typeof window.__syncCatalogAuthFromToken === 'function' && user && typeof user.getIdToken === 'function') {
+              Promise.resolve(user.getIdToken(true)).then(function(idToken){
                 if (!idToken) return null;
                 return window.__syncCatalogAuthFromToken(idToken, { uid: user.uid, email: user.email || '' });
               }).then(function(synced){
-                if (!synced || !synced.sessionKey) return null;
-                // Retry the dedicated account-info fetch (authoritative Neon balance +
-                // full profile). If it still can't deliver, fall back to the profile the
-                // sync response now CARRIES (name/level/phone/id/spending) — so the page
-                // renders from the auth response it already got. Keep the Neon-sourced
-                // cached balance so the sync's D1 display-mirror can't regress it.
-                return loadAccountFromServer().then(function(info2){
-                  if (info2 && info2.account) return info2;
-                  if (synced.info && synced.info.account) {
-                    var fromSync = synced.info;
-                    try {
-                      var rawBal = localStorage.getItem('balance:cache:' + user.uid);
-                      var cachedBal = (rawBal == null || rawBal === '') ? NaN : Number(rawBal);
-                      if (Number.isFinite(cachedBal)) fromSync = Object.assign({}, fromSync, { balance: cachedBal });
-                    } catch(_){}
-                    return fromSync;
-                  }
-                  return info2;
+                if (applySyncedProfile(synced)) return;
+                return loadAccountFromServer().then(function(info){
+                  if (!applyAccountInfo(info)) onAccountServerMiss();
                 });
-              }).catch(function(){ return null; });
-            };
-            loadAccountFromServer().then(function(info){
-              if (applyAccountInfo(info)) return;
-              ensureServerSessionThenLoad().then(function(info2){
-                if (!applyAccountInfo(info2)) onAccountServerMiss();
+              }).catch(function(){ onAccountServerMiss(); });
+            } else {
+              loadAccountFromServer().then(function(info){
+                if (!applyAccountInfo(info)) onAccountServerMiss();
               });
-            });
+            }
           });
         }
 

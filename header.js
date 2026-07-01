@@ -6192,7 +6192,8 @@ function buildSiteInstallManifestPayload(){
       purpose: "any"
     });
   }
-  if (!icons.length) return null;
+  // NOTE: icons are optional — the installed-app NAME (admin's Design store name)
+  // must apply even when no custom icon is set, so we no longer bail out here.
   return {
     id: resolveInstallAppAbsoluteUrl("/?source=pwa", "/?source=pwa"),
     name: name,
@@ -6216,6 +6217,17 @@ function buildSiteInstallManifestPayload(){
   };
 }
 function setDynamicSiteManifestLink(){
+  // Build the manifest from the admin's Design store name and serve it as a blob so
+  // the INSTALLED app carries the admin's name, not the hardcoded static file. Any
+  // failure falls back to the static /manifest.webmanifest so install never breaks.
+  try {
+    const payload = buildSiteInstallManifestPayload();
+    if (payload && window.URL && typeof window.URL.createObjectURL === "function" && typeof Blob === "function") {
+      const blob = new Blob([JSON.stringify(payload)], { type: "application/manifest+json" });
+      const blobUrl = window.URL.createObjectURL(blob);
+      if (blobUrl) return setSiteManifestLinkHref(blobUrl, true);
+    }
+  } catch {}
   return setStaticSiteManifestLink();
 }
 function ensureSiteInstallManifest(){
@@ -19140,10 +19152,8 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
     }
 
     function buildHeaderSeoStoreTitle(value){
-      const storeName = normalizeSiteStoreNameValue(value, DEFAULT_SITE_STORE_NAME) || DEFAULT_SITE_STORE_NAME || "Njad store";
-      return /\u0646\u062c\u0627\u062f \u0633\u062a\u0648\u0631/.test(storeName)
-        ? storeName
-        : `${storeName} | ${SITE_ARABIC_STORE_NAME}`;
+      // App/tab title is the admin's Design store name ONLY \u2014 no hardcoded brand suffix.
+      return normalizeSiteStoreNameValue(value, DEFAULT_SITE_STORE_NAME) || DEFAULT_SITE_STORE_NAME || "Njad store";
     }
 
     function normalizeSiteMediaUrl(value){
