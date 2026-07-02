@@ -1,5 +1,5 @@
 const SITE_PWA_BUILD = "20260609-catalog-empty-route-01";
-try { importScripts("/site_settings.js?v=20260518-03"); } catch (_) {}
+try { importScripts("/site_settings.js?v=20260702-firebase-publish-01"); } catch (_) {}
 const SITE_SETTINGS = (self.__getSiteSettings ? self.__getSiteSettings() : self.__SITE_SETTINGS__) || {};
 const SITE_FIREBASE_HELPER_ORIGIN = String(
   (SITE_SETTINGS.auth && SITE_SETTINGS.auth.firebaseHelperOrigin) ||

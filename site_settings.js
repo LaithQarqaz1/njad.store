@@ -2,7 +2,15 @@
   "use strict";
 
   var defaultSettings = {
-    "firebase": {},
+    "firebase": {
+        "apiKey": "AIzaSyBaJE8eTuSZUfjLw3lj-788iTvR7YJvWj8",
+        "authDomain": "njad.store",
+        "projectId": "njadstore1",
+        "storageBucket": "njadstore1.firebasestorage.app",
+        "messagingSenderId": "1072422740336",
+        "appId": "1:1072422740336:web:28abfc7058d310379dafb5",
+        "measurementId": "G-T2J947YL3L"
+    },
     "workers": {
         "routerBase": "",
         "routerBaseStorageKey": "MANWAL_ROUTER_BASE",
