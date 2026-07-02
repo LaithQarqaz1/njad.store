@@ -41593,7 +41593,34 @@ function normalizeCategory(value){
       } catch(_){ initial = null; }
       applyConfig(initial || {});
 
-      if (closeBtn) closeBtn.addEventListener('click', close);
+      // iOS Safari may not synthesize the click for the first tap on the small
+      // X (touch slop / layout shifts while the page is still settling), so the
+      // popup also closes straight from the touch itself: a touchend that stays
+      // within tap tolerance closes immediately. preventDefault() stops the
+      // late synthesized click from landing on whatever sits under the modal
+      // after it hides. The click listener stays for mouse/keyboard.
+      function bindFastTapClose(el, handler){
+        if (!el) return;
+        var touchStart = null;
+        el.addEventListener('touchstart', function(e){
+          var t = e.touches && e.touches[0];
+          touchStart = t ? { x: t.clientX, y: t.clientY, at: Date.now() } : null;
+        }, { passive: true });
+        el.addEventListener('touchcancel', function(){ touchStart = null; });
+        el.addEventListener('touchend', function(e){
+          var start = touchStart;
+          touchStart = null;
+          if (!start) return;
+          var t = (e.changedTouches && e.changedTouches[0]) || null;
+          var dx = t ? Math.abs((Number(t.clientX) || 0) - start.x) : 0;
+          var dy = t ? Math.abs((Number(t.clientY) || 0) - start.y) : 0;
+          if (dx > 12 || dy > 12 || (Date.now() - start.at) > 800) return;
+          try { e.preventDefault(); } catch(_){}
+          handler(e);
+        }, { passive: false });
+        el.addEventListener('click', handler);
+      }
+      bindFastTapClose(closeBtn, close);
       modal.addEventListener('click', function(e){ if(e.target === modal) close(); });
       document.addEventListener('keydown', function(e){ if(e.key === 'Escape') close(); });
     })();

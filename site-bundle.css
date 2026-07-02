@@ -12536,7 +12536,10 @@ body.motion-ui :is(
 #wa-join-modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:18px;background-color:rgba(6,8,20,.58);backdrop-filter:blur(2px);z-index:10000}
     #wa-join-modal .wa-modal-content{position:relative;direction:rtl;text-align:right;width:min(440px,94vw);border-radius:24px;padding:34px 32px 30px;background:linear-gradient(160deg,#4c52d1 0%,#2f347f 52%,#1d2059 100%);color:#f7f8ff;box-shadow:0 24px 64px rgba(24,27,84,.42);border:1px solid rgba(255,255,255,.16);overflow:hidden}
     html[data-theme="dark"] #wa-join-modal .wa-modal-content{background:linear-gradient(160deg,#272a63 0%,#151840 100%);box-shadow:0 24px 70px rgba(5,6,18,.64);border-color:rgba(124,126,208,.38)}
-    #wa-join-modal .wa-close{position:absolute;top:18px;left:22px;width:36px;height:36px;border-radius:50%;border:1px solid rgba(255,255,255,.22);background:rgba(15,17,45,.45);color:#f6f7ff;display:flex;align-items:center;justify-content:center;font-size:1.2rem;cursor:pointer;transition:background-color .2s ease, transform .12s ease}
+    #wa-join-modal .wa-close{position:absolute;top:18px;left:22px;width:36px;height:36px;border-radius:50%;border:1px solid rgba(255,255,255,.22);background:rgba(15,17,45,.45);color:#f6f7ff;display:flex;align-items:center;justify-content:center;font-size:1.2rem;cursor:pointer;transition:background-color .2s ease, transform .12s ease;z-index:3;touch-action:manipulation;-webkit-tap-highlight-color:rgba(0,0,0,0)}
+    /* iOS tap-target hardening: expand the X hit area to a 52px square (Apple
+       HIG asks for at least 44px) without changing its visual size. */
+    #wa-join-modal .wa-close::before{content:"";position:absolute;inset:-8px}
     #wa-join-modal .wa-close:hover{background:rgba(15,17,45,.62)}
     #wa-join-modal .wa-close:active{transform:scale(.94)}
     #wa-join-modal .wa-close:focus-visible{outline:2px solid rgba(255,255,255,.55);outline-offset:2px}
@@ -12552,7 +12555,7 @@ body.motion-ui :is(
     #wa-join-modal .wa-benefits{list-style:none;margin:0 0 26px;padding:0;display:flex;flex-direction:column;gap:12px}
     #wa-join-modal .wa-benefits li{display:flex;align-items:flex-start;gap:12px;font-size:.98rem;color:rgba(245,246,255,.9)}
     #wa-join-modal .wa-benefits i{color:#7fe3a0;font-size:1.15rem;margin-top:3px}
-    #wa-join-modal .wa-btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;border:none;border-radius:999px;padding:14px 30px;font-size:1.08rem;font-weight:700;cursor:pointer;text-decoration:none;color:#fff;background:transparent;transition:transform .12s ease, box-shadow .25s ease, filter .2s ease}
+    #wa-join-modal .wa-btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;border:none;border-radius:999px;padding:14px 30px;font-size:1.08rem;font-weight:700;cursor:pointer;text-decoration:none;color:#fff;background:transparent;transition:transform .12s ease, box-shadow .25s ease, filter .2s ease;touch-action:manipulation;-webkit-tap-highlight-color:rgba(0,0,0,0)}
     #wa-join-modal .wa-btn:active{transform:translateY(1px)}
     #wa-join-modal .wa-btn:focus-visible{outline:2px solid rgba(255,255,255,.4);outline-offset:2px}
     #wa-join-modal .wa-btn i{font-size:1.15rem}
