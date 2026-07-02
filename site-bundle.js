@@ -59051,9 +59051,13 @@ function wirePageBalanceBox(){
     function formatSupportSelectedMessagesForCopy(thread){
       return getSupportSelectedMessageEntries(thread || {}).map(function(entry){
         var message = normalizeSupportMessage(entry.message);
-        return String(message.text || '').trim();
-      }).filter(function(text){ return !!text; }).join('\
-');
+        var author = message.sender === 'user' ? 'أنت' : 'الدعم الفني';
+        var time = formatSupportTime(message.createdAt);
+        var parts = [(time ? '[' + time + '] ' : '') + author + ':'];
+        if (message.text) parts.push(message.text);
+        if (message.imageUrl) parts.push('[صورة] ' + message.imageUrl);
+        return parts.join('\n');
+      }).join('\n\n');
     }
 
     async function copySupportSelectedMessages(){
