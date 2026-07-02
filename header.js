@@ -2723,7 +2723,9 @@ try {
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
   try { window.addEventListener('load', function(){ try { enforceLatinDigits(document); } catch (_) {} removeLangSwitcher(); }); } catch (_) {}
-  try { window.addEventListener('pageshow', function(){ try { enforceLatinDigits(document); } catch (_) {} }); } catch (_) {}
+  // استعادة bfcache تعيد الـ DOM كما تُرك (مطبَّع أصلاً) — تخطي المسح الكامل
+  // للأرقام حينها يزيل شغلاً متزامناً ثقيلاً من لحظة العودة للموقع (لاغ آيفون).
+  try { window.addEventListener('pageshow', function(ev){ if (ev && ev.persisted) return; try { enforceLatinDigits(document); } catch (_) {} }); } catch (_) {}
   try { setTimeout(removeLangSwitcher, 200); setTimeout(removeLangSwitcher, 1000); } catch (_) {}
 })();
 
@@ -12850,8 +12852,8 @@ function wirePageBalanceBox(){
         window.__CATALOG_INLINE_MODAL_ONLY__ = '';
         window.__CATALOG_INLINE_MODAL_ONLY_SOURCE__ = 'support';
         window.__CATALOG_INLINE_KEEP_PAGE_FOR_FORCE_MODAL__ = productId ? '1' : '';
-        window.__CATALOG_SUPPRESS_CATEGORY_FETCH_UNTIL__ = Date.now() + 20000;
-        window.__CATALOG_PRODUCT_CLICK_LOCK_UNTIL__ = Date.now() + 30000;
+        window.__CATALOG_SUPPRESS_CATEGORY_FETCH_UNTIL__ = Date.now() + 8000;
+        window.__CATALOG_PRODUCT_CLICK_LOCK_UNTIL__ = Date.now() + 8000;
         window.__CATALOG_PRODUCT_CLICK_LOCK_SLUG__ = gameSlug || productId || '';
       } catch (_) {}
       try {
@@ -20775,4 +20777,122 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
   } catch (err) {
     log("siteState listener failed", err?.message||err);
   }
+})();
+
+/* ---------------------------------------------------------------------------
+   لصق حرفي موحّد لكل الحقول (إصلاح جذري لآيفون):
+   iOS Safari قد يدمج نصوص الصفحة المجاورة (placeholder، الوصف، أزرار
+   رجوع/شراء) داخل الحقل أثناء اللصق عندما يُعاد بناء عقد النص حول الحقل
+   (مترجم iOS أو خلل WebKit). المعالج أدناه يلغي مسار الإدراج الافتراضي
+   للنظام كلياً على كل حقول النص في الموقع ويُدخل حصراً نص الحافظة
+   text/plain حرفياً، فلا يمكن لأي نص من الصفحة أن يدخل أي حقل عبر اللصق.
+   يعمل في طور الفقاعة كي تسبقه معالجات الحقول الخاصة (إن ألغت الحدث
+   بنفسها نتنحّى)، ويحترم maxlength مثل السلوك الافتراضي تماماً.
+   إضافة: عند تركيز أي حقل نصي يُوسم translate="no" + notranslate كي لا
+   يعيد مترجم الصفحة بناء العقد حوله (خامل تماماً بلا مترجم). لا يُلمس
+   autocomplete إطلاقاً حتى يبقى مدير كلمات المرور يعمل في تسجيل الدخول. */
+(function () {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return;
+  if (window.__literalPasteGuardBound__) return;
+  window.__literalPasteGuardBound__ = true;
+
+  var TEXTUAL_INPUT_TYPES = {
+    text: 1, search: 1, tel: 1, url: 1, password: 1, email: 1, number: 1
+  };
+  // محارف اتجاه/عرض-صفري غير مرئية قد تلتصق بالنص المدمج من الصفحة.
+  var INVISIBLE_FORMAT_CHARS = /[​-‏‪-‮⁠-⁤⁦-⁩﻿]/g;
+
+  function resolveTextEntryControl(node) {
+    if (!node || !node.tagName) return null;
+    var tag = String(node.tagName).toUpperCase();
+    if (tag !== 'INPUT' && tag !== 'TEXTAREA') return null;
+    try { if (node.readOnly || node.disabled) return null; } catch (_) {}
+    if (tag === 'INPUT') {
+      var type = String(node.type || 'text').toLowerCase();
+      if (!TEXTUAL_INPUT_TYPES[type]) return null;
+    }
+    return node;
+  }
+
+  function readClipboardPlainText(event) {
+    var data = null;
+    try { data = event.clipboardData || window.clipboardData || null; } catch (_) { data = null; }
+    if (!data || typeof data.getData !== 'function') return '';
+    var text = '';
+    try { text = String(data.getData('text/plain') || ''); } catch (_) { text = ''; }
+    if (!text) {
+      try { text = String(data.getData('text') || ''); } catch (_) { text = ''; }
+    }
+    return text;
+  }
+
+  function insertLiteralClipboardText(control, rawText) {
+    var isTextarea = String(control.tagName).toUpperCase() === 'TEXTAREA';
+    var text = String(rawText || '').replace(INVISIBLE_FORMAT_CHARS, '').replace(/\r\n?/g, '\n');
+    if (!isTextarea) text = text.replace(/\s*\n+\s*/g, ' ').trim();
+    if (!text) return false;
+    var current = typeof control.value === 'string' ? control.value : '';
+    var start = null;
+    var end = null;
+    try {
+      start = typeof control.selectionStart === 'number' ? control.selectionStart : null;
+      end = typeof control.selectionEnd === 'number' ? control.selectionEnd : null;
+    } catch (_) { start = null; end = null; }
+    // حقول لا تدعم التحديد (مثل type=number): استبدال كامل القيمة كسلوك آمن.
+    if (start == null || end == null) { start = 0; end = current.length; }
+    var maxLength = Number(control.maxLength);
+    if (Number.isFinite(maxLength) && maxLength > 0) {
+      var room = maxLength - (current.length - (end - start));
+      if (room <= 0) return false;
+      if (text.length > room) text = text.slice(0, room);
+    }
+    var next = current.slice(0, start) + text + current.slice(end);
+    try { control.value = next; } catch (_) { return false; }
+    var caret = start + text.length;
+    try {
+      if (typeof control.setSelectionRange === 'function') control.setSelectionRange(caret, caret);
+    } catch (_) {}
+    return true;
+  }
+
+  function dispatchSyntheticPasteInput(control) {
+    var ev = null;
+    try {
+      ev = typeof InputEvent === 'function'
+        ? new InputEvent('input', { bubbles: true, inputType: 'insertFromPaste' })
+        : null;
+    } catch (_) { ev = null; }
+    if (!ev) {
+      try { ev = new Event('input', { bubbles: true }); } catch (_) { ev = null; }
+    }
+    if (ev) { try { control.dispatchEvent(ev); } catch (_) {} }
+  }
+
+  try {
+    document.addEventListener('paste', function (event) {
+      try {
+        if (!event || event.defaultPrevented) return;
+        var control = resolveTextEntryControl(event.target);
+        if (!control) return;
+        var text = readClipboardPlainText(event);
+        // من هنا لا إدراج افتراضياً من النظام إطلاقاً — الحافظة فقط.
+        try { event.preventDefault(); } catch (_) {}
+        if (!text) return;
+        if (insertLiteralClipboardText(control, text)) dispatchSyntheticPasteInput(control);
+      } catch (_) {}
+    }, false);
+  } catch (_) {}
+
+  try {
+    document.addEventListener('focusin', function (event) {
+      try {
+        var control = resolveTextEntryControl(event.target);
+        if (!control) return;
+        try {
+          if (control.getAttribute('translate') !== 'no') control.setAttribute('translate', 'no');
+        } catch (_) {}
+        try { control.classList.add('notranslate'); } catch (_) {}
+      } catch (_) {}
+    }, true);
+  } catch (_) {}
 })();

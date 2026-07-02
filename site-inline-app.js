@@ -7721,15 +7721,18 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       window.__depositInlineMethodGlobalCopyFallbackBound__ = true;
       document.addEventListener('click', function(event){
         try {
-          if (event && event.target && event.target.closest && event.target.closest('a')) return;
-          const valueEl = findInlineMethodInfoValueFromEvent(event);
+          const target = event && event.target;
+          if (!target || typeof target.closest !== 'function') return;
+          if (target.closest('a')) return;
+          // النسخ الاحتياطي يعمل فقط عند النقر المباشر على القيمة نفسها داخل
+          // نافذة معلومات طريقة الإيداع. لا مطابقة عبر التحديد النصي ولا عبر
+          // activeElement: تلك المسارات كانت تكتب الحافظة وتبتلع نقرات في
+          // أماكن أخرى من الصفحة (تلوث لصق + نقرة أولى لا تعمل على آيفون).
+          const valueEl = target.closest('#depositInlineApp #methodModal #methodInfo .info-value');
           if (!valueEl) return;
           const rawValue = getInlineMethodInfoValueCopyText(valueEl);
           if (!rawValue || rawValue.length <= 24) return;
-          const button = event && event.target && event.target.closest
-            ? event.target.closest('.copy-value-btn')
-            : null;
-          if (button) return;
+          if (target.closest('.copy-value-btn')) return;
           if (valueEl.__inlineCopyClickAt && Date.now() - valueEl.__inlineCopyClickAt < 700) return;
           valueEl.__inlineCopyClickAt = Date.now();
           if (typeof event.preventDefault === 'function') event.preventDefault();
@@ -7774,6 +7777,10 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       }, true);
     } catch (_) {}
   }
+
+  // hook اختبارات: يتيح ربط معالج النسخ العام بدون فتح نافذة طريقة إيداع
+  // حقيقية (الربط الإنتاجي يحدث عند فتح النافذة؛ الدالة نفسها idempotent).
+  try { window.__bindInlineMethodGlobalCopyFallback = bindInlineMethodGlobalCopyFallback; } catch (_) {}
 
   function bindInlineMethodInfoCopy(infoHost){
     if (!infoHost || infoHost.__inlineCopyBound) return;
@@ -11868,7 +11875,9 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
 
   function applyCatalogSectionBackHash(targetHash) {
     const hash = String(targetHash || "#/").trim() || "#/";
-    try { window.__CATALOG_SUPPRESS_CATEGORY_FETCH_UNTIL__ = Date.now() + 20000; } catch (_) {}
+    // كبح قصير يغطي إعادة رسم المستوى السابق فقط؛ كان 20 ثانية فيمنع فتح
+    // أي قسم بنقرة واحدة بعد الرجوع (سبب «الأقسام تحتاج أكثر من نقرة»).
+    try { window.__CATALOG_SUPPRESS_CATEGORY_FETCH_UNTIL__ = Date.now() + 1500; } catch (_) {}
     try { window.__CATALOG_BACK_LOCAL_ONLY_UNTIL__ = Date.now() + 5000; } catch (_) {}
     try {
       if (hash === "#/" && typeof navigateHome === "function") {
@@ -18207,65 +18216,9 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     return "provider-games";
   }
 
-  function getCatalogCacheKey(uid) {
-    var mode = "";
-    try { mode = String(getCatalogMode() || "").trim(); } catch (_) { mode = ""; }
-    if (!mode) mode = "games";
-    return `catalog:cache:v4:${uid || "guest"}:${mode}`;
-  }
-
-  function readCatalogCachePayload(uid, mode) {
-    try {
-      const safeMode = String(mode || "").trim() || "games";
-      const keyV3 = `catalog:cache:v4:${uid || "guest"}:${safeMode}`;
-      const raw = localStorage.getItem(keyV3);
-      if (!raw) return null;
-      const data = JSON.parse(raw);
-      if (!data || typeof data !== "object") return null;
-      return data;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  function storedCatalogObjectHasContent(value) {
-    if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-    if (Array.isArray(value.tree) && value.tree.length) return true;
-    const buckets = ["games", "items", "products", "categories", "sections", "cats"];
-    return buckets.some((key) => {
-      const bucket = value[key];
-      if (Array.isArray(bucket)) return bucket.length > 0;
-      return !!(bucket && typeof bucket === "object" && !Array.isArray(bucket) && Object.keys(bucket).length);
-    });
-  }
-
-  function readCatalogCache() {
-    try {
-      const uid = getCachedUid();
-      const currentMode = String(getCatalogMode() || "").trim() || "games";
-      const modes = [];
-      modes.push(currentMode);
-      modes.push("games");
-      const seen = {};
-      for (let i = 0; i < modes.length; i += 1) {
-        const mode = modes[i];
-        if (!mode || seen[mode]) continue;
-        seen[mode] = true;
-        const data = readCatalogCachePayload(uid, mode);
-        if (!data) continue;
-        if (Array.isArray(data.tree) && data.tree.length) {
-          try {
-            const catalog = buildCatalogFromTree(data.tree);
-            if (storedCatalogObjectHasContent(catalog)) return catalog;
-          } catch (_) {}
-        }
-        if (storedCatalogObjectHasContent(data.catalog)) return data.catalog;
-      }
-      return null;
-    } catch (_) {
-      return null;
-    }
-  }
+  // حُذف قارئ كاش v4 القديم (getCatalogCacheKey/readCatalogCachePayload/
+  // readCatalogCache): لا شيء يكتب مفاتيح "catalog:cache:v4:" منذ الانتقال
+  // إلى v9، وكانت تُمسح عند كل تحميل سابقاً — فلا يمكن أن يعيد بيانات أبداً.
 
   function getCatalogCache() {
     try {
@@ -18283,11 +18236,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
         return inMem;
       }
     } catch (_) {}
-    const cached = readCatalogCache();
-    if (cached && typeof cached === "object") {
-      try { window.__CATALOG_CATALOG_CACHE__ = cached; } catch (_) {}
-    }
-    return cached;
+    return null;
   }
 
   function normalizeKey(value) {
@@ -21149,6 +21098,15 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
         }
       } catch (_) {}
       if (isStale()) return;
+      // اكتملت عملية فتح اللعبة/المنتج الحالية (نجاحاً أو فشلاً): تحرير قفل
+      // نقرة المنتج وكابح جلب الأقسام فوراً — القيم الزمنية عند التسليح مجرد
+      // حد أمان لمسارات تموت بصمت، وليست مدة القفل الفعلية. عملية أقدم
+      // (stale) لا تصل هنا فلا تحرر أقفال عملية أحدث منها.
+      try {
+        window.__CATALOG_PRODUCT_CLICK_LOCK_UNTIL__ = 0;
+        window.__CATALOG_PRODUCT_CLICK_LOCK_SLUG__ = "";
+        window.__CATALOG_SUPPRESS_CATEGORY_FETCH_UNTIL__ = 0;
+      } catch (_) {}
     }
   }
 
@@ -32972,6 +32930,9 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
         var CATALOG_NETWORK_TIMEOUT_MS = 30000;
         var CATALOG_CATEGORY_FETCH_TIMEOUT_MS = 9000;
         var CATALOG_CACHE_PREFIX = "catalog:cache:v9:";
+        // أقصى عمر تُقدَّم به لقطة كاتلوج مخزنة (شجرة كاملة أو قسم D1).
+        // ضمن هذا العمر تُعرض فوراً ويُعاد التحقق بالخلفية؛ الأقدم يُحذف.
+        var CATALOG_PERSIST_TTL_MS = 10 * 60 * 1000;
         var PROVIDER_SYNC_TTL = 10 * 60 * 1000;
         var PROVIDER_SYNC_RETRY_TTL = 2 * 60 * 1000;
         var PROVIDER_FORCE_TTL = 30 * 1000;
@@ -32999,8 +32960,10 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           } catch(_){}
         }
         try { window.__catalogClearPersistentCache = catalogClearPersistentCache; } catch(_){}
-        try { catalogClearPersistentCache(); } catch(_){}
-        try { window.addEventListener("pagehide", function(){ catalogClearPersistentCache(); }); } catch(_){}
+        // كاش الكاتلوج المستمر قصير العمر (إصلاح لاغ العودة على آيفون): لا
+        // مسح عند التحميل ولا عند pagehide — يُقدَّم فوراً ثم يُعاد التحقق
+        // بالخلفية، والقراءة تفرض CATALOG_PERSIST_TTL_MS. يظل المسح إلزامياً
+        // عند تسجيل الخروج وعند تغيّر uid حتى لا يرث حساب لقطة حساب آخر.
         try { window.addEventListener("auth:logout", function(){ catalogClearPersistentCache(); }); } catch(_){}
         try {
           var __catalogLastSessionUid = "";
@@ -33064,10 +33027,19 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
         }
         function catalogD1ReadSection(uid, id){
           try {
-            var raw = localStorage.getItem(catalogD1SectionKey(uid, id));
+            var key = catalogD1SectionKey(uid, id);
+            var raw = localStorage.getItem(key);
             if (!raw) return null;
             var data = JSON.parse(raw);
-            return (data && typeof data === "object") ? data : null;
+            if (!data || typeof data !== "object") return null;
+            // عمر قصير: القسم الأقدم من الحد يُحذف ويُجلب من الشبكة (مطابقة
+            // الإصدار تظل الحارس الأول ضمن النافذة).
+            var age = Date.now() - Number(data.savedAt || 0);
+            if (!(age >= 0 && age <= CATALOG_PERSIST_TTL_MS)) {
+              try { localStorage.removeItem(key); } catch(_){}
+              return null;
+            }
+            return data;
           } catch(_){ return null; }
         }
         function catalogD1WriteSection(uid, id, payload, version){
@@ -34153,10 +34125,18 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
 
         function readCatalogCache(uid){
           try{
-            var raw = localStorage.getItem(getCatalogCacheKey(uid));
+            var key = getCatalogCacheKey(uid);
+            var raw = localStorage.getItem(key);
             if (!raw) return null;
             var data = JSON.parse(raw);
             if (!catalogCachePayloadHasContent(data)) return null;
+            // عمر قصير: اللقطة الأقدم من الحد تُحذف وتُحمَّل بارداً؛ الأحدث
+            // تُعرض فوراً ويُعاد التحقق منها بالخلفية في fetchList.
+            var age = Date.now() - Number(data.savedAt || 0);
+            if (!(age >= 0 && age <= CATALOG_PERSIST_TTL_MS)) {
+              try { localStorage.removeItem(key); } catch(_){}
+              return null;
+            }
             return data;
           }catch(_){
             return null;
@@ -37403,9 +37383,9 @@ function normalizeCategory(value){
               if (typeof window.__setCatalogInlineParentRouteContext === "function") {
                 window.__setCatalogInlineParentRouteContext(baseRoute, parentParts);
               }
-              window.__CATALOG_SUPPRESS_CATEGORY_FETCH_UNTIL__ = Date.now() + 20000;
+              window.__CATALOG_SUPPRESS_CATEGORY_FETCH_UNTIL__ = Date.now() + 8000;
               if (catalogItemId) {
-                window.__CATALOG_PRODUCT_CLICK_LOCK_UNTIL__ = Date.now() + 30000;
+                window.__CATALOG_PRODUCT_CLICK_LOCK_UNTIL__ = Date.now() + 8000;
                 window.__CATALOG_PRODUCT_CLICK_LOCK_SLUG__ = effectiveSlug || slug || "";
               }
             } catch(_){}
@@ -37467,7 +37447,6 @@ function normalizeCategory(value){
           section.querySelectorAll('.card').forEach(function(node){
             if (!node) return;
             if (node.dataset && node.dataset.catalogCard === "1") { node.remove(); return; }
-            if (node.dataset && node.dataset.smmCard === "1") return;
             if (node.classList && node.classList.contains("catalog-branch-card")) return;
             node.remove();
           });
@@ -37489,7 +37468,6 @@ function normalizeCategory(value){
           var cards = Array.prototype.slice.call(section.querySelectorAll('.card'));
           cards.forEach(function(card){
             if (!card) return;
-            if (card.dataset && card.dataset.smmCard === "1") return;
             var href = '';
             try { href = card.getAttribute('href') || ''; } catch(_){ href = ''; }
             var key = '';
@@ -38308,1461 +38286,8 @@ function normalizeCategory(value){
         }
       }catch(_){ }
 
-      var smmBoostInline = (function(){
-        var DEFAULT_API_BASE = (window.__getSiteWorkerBaseDefault ? window.__getSiteWorkerBaseDefault({ trailingSlash: true }) : (String(window.location.origin || '').replace(/\/+$/, '') + "/"));
-        var CACHE_TTL = 60 * 1000;
-        var cache = [];
-        var lastFetched = 0;
-        var inflight = null;
-        var stylesInjected = false;
-        var authReadyPromise = null;
-
-        function buildApiBase(){
-          var base = window.__getSiteWorkerBase ? window.__getSiteWorkerBase({ trailingSlash: true }) : DEFAULT_API_BASE;
-          try{
-            var url = new URL(base);
-            url.searchParams.set("action", "smm");
-            return url.toString();
-          }catch(_){}
-          try{
-            var fallback = new URL(DEFAULT_API_BASE);
-            fallback.searchParams.set("action", "smm");
-            return fallback.toString();
-          }catch(_){}
-          var sep = DEFAULT_API_BASE.indexOf("?") >= 0 ? "&" : "?";
-          return DEFAULT_API_BASE + sep + "action=smm";
-        }
-
-        function themeIsDark(){
-          try{
-            var attr = document.documentElement.getAttribute('data-theme');
-            if (attr === 'dark' || attr === 'light') return attr === 'dark';
-            var stored = localStorage.getItem('theme');
-            if (stored === 'dark' || stored === 'light') return stored === 'dark';
-            var cachedRaw = localStorage.getItem('site:theme:v1');
-            if (cachedRaw) {
-              var cached = JSON.parse(cachedRaw) || {};
-              var mode = String(
-                cached.defaultMode ||
-                cached.default_mode ||
-                cached.defaultThemeMode ||
-                cached.default_theme_mode ||
-                ''
-              ).trim().toLowerCase();
-              if (mode === 'dark' || mode === 'light') return mode === 'dark';
-            }
-          }catch(_){}
-          return true;
-        }
-
-        function ensureStyles(){
-          if (stylesInjected) return;
-          stylesInjected = true;
-          try{
-            var css = [
-              '.smm-inline-form{display:flex;flex-direction:column;gap:18px;background:linear-gradient(180deg,#081131,#0d193f);border:1px solid rgba(112,136,255,.45);border-radius:22px;padding:20px;box-shadow:0 25px 45px rgba(5,7,20,.55);font-size:.95rem;}',
-              '.smm-inline-form label{display:block;font-weight:800;margin-bottom:8px;color:#e5e9ff;}',
-              'html[data-theme="dark"] .smm-inline-form label, body.dark-mode .smm-inline-form label{color:#f0f3ff;}',
-              '.categories[data-smm-inline="1"]{display:block!important;grid-template-columns:none!important;width:100%;max-width:min(960px,100%);margin:0 auto;padding:0;}',
-              '.categories[data-smm-inline="1"] .smm-inline-form{max-width:920px;margin:0 auto;}',
-              '.smm-inline-group{display:flex;flex-direction:column;}',
-              '.smm-inline-group-search{margin-bottom:-10px;}',
-              '.smm-inline-group-search .smm-inline-hint{margin-top:4px;}',
-              '.smm-inline-search{position:relative;}',
-              '.smm-inline-field{width:100%;border:1.5px solid rgba(125,150,255,.55);border-radius:16px;padding:16px 22px;font-size:1.05rem;font-weight:700;color:#e8ecff;background:linear-gradient(180deg,#101a48,#0a1231);box-shadow:0 20px 40px rgba(4,6,18,.6);outline:none;transition:border-color .2s ease,box-shadow .2s ease;}',
-              '.smm-inline-field::placeholder{color:#b7c5ff;font-weight:600;}',
-              '.smm-inline-field:focus{border-color:#7d96ff;box-shadow:0 24px 44px rgba(61,96,255,.45);}',
-              '.smm-inline-field[disabled]{opacity:.5;cursor:not-allowed;}',
-              '.smm-inline-search-input{padding-right:60px!important;}',
-              '.smm-inline-search i{position:absolute;right:16px;top:50%;transform:translateY(-50%);color:#99b7ff;}',
-              '.smm-inline-select{appearance:none;-moz-appearance:none;-webkit-appearance:none;text-align:right;direction:rtl;background-image:url(\"data:image/svg+xml,%3Csvg width%3D%2714%27 height%3D%279%27 viewBox%3D%270 0 14 9%27 fill%3D%27none%27 xmlns%3D%27http://www.w3.org/2000/svg%27%3E%3Cpath d%3D%27M2 2L7 7L12 2%27 stroke%3D%27%23BBD3FF%27 stroke-width%3D%271.8%27 stroke-linecap%3D%27round%27 stroke-linejoin%3D%27round%27/%3E%3C/svg%3E\");background-repeat:no-repeat;background-position:left 26px center;background-size:14px;color-scheme:light;padding-right:22px;padding-left:60px;}',
-              '.smm-inline-select:focus{border-color:#7d96ff;box-shadow:0 24px 44px rgba(61,96,255,.45);}',
-              '.smm-inline-select option, .smm-inline-select optgroup{background:#0e1741;color:#f3f6ff;}',
-              '.smm-select{position:relative;width:100%;font-weight:700;color:#f3f6ff;}',
-              '.smm-select-trigger{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;border:1.5px solid rgba(125,150,255,.65);border-radius:16px;padding:15px 20px;background:linear-gradient(180deg,#0d1435,#080f25);color:inherit;box-shadow:0 20px 40px rgba(4,6,18,.65);cursor:pointer;transition:border-color .2s ease,box-shadow .2s ease,transform .12s ease;}',
-              '.smm-select-trigger:focus-visible{outline:2px solid rgba(125,150,255,.65);outline-offset:2px;}',
-              '.smm-select.open .smm-select-trigger{border-color:var(--site-accent-runtime-light, var(--primary-light, var(--accent-theme, #9c9ede)));box-shadow:0 22px 48px rgba(7,14,46,.75);}',
-              '.smm-select.is-disabled .smm-select-trigger{opacity:.45;cursor:not-allowed;box-shadow:none;}',
-              '.smm-select-value{flex:1;display:flex;align-items:center;gap:12px;white-space:normal;overflow:visible;text-overflow:clip;font-size:1.05rem;flex-wrap:wrap;word-break:break-word;}',
-              '.smm-option-pill,.smm-value-pill{flex:0 0 auto;min-width:48px;padding:3px 10px;border-radius:12px;background:linear-gradient(135deg,rgba(124,126,208,.35),rgba(88,91,165,.45));color:#fff;font-size:.75rem;font-weight:800;letter-spacing:.02em;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 8px 20px rgba(5,6,20,.55);border:1px solid rgba(255,255,255,.15);}',
-              '.smm-option-pill{margin-inline-end:10px;}',
-              '.smm-value-pill{margin-inline-end:8px;}',
-              '.smm-option-label,.smm-value-text{flex:1;min-width:0;text-align:right;font-weight:700;white-space:normal;overflow:visible;text-overflow:clip;font-size:0.98rem;word-break:break-word;}',
-              '.smm-select-value.is-placeholder{color:#8aa0f2;font-weight:600;}',
-              '.smm-select-caret{color:#8aa0f2;font-size:.9rem;display:inline-flex;}',
-              '.smm-select-dropdown{position:absolute;top:calc(100% + 6px);inset-inline:0;background:linear-gradient(180deg,#070b22,#0f1533);border:1px solid rgba(125,150,255,.4);border-radius:18px;box-shadow:0 28px 55px rgba(4,6,20,.75);max-height:280px;overflow:auto;opacity:0;transform:translateY(-6px);pointer-events:none;transition:opacity .15s ease,transform .15s ease;z-index:20;padding:8px 0;}',
-              '.smm-select.open .smm-select-dropdown{opacity:1;transform:translateY(0);pointer-events:auto;}',
-              '.smm-option{width:100%;border:0;background:transparent;color:#f3f6ff;text-align:right;padding:10px 18px;font-weight:700;display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;transition:background .15s ease;border-bottom:1px solid rgba(125,150,255,.2);}',
-              '.smm-option:last-of-type{border-bottom:none;}',
-              '.smm-option:not(.is-disabled):hover{background:rgba(124,126,208,.22);}',              
-              '.smm-option.is-selected{background:linear-gradient(135deg,rgba(var(--site-accent-rgb, 148, 163, 184), .35),rgba(var(--site-accent-rgb, 148, 163, 184), .35));color:#fff;}',              
-              '.smm-option.is-disabled{opacity:.35;cursor:not-allowed;}',              
-              '.smm-select-dropdown::-webkit-scrollbar{width:6px;}',
-              '.smm-select-dropdown::-webkit-scrollbar-track{background:rgba(255,255,255,.05);border-radius:999px;}',
-              '.smm-select-dropdown::-webkit-scrollbar-thumb{background:rgba(124,126,208,.65);border-radius:999px;}',
-              '.smm-select-native{position:absolute;inset:auto;opacity:0;pointer-events:none;width:0;height:0;}',
-              '.smm-inline-label-row{display:flex;align-items:center;justify-content:space-between;gap:14px;}',
-              '.smm-inline-label-row label{margin-bottom:0;flex:1;font-size:0.95em;}',
-              '.smm-service-pill{min-width:66px;text-align:center;font-weight:800;font-size:.95rem;color:#1c2f8d;background:linear-gradient(180deg,#f4f6ff,#dfe5ff);border:1px solid rgba(76,124,255,.45);border-radius:999px;padding:7px 20px;box-shadow:0 14px 32px rgba(62,92,255,.32);transition:opacity .2s ease;}',
-              '.smm-service-pill.is-empty{opacity:.45;}',
-              '.smm-inline-form select:disabled{opacity:.5;cursor:not-allowed;}',
-              '.smm-inline-description-body{width:100%;border:1px solid rgba(125,150,255,.55);border-radius:16px;padding:16px 22px;font-size:1.02rem;font-weight:600;color:#f5f7ff;background:linear-gradient(180deg,#101a48,#0a1231);line-height:1.7;min-height:96px;box-shadow:0 20px 40px rgba(4,6,18,.6);white-space:pre-line;word-break:break-word;transition:border-color .2s ease,box-shadow .2s ease;}',
-              '.smm-inline-description-body.empty{color:#8aa0f2;}',
-              '.smm-inline-hint{font-size:.88rem;color:#c0cbff;margin-top:6px;}',
-              '.smm-inline-hint.error{color:#f87171;font-weight:700;}',
-              '.smm-inline-hint.success{color:#34d399;font-weight:700;}',
-              '.smm-inline-total{font-size:inherit;font-weight:inherit;line-height:inherit;text-align:center;font-variant-numeric:tabular-nums;}',
-              '.smm-inline-row{display:flex;flex-wrap:wrap;gap:16px;}',
-              '.smm-inline-row .smm-inline-group{flex:1;min-width:240px;}',
-              '.smm-inline-submit{border:0;border-radius:18px;padding:14px 18px;font-weight:800;font-size:1.05rem;background:linear-gradient(135deg,var(--site-accent-runtime, #5c5ebf),var(--site-accent-runtime-strong, #3b3e8c));color:#fff;cursor:pointer;transition:transform .2s ease,box-shadow .2s ease;}',
-              '.smm-inline-submit:hover{transform:translateY(-1px);box-shadow:0 15px 35px rgba(var(--site-accent-rgb, 148, 163, 184), .3);}',
-              '.smm-inline-message{text-align:center;margin:18px 0 0;font-weight:600;}',
-              'html[data-theme="light"] .smm-inline-form label, body.light-mode .smm-inline-form label{color:#1b1d3b;}',
-              'html[data-theme="light"] .smm-inline-form, body.light-mode .smm-inline-form{background:linear-gradient(180deg,#ffffff,#f5f6ff);border:1px solid rgba(82,92,196,.18);box-shadow:0 24px 50px rgba(12,16,48,.08);}',
-              'html[data-theme="light"] .smm-inline-field, body.light-mode .smm-inline-field{background:linear-gradient(180deg,#ffffff,#f4f5ff);color:#111540;border:1.5px solid rgba(82,92,196,.3);box-shadow:0 18px 36px rgba(27,32,72,.08);color-scheme:light;}',
-              'html[data-theme="light"] .smm-inline-field::placeholder, body.light-mode .smm-inline-field::placeholder{color:#7a82a8;}',
-              'html[data-theme="light"] .smm-inline-select option, html[data-theme="light"] .smm-inline-select optgroup, body.light-mode .smm-inline-select option, body.light-mode .smm-inline-select optgroup{background:#f4f6fb;color:#111540;}',
-              'html[data-theme="light"] .smm-select{color:#111540;}',
-              'html[data-theme="light"] .smm-select-trigger{background:linear-gradient(180deg,#ffffff,#f5f7ff);color:#111540;border-color:rgba(82,92,196,.35);box-shadow:0 16px 34px rgba(18,22,60,.12);}',
-              'html[data-theme="light"] .smm-select.open .smm-select-trigger{border-color:var(--site-accent-runtime, #5c5ebf);box-shadow:0 20px 40px rgba(18,22,60,.18);}',
-              'html[data-theme="light"] .smm-select-value.is-placeholder{color:#6f72a6;}',
-              'html[data-theme="light"] .smm-select-dropdown{background:linear-gradient(180deg,#ffffff,#f4f5ff);border-color:rgba(82,92,196,.25);box-shadow:0 24px 48px rgba(18,22,60,.15);}',
-              'html[data-theme="light"] .smm-option{color:#1b1d3b;border-bottom:1px solid rgba(82,92,196,.18);}',
-              'html[data-theme="light"] .smm-option:last-of-type{border-bottom:none;}',
-              'html[data-theme="light"] .smm-option-pill, html[data-theme="light"] .smm-value-pill{background:linear-gradient(135deg,rgba(76,110,245,.22),rgba(124,126,208,.28));color:#1b1d3b;box-shadow:0 6px 16px rgba(18,22,60,.18);border-color:rgba(82,92,196,.3);}',
-              'html[data-theme="light"] .smm-option.is-selected{background:linear-gradient(135deg,rgba(76,110,245,.14),rgba(124,126,208,.18));color:#1b1d3b;}',
-              'html[data-theme="light"] .smm-inline-description-body, body.light-mode .smm-inline-description-body{background:linear-gradient(180deg,#ffffff,#f5f6ff);color:#111540;border:1px solid rgba(82,92,196,.2);box-shadow:0 18px 36px rgba(27,32,72,.08);}',
-              'html[data-theme="light"] .smm-inline-description-body.empty, body.light-mode .smm-inline-description-body.empty{color:#6c7398;}',
-              'html[data-theme="light"] .smm-inline-hint, body.light-mode .smm-inline-hint{color:#7a82a8;}',
-              'html[data-theme="light"] .smm-inline-hint.success, body.light-mode .smm-inline-hint.success{color:#059669;}',
-              'html[data-theme="light"] .smm-inline-total, body.light-mode .smm-inline-total{color:#111540;}',
-              'html[data-theme="light"] .smm-inline-search i, body.light-mode .smm-inline-search i{color:#7c83a8;}',
-              'html[data-theme=\"dark\"] .smm-inline-form{background:linear-gradient(180deg,#050b1e,#0a132f);border-color:rgba(118,139,255,.45);}',
-              'html[data-theme=\"dark\"] .smm-inline-field, body.dark-mode .smm-inline-field{background:linear-gradient(180deg,#050b1e,#080f29);color:#e8ecff;border-color:rgba(125,150,255,.65);box-shadow:0 20px 36px rgba(0,0,0,.55);color-scheme:dark;}',
-              'html[data-theme=\"dark\"] .smm-inline-select, body.dark-mode .smm-inline-select{background:linear-gradient(180deg,#050b1e,#080f29);color:#e8ecff;border-color:rgba(125,150,255,.65);box-shadow:0 20px 36px rgba(0,0,0,.55);color-scheme:dark;}',
-              'html[data-theme=\"dark\"] .smm-inline-select option, body.dark-mode .smm-inline-select option, html[data-theme=\"dark\"] .smm-inline-select optgroup, body.dark-mode .smm-inline-select optgroup{background:#050b1e;color:#e8ecff;}',
-              'html[data-theme=\"dark\"] .smm-service-pill{background:rgba(27,52,137,.8);color:#e2e8ff;border-color:rgba(76,124,255,.45);box-shadow:0 15px 32px rgba(20,30,82,.5);}',
-              'html[data-theme=\"dark\"] .smm-inline-description-body, body.dark-mode .smm-inline-description-body{background:linear-gradient(180deg,#050b1e,#080f29);color:#f5f7ff;border-color:rgba(125,150,255,.65);box-shadow:0 20px 36px rgba(0,0,0,.55);}',
-              'html[data-theme=\"dark\"] .smm-inline-description-body.empty, body.dark-mode .smm-inline-description-body.empty{color:#9eadf3;}',
-              'html[data-theme=\"dark\"] .smm-inline-total{color:#f5f7ff;}',
-            ].join('');
-            var style = document.createElement('style');
-            style.textContent = css;
-            document.head.appendChild(style);
-          }catch(_){}
-        }
-
-        function createError(code, message){
-          var err = new Error(message || code || "error");
-          err.code = code || "unknown_error";
-          return err;
-        }
-
-        function ensureFirebaseAuth(){
-          if (window.__SKIP_FIREBASE__) return null;
-          if (typeof firebase === 'undefined') return null;
-          try{
-            if ((!firebase.apps || !firebase.apps.length) && window.__FIREBASE_CONFIG__){
-              firebase.initializeApp(window.__FIREBASE_CONFIG__);
-            }
-          }catch(_){}
-          try { return firebase.auth(); } catch(_){ return null; }
-        }
-
-        function getLocalSessionKey(){
-          try{
-            var parsed = JSON.parse(localStorage.getItem("sessionKeyInfo") || "null");
-            return parsed && parsed.sessionKey ? parsed.sessionKey : "";
-          }catch(_){
-            return "";
-          }
-        }
-
-        function waitForUser(){
-          var auth = ensureFirebaseAuth();
-          if (!auth) return Promise.resolve(null);
-          var current = auth.currentUser;
-          if (current) return Promise.resolve(current);
-          if (authReadyPromise) return authReadyPromise;
-          authReadyPromise = new Promise(function(resolve){
-            var unsubscribe = null;
-            try{
-              unsubscribe = auth.onAuthStateChanged(function(user){
-                try{ if (unsubscribe) unsubscribe(); }catch(_){}
-                authReadyPromise = null;
-                resolve(user || null);
-              }, function(){
-                try{ if (unsubscribe) unsubscribe(); }catch(_){}
-                authReadyPromise = null;
-                resolve(null);
-              });
-            }catch(_){
-              authReadyPromise = null;
-              resolve(null);
-            }
-          });
-          return authReadyPromise;
-        }
-
-        function fetchServices(force){
-          var now = Date.now();
-          if (!force && cache && cache.length && (now - lastFetched) < CACHE_TTL) return Promise.resolve(cache);
-          if (inflight) return inflight;
-
-          inflight = Promise.resolve().then(function(){
-            var url = new URL(buildApiBase());
-            url.searchParams.set("mode", "services");
-            return waitForUser().then(function(user){
-              if (!user) return { headers: {} };
-              var sessionKey = getLocalSessionKey();
-              var headers = {};
-              if (sessionKey) headers["X-SessionKey"] = sessionKey;
-              return user.getIdToken(true).then(function(token){
-                headers["Authorization"] = "Bearer " + token;
-                return { headers: headers };
-              }).catch(function(){ return { headers: headers }; });
-            }).catch(function(){ return { headers: {} }; }).then(function(auth){
-              var opts = { method: "GET", cache: "no-store" };
-              if (auth && auth.headers && Object.keys(auth.headers).length){
-                opts.headers = auth.headers;
-              }
-              return fetch(url.toString(), opts);
-            });
-          }).then(async function(res){
-            var data = await res.json().catch(function(){ return {}; });
-            if (!res.ok || data.success === false){
-              throw createError(data.code || "fetch_failed", data.error || "تعذر تحميل قائمة الخدمات");
-            }
-            var list = Array.isArray(data.services) ? data.services : [];
-            cache = list;
-            lastFetched = Date.now();
-            return list;
-          }).catch(function(err){
-            if (!(err instanceof Error)) err = createError("fetch_failed", "تعذر تحميل القائمة");
-            throw err;
-          }).finally(function(){ inflight = null; });
-          return inflight;
-        }
-
-
-        function ensureMessage(section){
-          if (!section) return null;
-          var msg = section.__smmMessage;
-          if (msg && msg.parentNode) return msg;
-          msg = document.createElement('p');
-          msg.className = 'smm-inline-message';
-          msg.setAttribute('data-smm-message', '1');
-          msg.dir = 'rtl';
-          msg.style.display = 'none';
-          if (section.parentNode) section.parentNode.insertBefore(msg, section.nextSibling);
-          else section.appendChild(msg);
-          section.__smmMessage = msg;
-          return msg;
-        }
-
-        function setMessage(section, text, tone){
-          var node = ensureMessage(section);
-          if (!node) return;
-          if (!text){
-            node.style.display = 'none';
-            return;
-          }
-          node.textContent = text;
-          node.style.display = '';
-          if (tone === 'error') node.style.color = '#f87171';
-          else if (tone === 'warning') node.style.color = '#fbbf24';
-          else if (tone === 'success') node.style.color = '#34d399';
-          else node.style.color = '#94a3b8';
-        }
-
-        function showInlineResultOverlay(options){
-          options = options || {};
-          var success = options.success !== false;
-          var needsReview = options.reviewForward === true;
-          var orderCode = options.orderCode || options.orderId || '';
-          var chargeText = formatSuccessChargeText(
-            options.total ?? options.amount ?? options.price ?? options.estimatedCharge ?? options.charged,
-            options.currency || options.currencyCode || options.currency_code || ''
-          );
-          var message = options.message || (success
-            ? (needsReview ? 'تم تحويل الطلب للمراجعة' : 'تم تسجيل الطلب بنجاح')
-            : 'تعذر تنفيذ الطلب');
-          var details = options.details;
-          var existing = document.getElementById('smm-inline-result');
-          if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
-
-          var overlay = document.createElement('div');
-          overlay.id = 'smm-inline-result';
-          overlay.className = 'smm-inline-result-overlay';
-          overlay.setAttribute('role', 'dialog');
-          overlay.setAttribute('aria-modal', 'true');
-          overlay.dir = 'rtl';
-          overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(5,7,20,.65);backdrop-filter:blur(5px);';
-
-          var card = document.createElement('div');
-          card.className = 'smm-inline-result-card';
-          card.style.cssText = 'width:min(520px,95vw);border-radius:24px;padding:34px 28px;text-align:center;position:relative;box-shadow:0 30px 90px rgba(5,5,20,.45);';
-          var dark = themeIsDark();
-          overlay.style.background = dark ? 'rgba(5,7,20,.75)' : 'rgba(9,12,32,.55)';
-          card.style.background = dark ? '#0b1225' : '#ffffff';
-          card.style.color = dark ? '#e2e8f0' : '#111827';
-
-          var accent = success ? '#22c55e' : '#ef4444';
-          var accentBg = success ? 'rgba(34,197,94,.16)' : 'rgba(239,68,68,.16)';
-
-          var closeBtn = document.createElement('button');
-          closeBtn.type = 'button';
-          closeBtn.textContent = '\u00D7';
-          closeBtn.setAttribute('aria-label', 'إغلاق');
-          closeBtn.style.cssText = 'position:absolute;top:14px;inset-inline-start:18px;width:38px;height:38px;border-radius:50%;border:0;font-size:22px;font-weight:700;cursor:pointer;';
-          closeBtn.style.background = dark ? 'rgba(255,255,255,.08)' : 'rgba(15,23,42,.08)';
-          closeBtn.style.color = dark ? '#f8fafc' : '#0f172a';
-
-          var icon = success ? createSuccessOrderAnimation(chargeText) : document.createElement('div');
-          if (!success) {
-            icon.textContent = '\u26A0\uFE0F';
-            icon.style.cssText = 'width:96px;height:96px;border-radius:50%;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:44px;font-weight:700;';
-            icon.style.background = accentBg;
-            icon.style.color = accent;
-            icon.style.border = '2px solid ' + accent;
-          }
-
-          var title = document.createElement('h3');
-          title.textContent = success
-            ? (needsReview ? 'الطلب قيد المراجعة' : 'تم تسجيل الطلب بنجاح')
-              : 'تم تسجيل الطلب وجاري تنفيذه';
-          title.style.cssText = 'font-size:26px;margin:6px 0 10px;font-weight:800;';
-
-          var msg = document.createElement('p');
-          msg.textContent = message;
-          msg.style.cssText = 'margin:0 0 10px;line-height:1.7;';
-          msg.style.color = dark ? '#cbd5f5' : '#4a4f68';
-
-          var detail = null;
-          var detailText = details;
-          if (!detailText){
-            detailText = success
-              ? 'يمكنك متابعة حالة الطلب من صفحة الطلبات.'
-              : 'تحقق من البيانات وحاول مرة أخرى. إذا استمرت المشكلة يرجى التواصل مع الدعم.';
-          }
-          detail = document.createElement('p');
-          detail.textContent = detailText;
-          detail.style.cssText = 'margin:0 0 12px;font-size:15px;line-height:1.6;';
-          detail.style.color = dark ? '#9fb4ff' : '#64748b';
-
-          var codeLine = null;
-          if (orderCode){
-            codeLine = document.createElement('p');
-            var codeLabel = document.createTextNode('كود الطلب: ');
-            var codeStrong = document.createElement('strong');
-            codeStrong.textContent = String(orderCode || '');
-            codeLine.appendChild(codeLabel);
-            codeLine.appendChild(codeStrong);
-            codeLine.style.cssText = 'margin:12px 0 6px;font-weight:700;';
-          }
-
-          var actions = document.createElement('div');
-          actions.style.cssText = 'display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-top:18px;';
-
-          if (success){
-            var ordersBtn = document.createElement('a');
-            ordersBtn.href = '#/orders';
-            ordersBtn.textContent = 'عرض طلباتي';
-            ordersBtn.style.cssText = 'text-decoration:none;padding:12px 26px;border-radius:18px;font-weight:800;';
-            ordersBtn.style.background = accent;
-            ordersBtn.style.color = '#0f172a';
-            actions.appendChild(ordersBtn);
-            ordersBtn.addEventListener('click', function(){
-              try { ordersBtn.style.display = 'none'; } catch(_){}
-              try { actions.style.display = 'none'; } catch(_){}
-            }, { once: true });
-          }
-
-          var closeAction = document.createElement('button');
-          closeAction.type = 'button';
-          closeAction.textContent = success ? 'إغلاق' : 'محاولة مجدداً';
-          closeAction.style.cssText = 'padding:12px 22px;border-radius:18px;font-weight:800;border:0;cursor:pointer;';
-          closeAction.style.background = dark ? '#1e293b' : '#e2e8f0';
-          closeAction.style.color = dark ? '#e2e8f0' : '#111827';
-          actions.appendChild(closeAction);
-
-          function cleanup(){
-            document.removeEventListener('keydown', escHandler);
-            if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
-          }
-
-          function escHandler(ev){
-            if (ev && (ev.key === 'Escape' || ev.key === 'Esc')) cleanup();
-          }
-
-          closeBtn.addEventListener('click', cleanup);
-          closeAction.addEventListener('click', cleanup);
-          overlay.addEventListener('click', function(e){
-            if (e.target === overlay) cleanup();
-          });
-          document.addEventListener('keydown', escHandler);
-
-          var nodes = [closeBtn, icon, title, msg];
-          if (codeLine) nodes.push(codeLine);
-          nodes.push(detail, actions);
-          card.append.apply(card, nodes);
-          overlay.appendChild(card);
-          document.body.appendChild(overlay);
-          if (success && icon && typeof icon.__play === 'function') {
-            requestAnimationFrame(function(){ icon.__play(); });
-          }
-
-          try {
-            var audio = new Audio(success ? 'https://image2url.com/r2/default/audio/1775222040513-4517d22e-9eab-45d9-90af-8444bc117b02.mp3' : 'https://image2url.com/r2/default/audio/1775222006071-0c6196c2-357e-4a1c-9499-a3ada1f41078.mp3');
-            audio.play().catch(function(){});
-          } catch(_){}
-        }
-
-        function normalizeText(value){
-          return (value == null ? '' : String(value))
-            .toLowerCase()
-            .replace(/[ًٌٍَُِّْـ]/g,'')
-            .replace(/[إأآا]/g,'ا')
-            .replace(/ى/g,'ي')
-            .replace(/ة/g,'ه')
-            .replace(/\s+/g,' ')
-            .trim();
-        }
-
-        var uiState = {
-          services: [],
-          categories: [],
-          selectedCategory: '',
-          selectedServiceId: ''
-        };
-
-        var uiRefs = null;
-        var qtyUserEdited = false;
-
-        var urlRegex = /https?:\/\/[^\s<>\"']+/gi;
-
-        var CATEGORY_ICON_RULES = [
-          { icon: '\u{1F916}', keywords: ['gpt', 'شات gpt', 'بريميوم'] },
-          { icon: '\u{1F3B5}', keywords: ['تيك توك', 'tiktok'] },
-          { icon: '\u{1F4D8}', keywords: ['فيسبوك', 'facebook'] },
-          { icon: '\u{1F4F8}', keywords: ['انستجرام', 'انستا', 'instagram'] },
-          { icon: '\u25B6\uFE0F', keywords: ['يوتيوب', 'youtube'] },
-          { icon: '\u2708\uFE0F', keywords: ['تيليجرام', 'تيلجرام', 'تليجرام', 'telegram'] },
-          { icon: '\u{1F4AC}', keywords: ['واتس', 'whatsapp'] },
-          { icon: '\u{1F47B}', keywords: ['سناب', 'snap'] },
-          { icon: '\u{1F426}', keywords: ['تويتر', 'twitter', 'ريتويت'] },
-          { icon: '\u{1F4BC}', keywords: ['لينكد', 'linkedin'] },
-          { icon: '\u{1F3A7}', keywords: ['سبوتيفاي', 'spotify'] },
-          { icon: '\u{1F3AE}', keywords: ['بلاستيشن', 'بلايستيشن', 'playstation', ' ps', 'ps5', 'psn', 'تويتش', 'twitch'] },
-          { icon: '\u{1F4B3}', keywords: ['visa', 'فيزا'] },
-          { icon: '\u{1F451}', keywords: ['vip', 'نجوم', 'premium'] },
-          { icon: '\u2705', keywords: ['توثيق', 'verified'] },
-          { icon: '\u{1F4F0}', keywords: ['جرايد', 'جريدة', 'google', 'جوجل'] },
-          { icon: '\u{1F3A5}', keywords: ['كيك', 'kick', 'بيغو', 'bigo'] },
-          { icon: '\u{1F680}', keywords: ['رشق', 'خدمات'] },
-          { icon: '\u{1F4E1}', keywords: ['قنوات', 'قناة', 'channel'] },
-          { icon: '\u{1F4C8}', keywords: ['ساعات', 'minutes', 'مشاهدات', 'views'] },
-          { icon: '\u{1F4F1}', keywords: ['kwai', 'كواى', 'كواي'] },
-          { icon: '\u{1F4AC}', keywords: ['تعليقات', 'comments'] },
-          { icon: '\u{1F44D}', keywords: ['لايك', 'likes'] },
-          { icon: '\u{1F465}', keywords: ['متابعين', 'followers', 'اعضاء'] }
-        ];
-
-        function getCategoryIcon(label){
-          var text = (label || '').toLowerCase();
-          for (var i = 0; i < CATEGORY_ICON_RULES.length; i++){
-            var rule = CATEGORY_ICON_RULES[i];
-            for (var j = 0; j < rule.keywords.length; j++){
-              if (text.indexOf(rule.keywords[j]) !== -1){
-                return rule.icon;
-              }
-            }
-          }
-        return '';
-        }
-
-        function formatCategoryLabel(label){
-          if (!label) return label || '';
-          return getCategoryIcon(label) + ' ' + label;
-        }
-
-        var customSelectInstances = [];
-        var customSelectOpen = null;
-
-        function closeCustomSelect(instance){
-          if (!instance) return;
-          instance.wrapper.classList.remove('open');
-          instance.trigger.setAttribute('aria-expanded', 'false');
-          if (customSelectOpen === instance) customSelectOpen = null;
-        }
-
-        function openCustomSelect(instance){
-          if (!instance || instance.select.disabled) return;
-          if (customSelectOpen && customSelectOpen !== instance){
-            closeCustomSelect(customSelectOpen);
-          }
-          instance.wrapper.classList.add('open');
-          instance.trigger.setAttribute('aria-expanded', 'true');
-          customSelectOpen = instance;
-        }
-
-        document.addEventListener('click', function(e){
-          if (!customSelectOpen) return;
-          if (!customSelectOpen.wrapper.contains(e.target)){
-            closeCustomSelect(customSelectOpen);
-          }
-        }, true);
-
-        document.addEventListener('keydown', function(e){
-          if (e.key === 'Escape' && customSelectOpen){
-            closeCustomSelect(customSelectOpen);
-          }
-        });
-
-        function createCustomSelect(select){
-          if (!select || select.__customSelect) return select && select.__customSelect;
-          var wrapper = document.createElement('div');
-          wrapper.className = 'smm-select';
-          var trigger = document.createElement('button');
-          trigger.type = 'button';
-          trigger.className = 'smm-select-trigger';
-          trigger.setAttribute('aria-haspopup', 'listbox');
-          trigger.setAttribute('aria-expanded', 'false');
-          if (select.id) trigger.setAttribute('aria-labelledby', select.id);
-          var valueNode = document.createElement('span');
-          valueNode.className = 'smm-select-value is-placeholder';
-          valueNode.textContent = '?';
-          var caret = document.createElement('span');
-          caret.className = 'smm-select-caret';
-          caret.innerHTML = '<i class="fa-solid fa-chevron-down" aria-hidden="true"></i>';
-          trigger.appendChild(valueNode);
-          trigger.appendChild(caret);
-          var dropdown = document.createElement('div');
-          dropdown.className = 'smm-select-dropdown';
-          dropdown.setAttribute('role', 'listbox');
-          if (select.id) dropdown.id = select.id + '__dropdown';
-
-          var parent = select.parentNode;
-          if (parent){
-            parent.insertBefore(wrapper, select);
-          }
-          wrapper.appendChild(trigger);
-          wrapper.appendChild(dropdown);
-          wrapper.appendChild(select);
-          select.classList.add('smm-select-native');
-          select.setAttribute('aria-hidden', 'true');
-          select.tabIndex = -1;
-
-          var instance = {
-            select: select,
-            wrapper: wrapper,
-            trigger: trigger,
-            dropdown: dropdown,
-            valueNode: valueNode
-          };
-          select.__customSelect = instance;
-          customSelectInstances.push(instance);
-
-          trigger.addEventListener('click', function(ev){
-            ev.preventDefault();
-            if (instance.wrapper.classList.contains('open')) closeCustomSelect(instance);
-            else openCustomSelect(instance);
-          });
-
-          select.addEventListener('change', function(){
-            updateCustomSelectValue(select);
-          });
-
-          return instance;
-        }
-
-        function ensureCustomSelect(select){
-          if (!select) return null;
-          return select.__customSelect || createCustomSelect(select);
-        }
-
-        function setValueNodeContent(instance, label, pill, isPlaceholder){
-          if (!instance || !instance.valueNode) return;
-          var node = instance.valueNode;
-          node.innerHTML = '';
-          node.classList.toggle('is-placeholder', !!isPlaceholder);
-          if (pill){
-            var pillEl = document.createElement('span');
-            pillEl.className = 'smm-value-pill';
-            pillEl.textContent = pill;
-            node.appendChild(pillEl);
-          }
-          var textEl = document.createElement('span');
-          textEl.className = 'smm-value-text';
-          textEl.textContent = label || '?';
-          node.appendChild(textEl);
-        }
-
-        function updateCustomSelectValue(select){
-          if (!select || !select.__customSelect) return;
-          var instance = select.__customSelect;
-          var selectedOption = select.options[select.selectedIndex] || null;
-          var label = '';
-          var badge = '';
-          if (selectedOption){
-            label = selectedOption.textContent || selectedOption.value || '';
-            badge = (selectedOption.dataset && selectedOption.dataset.serviceId) || '';
-          }
-          if (!label){
-            label = select.dataset.placeholder || '?';
-          }
-          var isPlaceholder = !selectedOption || selectedOption.disabled;
-          setValueNodeContent(instance, label, isPlaceholder ? '' : badge, isPlaceholder);
-
-          var currentValue = selectedOption ? selectedOption.value : '';
-          Array.prototype.forEach.call(instance.dropdown.children, function(btn){
-            if (!btn || !btn.dataset) return;
-            var isSelected = btn.dataset.value === currentValue;
-            btn.classList.toggle('is-selected', isSelected);
-            btn.setAttribute('aria-selected', isSelected ? 'true' : 'false');
-          });
-
-          instance.wrapper.classList.toggle('is-disabled', !!select.disabled);
-          instance.trigger.disabled = !!select.disabled;
-          if (select.disabled && instance.wrapper.classList.contains('open')){
-            closeCustomSelect(instance);
-          }
-        }
-
-        function syncCustomSelect(select){
-          var instance = ensureCustomSelect(select);
-          if (!instance) return;
-          instance.dropdown.innerHTML = '';
-          Array.prototype.forEach.call(select.options || [], function(option){
-            if (!option || String(option.tagName).toUpperCase() !== 'OPTION') return;
-            var btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'smm-option';
-            btn.dataset.value = option.value;
-            btn.setAttribute('role', 'option');
-            var label = option.textContent || option.value || '?';
-            var badge = (option.dataset && option.dataset.serviceId) || '';
-            if (badge){
-              var pill = document.createElement('span');
-              pill.className = 'smm-option-pill';
-              pill.textContent = badge;
-              btn.appendChild(pill);
-            }
-            var textSpan = document.createElement('span');
-            textSpan.className = 'smm-option-label';
-            textSpan.textContent = label;
-            btn.appendChild(textSpan);
-            if (option.disabled){
-              btn.classList.add('is-disabled');
-              btn.setAttribute('aria-disabled', 'true');
-            }
-            btn.addEventListener('click', function(e){
-              e.preventDefault();
-              if (option.disabled || select.disabled) return;
-              if (select.value !== option.value){
-                select.value = option.value;
-                select.dispatchEvent(new Event('change', { bubbles: true }));
-              }
-              closeCustomSelect(instance);
-            });
-            instance.dropdown.appendChild(btn);
-          });
-          updateCustomSelectValue(select);
-        }
-
-        function applyQtyWarning(message){
-          if (!uiRefs || !uiRefs.qtyHint) return;
-          var base = uiRefs.qtyHint.dataset.baseHint || uiRefs.qtyHint.textContent || '';
-          if (message){
-            uiRefs.qtyHint.textContent = message;
-            uiRefs.qtyHint.classList.add('error');
-          } else {
-            uiRefs.qtyHint.textContent = base;
-            uiRefs.qtyHint.classList.remove('error');
-          }
-        }
-
-        function normalizeDigits(value){
-          var map = { '0':'0','1':'1','2':'2','3':'3','4':'4','5':'5','6':'6','7':'7','8':'8','9':'9' };
-          return String(value == null ? '' : value).replace(/[0-90-9]/g, function(ch){ return map[ch] || ch; });
-        }
-
-        function setSearchStatus(message, type){
-          if (!uiRefs || !uiRefs.searchStatus) return;
-          var base = uiRefs.searchStatus.dataset.baseText;
-          if (!base){
-            base = uiRefs.searchStatus.textContent || '';
-            uiRefs.searchStatus.dataset.baseText = base;
-          }
-          var text = message || base;
-          uiRefs.searchStatus.textContent = text;
-          uiRefs.searchStatus.classList.remove('error','success');
-          if (type === 'error') uiRefs.searchStatus.classList.add('error');
-          else if (type === 'success') uiRefs.searchStatus.classList.add('success');
-        }
-
-        function enforceQtyBounds(){
-          if (!uiRefs || !uiRefs.qty) return;
-          var service = getSelectedService();
-          if (!service){
-            applyQtyWarning('');
-            return;
-          }
-          var raw = (uiRefs.qty.value || '').trim();
-          if (!raw){
-            applyQtyWarning('');
-            return;
-          }
-          var qty = Number(raw);
-          if (!Number.isFinite(qty)){
-            applyQtyWarning('الكمية يجب أن تكون أرقامًا صحيحة فقط');
-            return;
-          }
-          var min = Number(service.min) || 0;
-          var max = Number(service.max) || 0;
-          var message = '';
-          if (min && qty < min){
-            message = 'الحد الأدنى للكمية هو ' + min;
-          } else if (max && max > 0 && qty > max){
-            message = 'الحد الأقصى للكمية هو ' + max;
-          }
-          applyQtyWarning(message);
-        }
-
-        function normalizeDescriptionValue(value){
-          if (value == null) return '';
-          if (typeof value === 'string') return value.trim();
-          if (typeof value === 'number' && isFinite(value)) return String(value);
-          return '';
-        }
-
-        function extractDescription(service){
-          if (!service || typeof service !== 'object') return '';
-          var primaryKeys = [
-            'description','desc','details','detail','info','note','notes','extra',
-            'Description','Desc','Details','Detail','Info','Note','Notes','Extra',
-            'description_ar','descriptionAr','Description_ar','DescriptionAr'
-          ];
-          for (var i = 0; i < primaryKeys.length; i++){
-            var key = primaryKeys[i];
-            if (Object.prototype.hasOwnProperty.call(service, key)){
-              var val = normalizeDescriptionValue(service[key]);
-              if (val) return val;
-            }
-          }
-          var regex = /(desc|note|info|detail|شرح|وصف|تعليم)/i;
-          for (var prop in service){
-            if (!Object.prototype.hasOwnProperty.call(service, prop)) continue;
-            if (!regex.test(prop)) continue;
-            var text = normalizeDescriptionValue(service[prop]);
-            if (text) return text;
-          }
-          return '';
-        }
-
-        function normalizeService(service){
-          if (!service) return null;
-          var id = service.id != null ? String(service.id) : '';
-          if (!id) return null;
-          var name = service.name || ('خدمة #' + id);
-          var category = service.category || name;
-          var description = extractDescription(service);
-          return {
-            id: id,
-            name: name,
-            category: category,
-            categoryKey: normalizeText(category) || 'misc',
-            description: description,
-            normalizedName: normalizeText(name),
-            normalizedDescription: normalizeText(description),
-            min: service.min || 0,
-            max: service.max || 0,
-            rate: service.rate != null ? Number(service.rate) : null,
-            unit: Number(service.unit) || 1000,
-            raw: service
-          };
-        }
-
-        function buildDescriptionFragment(text){
-          var frag = document.createDocumentFragment();
-          if (text == null) return frag;
-          var value = String(text);
-          if (!value){
-            frag.appendChild(document.createTextNode(''));
-            return frag;
-          }
-          var linkRegex = /(?:https?:\/\/|www\.|wa\.me\/|chat\.whatsapp\.com\/|t\.me\/|telegram\.me\/|[a-z0-9][a-z0-9.-]*\.[a-z]{2,}(?:[/?#][^\s<>"']*)?)[^\s<>"']*/gi;
-          function splitToken(rawUrl){
-            var token = String(rawUrl || '');
-            var cut = token.length;
-            while (cut > 0 && /[).,;:!?،؛؟]/.test(token.charAt(cut - 1))) cut -= 1;
-            return { href: token.slice(0, cut) || token, trailing: token.slice(cut) };
-          }
-          function normalizeHref(rawUrl){
-            var url = String(rawUrl || '').trim();
-            if (!url) return '';
-            if (/^(?:https?:\/\/|mailto:|tel:|whatsapp:)/i.test(url)) return url;
-            if (/^(?:www\.|wa\.me\/|chat\.whatsapp\.com\/|t\.me\/|telegram\.me\/)/i.test(url)) return 'https://' + url;
-            if (/^[a-z0-9][a-z0-9.-]*\.[a-z]{2,}(?:[/?#].*)?$/i.test(url)) return 'https://' + url;
-            return url;
-          }
-          value.replace(/\r\n?/g, '\n').split('\n').forEach(function(line, lineIndex){
-            if (lineIndex > 0) frag.appendChild(document.createElement('br'));
-            var lastIndex = 0;
-            var match;
-            linkRegex.lastIndex = 0;
-            while ((match = linkRegex.exec(line)) !== null){
-              if (match.index > lastIndex) frag.appendChild(document.createTextNode(line.slice(lastIndex, match.index)));
-              var rawUrl = match[0];
-              var parsed = splitToken(rawUrl);
-              if (parsed.href){
-                var anchor = document.createElement('a');
-                anchor.href = normalizeHref(parsed.href);
-                anchor.target = '_blank';
-                anchor.rel = 'noopener noreferrer nofollow';
-                anchor.textContent = parsed.href;
-                frag.appendChild(anchor);
-              }
-              if (parsed.trailing) frag.appendChild(document.createTextNode(parsed.trailing));
-              lastIndex = match.index + rawUrl.length;
-            }
-            if (lastIndex < line.length) frag.appendChild(document.createTextNode(line.slice(lastIndex)));
-          });
-          return frag;
-        }
-
-        function buildCategories(list){
-          var map = {};
-          var out = [];
-          list.forEach(function(item){
-            if (!item) return;
-            if (!map[item.categoryKey]){
-              map[item.categoryKey] = true;
-              out.push({ key: item.categoryKey, label: item.category });
-            }
-          });
-          return out;
-        }
-
-        function getFilteredServices(){
-          var cat = uiState.selectedCategory;
-          return uiState.services.filter(function(service){
-            if (cat && service.categoryKey !== cat) return false;
-            return true;
-          });
-        }
-
-        function findServiceByIdFragment(fragment){
-          if (!fragment) return null;
-          var digits = normalizeDigits(fragment).replace(/\D/g,'').trim();
-          if (!digits) return null;
-          var exact = uiState.services.find(function(service){
-            return String(service.id) === digits;
-          });
-          return exact || null;
-        }
-
-        function focusServiceByIdFragment(fragment){
-          var service = findServiceByIdFragment(fragment);
-          if (!service) return null;
-          uiState.selectedCategory = service.categoryKey || uiState.selectedCategory || '';
-          renderCategories();
-          uiState.selectedServiceId = service.id;
-          renderServices();
-          return service;
-        }
-
-        function renderCategories(){
-          if (!uiRefs || !uiRefs.category) return;
-          var select = uiRefs.category;
-          select.innerHTML = '';
-          if (!uiState.categories.length){
-            var placeholder = document.createElement('option');
-            placeholder.textContent = 'لا توجد فئات متاحة حالياً';
-            placeholder.disabled = true;
-            placeholder.selected = true;
-            select.appendChild(placeholder);
-            select.disabled = true;
-            syncCustomSelect(select);
-            return;
-          }
-          select.disabled = false;
-          if (!uiState.selectedCategory){
-            uiState.selectedCategory = uiState.categories[0].key;
-          }
-          uiState.categories.forEach(function(cat){
-            var opt = document.createElement('option');
-            opt.value = cat.key;
-            opt.textContent = formatCategoryLabel(cat.label);
-            if (cat.key === uiState.selectedCategory) opt.selected = true;
-            select.appendChild(opt);
-          });
-          syncCustomSelect(select);
-        }
-
-        function renderServices(){
-          if (!uiRefs || !uiRefs.service) return;
-          var select = uiRefs.service;
-          select.innerHTML = '';
-          var filtered = getFilteredServices();
-          if (!filtered.length){
-            var placeholder = document.createElement('option');
-            placeholder.textContent = uiState.selectedCategory ? 'لا توجد خدمات مطابقة' : 'اختر الفئة أولاً';
-            placeholder.disabled = true;
-            placeholder.selected = true;
-            select.appendChild(placeholder);
-            select.disabled = true;
-            if (uiRefs.serviceEmpty){
-              uiRefs.serviceEmpty.textContent = placeholder.textContent;
-              uiRefs.serviceEmpty.style.display = 'block';
-            }
-            uiState.selectedServiceId = '';
-            qtyUserEdited = false;
-            updateDetails();
-            syncCustomSelect(select);
-            return;
-          }
-          select.disabled = false;
-          if (uiRefs.serviceEmpty) uiRefs.serviceEmpty.style.display = 'none';
-          var hasSelected = filtered.some(function(item){ return item.id === uiState.selectedServiceId; });
-          if (!hasSelected){
-            uiState.selectedServiceId = filtered[0].id;
-            qtyUserEdited = false;
-          }
-          filtered.forEach(function(service){
-            var opt = document.createElement('option');
-            opt.value = service.id;
-            opt.textContent = service.name || ('خدمة ' + service.id);
-            opt.dataset.serviceId = service.id;
-            if (service.id === uiState.selectedServiceId) opt.selected = true;
-            select.appendChild(opt);
-          });
-          updateDetails();
-          enforceQtyBounds();
-          syncCustomSelect(select);
-        }
-
-        function ensureForm(section){
-          if (uiRefs && uiRefs.section === section) return uiRefs;
-          if (!section) return null;
-          section.innerHTML = '';
-          var form = document.createElement('div');
-          form.className = 'smm-inline-form';
-          form.innerHTML = [
-              '<div class="smm-inline-group smm-inline-group-search">',
-              '<label>ابحث برقم الخدمة</label>',
-              '<div class="smm-inline-search">',
-                '<input type="text" data-smm-search class="smm-inline-field smm-inline-search-input" placeholder="أدخل رقم الخدمة..." inputmode="numeric" autocomplete="off">',
-                '<i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>',
-              '</div>',
-              '<p class="smm-inline-hint" data-smm-search-status></p>',
-            '</div>',
-            '<div class="smm-inline-group">',
-              '<label for="smmInlineCategory">الفئة</label>',
-              '<select id="smmInlineCategory" data-smm-category class="smm-inline-field smm-inline-select"></select>',
-            '</div>',
-            '<div class="smm-inline-group">',
-              '<label for="smmInlineService" data-smm-service-label>الخدمة</label>',
-              '<select id="smmInlineService" data-smm-service class="smm-inline-field smm-inline-select"></select>',
-              '<p class="smm-inline-hint" data-smm-service-empty>اختر فئة لعرض الخدمات.</p>',
-            '</div>',
-            '<div class="smm-inline-group">',
-              '<label>الوصف</label>',
-              '<div class="smm-inline-description-body empty" data-smm-description>اختر خدمة لعرض تفاصيلها والتعليمات.</div>',
-            '</div>',
-            '<div class="smm-inline-group">',
-              '<label for="smmInlineLink">الرابط أو رقم الهاتف</label>',
-              '<input id="smmInlineLink" type="text" data-smm-link class="smm-inline-field" placeholder="أدخل الرابط أو رقم الهاتف المطلوب" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">',
-            '</div>',
-            '<div class="smm-inline-row">',
-              '<div class="smm-inline-group">',
-                '<label for="smmInlineQty">الكمية</label>',
-                '<input id="smmInlineQty" type="number" step="1" data-smm-qty class="smm-inline-field" placeholder="أدخل الكمية المطلوبة">',
-                '<div class="smm-inline-hint" data-smm-qty-hint>الحد الأدنى - الحد الأقصى سيتم عرضه بعد اختيار الخدمة.</div>',
-              '</div>',
-              '<div class="smm-inline-group">',
-                '<label for="smmInlineTotal">السعر</label>',
-                '<input id="smmInlineTotal" type="text" data-smm-total class="smm-inline-field smm-inline-total" value="?" readonly>',
-              '</div>',
-            '</div>',
-            '<button type="button" class="smm-inline-submit" data-smm-submit>تنفيذ الطلب</button>'
-          ].join('');
-          section.appendChild(form);
-          uiRefs = {
-            section: section,
-            form: form,
-            search: form.querySelector('[data-smm-search]'),
-            searchStatus: form.querySelector('[data-smm-search-status]'),
-            category: form.querySelector('[data-smm-category]'),
-            service: form.querySelector('[data-smm-service]'),
-            serviceEmpty: form.querySelector('[data-smm-service-empty]'),
-            serviceLabel: form.querySelector('[data-smm-service-label]'),
-            description: form.querySelector('[data-smm-description]'),
-            link: form.querySelector('[data-smm-link]'),
-            qty: form.querySelector('[data-smm-qty]'),
-            qtyHint: form.querySelector('[data-smm-qty-hint]'),
-            total: form.querySelector('[data-smm-total]'),
-            submit: form.querySelector('[data-smm-submit]')
-          };
-          if (uiRefs.category) uiRefs.category.dataset.placeholder = 'اختر الفئة';
-          if (uiRefs.service) uiRefs.service.dataset.placeholder = 'اختر الخدمة';
-          if (uiRefs.search){
-            uiRefs.search.addEventListener('input', function(e){
-              var raw = e.target.value || '';
-              var digits = normalizeDigits(raw).replace(/\D/g,'');
-              if (digits !== raw) e.target.value = digits;
-              if (!digits){
-                setSearchStatus('', '');
-                return;
-              }
-              if (!uiState.services.length){
-                setSearchStatus('لم يتم تحميل الخدمات بعد.', 'error');
-                return;
-              }
-              var matched = focusServiceByIdFragment(digits);
-              if (matched){
-                setSearchStatus('تم تحديد الخدمة #' + matched.id, 'success');
-              } else {
-                setSearchStatus('لا توجد خدمة بهذا الرقم.', 'error');
-              }
-            });
-          }
-          if (uiRefs.category){
-            uiRefs.category.addEventListener('change', function(e){
-              uiState.selectedCategory = e.target.value || '';
-              uiState.selectedServiceId = '';
-              renderServices();
-            });
-          }
-          if (uiRefs.service){
-            uiRefs.service.addEventListener('change', function(e){
-              uiState.selectedServiceId = e.target.value || '';
-              qtyUserEdited = false;
-              updateDetails();
-              enforceQtyBounds();
-            });
-          }
-          if (uiRefs.qty){
-            uiRefs.qty.addEventListener('keydown', function(e){
-              if (e.key === ' ') e.preventDefault();
-            });
-            uiRefs.qty.addEventListener('input', function(){
-              var sanitized = (this.value || '').replace(/\D/g,'');
-              if (sanitized !== this.value) this.value = sanitized;
-              qtyUserEdited = true;
-              enforceQtyBounds();
-              updateTotal();
-            });
-          }
-          if (uiRefs.submit){
-            uiRefs.submit.addEventListener('click', handleSubmit);
-          }
-          if (uiRefs.category) syncCustomSelect(uiRefs.category);
-          if (uiRefs.service) syncCustomSelect(uiRefs.service);
-          return uiRefs;
-        }
-
-        function setInlineLoading(isLoading, text){
-          if (!uiRefs || !uiRefs.submit) return;
-          uiRefs.submit.disabled = !!isLoading;
-          uiRefs.submit.textContent = isLoading ? (text || 'جاري التنفيذ...') : 'تنفيذ الطلب';
-        }
-
-        function createSmmGuardToken(prefix){
-          var tag = prefix || 'smm';
-          try {
-            var source = (typeof window !== 'undefined' && window.crypto && typeof window.crypto.getRandomValues === 'function')
-              ? window.crypto
-              : (typeof self !== 'undefined' && self.crypto && typeof self.crypto.getRandomValues === 'function'
-                ? self.crypto
-                : null);
-            if (source){
-              var buf = new Uint32Array(2);
-              source.getRandomValues(buf);
-              var hex = Array.from(buf).map(function(n){ return n.toString(16).padStart(8,'0'); }).join('');
-              return tag + '-' + Date.now().toString(36) + '-' + hex;
-            }
-          } catch(_){}
-          return tag + '-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
-        }
-
-        function getTurnstileToken(){
-          return Promise.resolve(createSmmGuardToken('smm'));
-        }
-
-        function placeInlineOrder(service, link, qty){
-          var currentUser = null;
-          var sessionKey = null;
-          return waitForUser().then(function(user){
-            if (!user) throw createError('login_required','سجّل الدخول لتنفيذ الطلب.');
-            currentUser = user;
-            sessionKey = getLocalSessionKey();
-            if (!sessionKey) throw createError('session_missing','انتهت صلاحية الجلسة، يرجى إعادة تسجيل الدخول.');
-            return Promise.all([currentUser.getIdToken(true), getTurnstileToken()]);
-          }).then(function(results){
-            var idToken = results[0];
-            var guardToken = results[1];
-            var url = new URL(buildApiBase());
-            url.searchParams.set('mode','order');
-            var payload = {
-              action: 'order',
-              serviceId: service.id,
-              quantity: qty,
-              link: link,
-              guardToken: guardToken,
-              turnstileToken: guardToken,
-              currentUrl: window.location.href
-            };
-            return fetch(url.toString(), {
-              method: 'POST',
-              headers: {
-                'Content-Type':'application/json',
-                'Authorization':'Bearer ' + idToken,
-                'X-SessionKey': sessionKey
-              },
-              body: JSON.stringify(payload)
-            });
-          }).then(async function(res){
-            var data = await res.json().catch(function(){ return {}; });
-            if (!res.ok || data.success === false){
-              throw createError(data.code || 'order_failed', data.error || 'تعذر تنفيذ الطلب');
-            }
-            return data;
-          });
-        }
-
-        function getSelectedService(){
-          if (!uiState.selectedServiceId) return null;
-          return uiState.services.find(function(s){ return s.id === uiState.selectedServiceId; }) || null;
-        }
-
-        function updateDetails(){
-          var service = getSelectedService();
-          if (uiRefs && uiRefs.description){
-            if (!service){
-              uiRefs.description.textContent = 'اختر خدمة لعرض تفاصيلها والتعليمات.';
-              uiRefs.description.classList.add('empty');
-            } else if (service.description){
-              uiRefs.description.innerHTML = '';
-              uiRefs.description.appendChild(buildDescriptionFragment(service.description));
-              uiRefs.description.classList.remove('empty');
-            } else {
-              uiRefs.description.textContent = 'لا يوجد وصف متاح لهذه الخدمة.';
-              uiRefs.description.classList.add('empty');
-            }
-          }
-          if (uiRefs && uiRefs.serviceLabel){
-            uiRefs.serviceLabel.textContent = 'الخدمة';
-          }
-          syncQuantityLimits(service);
-          updateTotal();
-        }
-
-        function syncQuantityLimits(service){
-          if (!uiRefs || !uiRefs.qty) return;
-          if (!service){
-            uiRefs.qty.value = '';
-            if (uiRefs.qtyHint){
-              uiRefs.qtyHint.dataset.baseHint = 'الحد الأدنى - الحد الأقصى سيتم عرضه بعد اختيار الخدمة.';
-              uiRefs.qtyHint.textContent = uiRefs.qtyHint.dataset.baseHint;
-              uiRefs.qtyHint.classList.remove('error');
-            }
-            qtyUserEdited = false;
-            applyQtyWarning('');
-            return;
-          }
-          var min = Number(service.min) || 0;
-          var max = Number(service.max) || 0;
-          if (uiRefs.qtyHint){
-            var base = (min ? ('الحد الأدنى ' + min) : 'بدون حد أدنى') + ' - ' + (max ? ('الحد الأقصى ' + max) : 'بدون حد أقصى');
-            uiRefs.qtyHint.dataset.baseHint = base;
-            uiRefs.qtyHint.textContent = base;
-            uiRefs.qtyHint.classList.remove('error');
-          }
-          applyQtyWarning('');
-          if (!qtyUserEdited){
-            uiRefs.qty.value = min ? String(min) : '';
-          }
-          enforceQtyBounds();
-        }
-
-        function clampQuantity(){
-          if (!uiRefs || !uiRefs.qty) return;
-          var service = getSelectedService();
-          if (!service) return;
-          var min = Number(service.min) || 0;
-          var max = Number(service.max) || 0;
-          var value = Number(uiRefs.qty.value);
-          if (!Number.isFinite(value)) return;
-          if (min && value < min) value = min;
-          if (max && max > 0 && value > max) value = max;
-          uiRefs.qty.value = value;
-        }
-
-        function updateTotal(){
-          if (!uiRefs || !uiRefs.total) return;
-          var service = getSelectedService();
-          if (!service){
-            uiRefs.total.value = '?';
-            return;
-          }
-          var qty = Number(uiRefs.qty && uiRefs.qty.value);
-          if (!Number.isFinite(qty) || qty <= 0){
-            uiRefs.total.value = '?';
-            return;
-          }
-          var unit = Number(service.unit) || 1000;
-          var ratePerUnit = null;
-          if (service.rate != null && Number.isFinite(Number(service.rate))){
-            ratePerUnit = Number(service.rate);
-          }
-          if (ratePerUnit == null || !Number.isFinite(ratePerUnit)){
-            uiRefs.total.value = '?';
-            return;
-          }
-          var total = ratePerUnit * qty;
-          uiRefs.total.value = total.toFixed(3) + ' $';
-        }
-
-        function quantizeMoney(value){
-          var num = Number(value);
-          if (!Number.isFinite(num)) return null;
-          return Math.round((num + Number.EPSILON) * 100) / 100;
-        }
-
-        function calculateOrderCost(service, qty){
-          if (!service) return null;
-          var ratePerUnit = Number(service.rate);
-          var quantity = Number(qty);
-          if (!Number.isFinite(ratePerUnit) || !Number.isFinite(quantity) || quantity <= 0) return null;
-          return quantizeMoney(ratePerUnit * quantity);
-        }
-
-        function getCachedSessionUid(){
-          try{
-            var parsed = JSON.parse(localStorage.getItem("sessionKeyInfo") || "null");
-            return parsed && parsed.uid ? parsed.uid : "";
-          }catch(_){
-            return "";
-          }
-        }
-
-        function getCachedWalletBalance(){
-          if (typeof window !== "undefined" && window.__BAL_BASE__ != null){
-            var baseVal = Number(window.__BAL_BASE__);
-            if (Number.isFinite(baseVal)) return baseVal;
-          }
-          var uid = getCachedSessionUid();
-          if (!uid) return null;
-          try{
-            var val = (typeof readBalanceMemory === "function") ? readBalanceMemory(uid) : null;
-            if (Number.isFinite(val)) return val;
-          }catch(_){}
-          return null;
-        }
-
-        function setCachedWalletBalance(value){
-          var updated = quantizeMoney(value);
-          if (updated == null) return false;
-          var uid = getCachedSessionUid();
-          try { window.__BAL_AUTH__ = { value: updated, atMs: Date.now() }; } catch(_){}
-          try { window.__BAL_BASE__ = updated; window.__BALANCE__ = updated; } catch(_){}
-          if (uid){
-            try { if (typeof writeBalanceMemory === "function") writeBalanceMemory(uid, updated); } catch(_){}
-            try { localStorage.setItem('balance:cache:' + uid, String(updated)); } catch(_){}
-          }
-          var formatted = updated.toFixed(3) + " $";
-          try {
-            if (typeof window.__formatHeaderBalanceDisplay === "function") {
-              var headerFormatted = String(window.__formatHeaderBalanceDisplay(updated) || "").trim();
-              if (headerFormatted) formatted = headerFormatted;
-            } else if (typeof window.formatCurrencyFromJOD === "function") {
-              var currencyFormatted = String(window.formatCurrencyFromJOD(updated) || "").trim();
-              if (currencyFormatted) formatted = currencyFormatted;
-            }
-          } catch(_){}
-          try {
-            if (typeof window.__setHeaderBalanceDisplay === "function") {
-              window.__setHeaderBalanceDisplay(formatted);
-            }
-          } catch(_){}
-          try {
-            var evt = new CustomEvent("balance:change", { detail: { value: updated, formatted: formatted } });
-            window.dispatchEvent(evt);
-          } catch(_){}
-          return true;
-        }
-
-        function adjustCachedWalletBalance(delta){
-          if (!Number.isFinite(delta) || delta === 0) return false;
-          var current = getCachedWalletBalance();
-          if (current == null) current = 0;
-          return setCachedWalletBalance(current + delta);
-        }
-
-        function submitInlineOrder(service, link, qty){
-          if (!uiRefs || !uiRefs.section) return;
-          setInlineLoading(true);
-          setMessage(uiRefs.section, 'جاري تنفيذ الطلب...', 'info');
-          placeInlineOrder(service, link, qty).then(function(result){
-            var orderIdentifier = '';
-            if (result && (result.orderCode || result.orderId)){
-              orderIdentifier = String(result.orderCode || result.orderId);
-            }
-            var suffix = orderIdentifier ? (' #' + orderIdentifier) : '';
-            var needsReview = !!(result && result.reviewForward);
-            var successMessage = needsReview
-              ? 'تم تحويل الطلب للمراجعة'
-              : 'تم تسجيل الطلب بنجاح';
-            setMessage(uiRefs.section, successMessage + suffix, 'success');
-            showInlineResultOverlay({
-              success: true,
-              orderCode: orderIdentifier,
-              reviewForward: needsReview,
-              total: result && (result.price != null || result.estimatedCharge != null || result.charged != null)
-                ? Number(result.price ?? result.estimatedCharge ?? result.charged)
-                : calculateOrderCost(service, qty),
-              currency: '$',
-              message: needsReview
-                ? 'تمت إحالة طلبك لفريق المراجعة وسيتم التواصل معك فور المتابعة.'
-                : 'يمكنك متابعة حالة الطلب من صفحة الطلبات.',
-              details: needsReview
-                ? 'يُرجى متابعة إشعاراتك، وسيتم تنفيذ الطلب خلال وقت قصير.'
-                : ''
-            });
-            var serverBalanceAfter = Number(result && (result.balanceAfter ?? result.balance_after ?? result.newBalance ?? result.balance));
-            if (Number.isFinite(serverBalanceAfter)){
-              setCachedWalletBalance(serverBalanceAfter);
-            } else if (result && (result.price != null || result.estimatedCharge != null || result.charged != null)){
-              var chargeVal = Number(result.price ?? result.estimatedCharge ?? result.charged);
-              if (Number.isFinite(chargeVal) && chargeVal > 0){
-                adjustCachedWalletBalance(-chargeVal);
-              }
-            }
-            showToast('تم تسجيل الطلب' + suffix, true);
-            try{
-              if (uiRefs.link) uiRefs.link.value = '';
-              if (uiRefs.qty) uiRefs.qty.value = '';
-            }catch(_){}
-          }).catch(function(err){
-            var raw = err && (err.message || err.error || err.hint);
-            var msg = (typeof raw === 'string' && raw.trim()) ? raw : 'تعذر تنفيذ الطلب';
-            setMessage(uiRefs.section, msg, 'error');
-            showInlineResultOverlay({
-              success: false,
-              message: msg,
-              details: err && err.code ? ('رمز الخطأ: ' + err.code) : ''
-            });
-            showToast(msg, false);
-          }).finally(function(){
-            setInlineLoading(false);
-          });
-        }
-
-        function handleSubmit(){
-          var service = getSelectedService();
-          if (!service){
-            showToast('اختر الخدمة أولاً', false);
-            return;
-          }
-          var link = (uiRefs.link && uiRefs.link.value || '').trim();
-          if (!link){
-            showToast('يرجى إدخال الرابط أو رقم الهاتف المطلوب', false);
-            return;
-          }
-          var qtyRaw = (uiRefs.qty && uiRefs.qty.value || '').trim();
-          var qty = qtyRaw ? parseInt(qtyRaw, 10) : NaN;
-          if (!Number.isFinite(qty) || qty <= 0){
-            showToast('يرجى إدخال كمية صحيحة', false);
-            return;
-          }
-          uiRefs.qty.value = String(qty);
-          var min = Number(service.min) || 0;
-          var max = Number(service.max) || 0;
-          if (min && qty < min){
-            showToast('الحد الأدنى للطلب هو ' + min, false);
-            return;
-          }
-          if (max && max > 0 && qty > max){
-            showToast('الحد الأقصى للطلب هو ' + max, false);
-            return;
-          }
-          applyQtyWarning('');
-          var estimatedCost = calculateOrderCost(service, qty);
-          var cachedBalance = getCachedWalletBalance();
-          if (estimatedCost != null && cachedBalance != null && (cachedBalance + 1e-9) < estimatedCost){
-            var warn = 'رصيدك غير كافٍ لإتمام هذا الطلب.';
-            if (Number.isFinite(estimatedCost) && Number.isFinite(cachedBalance)){
-              warn += ' التكلفة المتوقعة ' + estimatedCost.toFixed(3) + ' $ مقابل رصيد متاح قدره ' + cachedBalance.toFixed(3) + ' $.';
-            }
-            setMessage(uiRefs.section, warn, 'error');
-            showToast(warn, false);
-            showInlineResultOverlay({
-              success: false,
-              message: warn,
-              details: Number.isFinite(cachedBalance) ? ('رصيدك الحالي: ' + cachedBalance.toFixed(3) + ' $') : ''
-            });
-            return;
-          }
-          submitInlineOrder(service, link, qty);
-        }
-
-        function clearStaticCards(section){
-          if (!section || section.dataset.smmPrepared === '1') return;
-          section.dataset.smmPrepared = '1';
-          Array.prototype.slice.call(section.querySelectorAll('.card')).forEach(function(node){
-            if (!node || node.dataset.smmCard === '1') return;
-            try { node.remove(); } catch(_){ if (node.parentNode) node.parentNode.removeChild(node); }
-          });
-        }
-
-        function render(section, options){
-          options = options || {};
-          ensureStyles();
-          if (!section) return Promise.resolve();
-          clearStaticCards(section);
-          setMessage(section, 'جاري تحميل خدمات...', 'info');
-          var form = ensureForm(section);
-          if (!form){
-            setMessage(section, 'تعذر تحضير نموذج الخدمات.', 'error');
-            return Promise.resolve();
-          }
-        return fetchServices(options.force === true).then(function(list){
-            var normalized = list.map(normalizeService).filter(Boolean);
-            uiState.services = normalized;
-            uiState.categories = buildCategories(normalized);
-            var hasCat = uiState.categories.some(function(cat){ return cat.key === uiState.selectedCategory; });
-            if (!hasCat) uiState.selectedCategory = uiState.categories[0] ? uiState.categories[0].key : '';
-            uiState.selectedServiceId = '';
-            if (!uiState.categories.length){
-              setMessage(section, 'لا توجد خدمات متاحة حالياً.', 'warning');
-              renderCategories();
-              renderServices();
-              return;
-            }
-            renderCategories();
-            renderServices();
-            setMessage(section, '', '');
-          }).catch(function(err){
-            var code = err && err.code;
-            if (code === 'login_required') setMessage(section, err.message || 'سجّل الدخول للاطلاع على الخدمات.', 'warning');
-            else if (code === 'session_missing') setMessage(section, err.message || 'يرجى إعادة تسجيل الدخول لتحديث الجلسة.', 'warning');
-            else setMessage(section, err && err.message ? err.message : 'تعذر تحميل خدمات الرشق.', 'error');
-        }).finally(function(){
-          try { applyCardsVisibility(); } catch(_){}
-        });
-      }
-
-      function prefetch(){
-        return fetchServices(false).catch(function(){ return []; });
-      }
-
-      return {
-        render: render,
-        refresh: function(section){ return render(section, { force: true }); },
-        prefetch: prefetch
-      };
-      })();
+      // حُذفت وحدة "رشق السوشيال ميديا" smmBoostInline بالكامل: الخدمة
+      // متقاعدة، ولا يوجد أي مستدعٍ لها في الكود (بحث مراجع كامل 2026-07-02).
 
       var depositRoute = (window.depositRoute && typeof window.depositRoute.build === 'function')
         ? window.depositRoute
@@ -40145,8 +38670,8 @@ function normalizeCategory(value){
           window.__CATALOG_INLINE_FORCE_MODAL__ = '1';
           window.__CATALOG_INLINE_MODAL_ONLY__ = '1';
           window.__CATALOG_INLINE_MODAL_ONLY_SOURCE__ = 'favorites';
-          window.__CATALOG_SUPPRESS_CATEGORY_FETCH_UNTIL__ = Date.now() + 20000;
-          window.__CATALOG_PRODUCT_CLICK_LOCK_UNTIL__ = Date.now() + 30000;
+          window.__CATALOG_SUPPRESS_CATEGORY_FETCH_UNTIL__ = Date.now() + 8000;
+          window.__CATALOG_PRODUCT_CLICK_LOCK_UNTIL__ = Date.now() + 8000;
           window.__CATALOG_PRODUCT_CLICK_LOCK_SLUG__ = slug;
         } catch(_){ }
         if (typeof window.__openCatalogInline === 'function') {
@@ -40766,7 +39291,7 @@ function normalizeCategory(value){
           try {
             var pendingInlineId = String(window.__CATALOG_INLINE_ITEM_ID__ || "").trim();
             if (pendingInlineId) {
-              window.__CATALOG_PRODUCT_CLICK_LOCK_UNTIL__ = Date.now() + 30000;
+              window.__CATALOG_PRODUCT_CLICK_LOCK_UNTIL__ = Date.now() + 8000;
               if (!String(window.__CATALOG_PRODUCT_CLICK_LOCK_SLUG__ || "").trim()) {
                 window.__CATALOG_PRODUCT_CLICK_LOCK_SLUG__ = String(slug || "");
               }
@@ -42691,8 +41216,8 @@ function normalizeCategory(value){
                 window.__CATALOG_INLINE_MODAL_ONLY__ = "1";
                 window.__CATALOG_INLINE_MODAL_ONLY_SOURCE__ = "favorites";
               }
-              window.__CATALOG_SUPPRESS_CATEGORY_FETCH_UNTIL__ = Date.now() + 20000;
-              window.__CATALOG_PRODUCT_CLICK_LOCK_UNTIL__ = Date.now() + 30000;
+              window.__CATALOG_SUPPRESS_CATEGORY_FETCH_UNTIL__ = Date.now() + 8000;
+              window.__CATALOG_PRODUCT_CLICK_LOCK_UNTIL__ = Date.now() + 8000;
               window.__CATALOG_PRODUCT_CLICK_LOCK_SLUG__ = catalogSlugGlobal;
             } catch(_){}
             var routeKeyGlobal = String(a.dataset.routeKey || "").trim() || "games";
@@ -42754,7 +41279,7 @@ function normalizeCategory(value){
                     window.__CATALOG_INLINE_ITEM_SLUG__ = catalogSlug || "";
                     window.__CATALOG_INLINE_FORCE_MODAL__ = catalogItemId ? "1" : "";
                     if (catalogItemId) {
-                      window.__CATALOG_PRODUCT_CLICK_LOCK_UNTIL__ = Date.now() + 30000;
+                      window.__CATALOG_PRODUCT_CLICK_LOCK_UNTIL__ = Date.now() + 8000;
                       window.__CATALOG_PRODUCT_CLICK_LOCK_SLUG__ = catalogSlug || "";
                     }
                   } catch(_){ }
