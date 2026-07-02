@@ -10992,10 +10992,25 @@ main{max-width:1200px;margin:20px auto;padding:0 15px}
   background:radial-gradient(circle at top right, rgba(255,255,255,.32), rgba(255,255,255,0) 55%);
   opacity:.65;
 }
-.card:hover{
-  transform:translateY(-5px);
-  box-shadow:var(--card-shadow-hover);
-  border-color:var(--card-border-hover);
+/* Hover lift only on devices that really hover — on iOS a tap "sticks" the
+   hover state and the card jumps mid-tap, which reads as an unresponsive tap. */
+@media (hover: hover){
+  .card:hover{
+    transform:translateY(-5px);
+    box-shadow:var(--card-shadow-hover);
+    border-color:var(--card-border-hover);
+  }
+}
+/* Instant pressed feedback for touch: the customer sees the tap register even
+   while the section is still being fetched. manipulation kills the double-tap
+   zoom delay/interpretation for rapid section-to-section taps on iPhone. */
+.card{
+  touch-action:manipulation;
+  -webkit-tap-highlight-color:rgba(0,0,0,0);
+}
+.card:active{
+  transform:scale(.97);
+  transition:transform .08s ease;
 }
 html[data-theme="dark"] .card{
   background:var(--card-gradient);

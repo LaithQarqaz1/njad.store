@@ -38208,6 +38208,33 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           }
           var requestUrl = catalogD1Url("load-section", id);
           var dedupKey = "section:" + (uid || "guest") + ":" + String(id || "");
+          // iPhone report: opening a section gave NO visual feedback while the
+          // lazy load-section request was in flight (category cards suppress
+          // the nav loader on purpose), so on slow connections the tap felt
+          // dead and customers tapped again. Hold the page loader while the
+          // network fetch runs — after a short grace so cache-fast responses
+          // never flash it. Counted hold/release keeps concurrent fetches safe.
+          var sectionLoaderTimer = 0;
+          var sectionLoaderHeld = false;
+          try {
+            sectionLoaderTimer = window.setTimeout(function(){
+              sectionLoaderTimer = 0;
+              try {
+                if (typeof window.__holdPageLoader === "function") {
+                  sectionLoaderHeld = true;
+                  window.__holdPageLoader();
+                }
+              } catch(_){}
+            }, 250);
+          } catch(_){}
+          var releaseSectionLoader = function(){
+            try { if (sectionLoaderTimer) { clearTimeout(sectionLoaderTimer); sectionLoaderTimer = 0; } } catch(_){}
+            if (!sectionLoaderHeld) return;
+            sectionLoaderHeld = false;
+            try {
+              if (typeof window.__releasePageLoader === "function") window.__releasePageLoader();
+            } catch(_){}
+          };
           return catalogD1DedupedFetch(dedupKey, function(){
             return fetchWithCatalogTimeout(requestUrl, { cache: "no-store", headers: catalogD1RequestHeaders() }, CATALOG_NETWORK_TIMEOUT_MS)
             .then(function(res){
@@ -38230,6 +38257,12 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
               }
               throw err;
             });
+          }).then(function(result){
+            releaseSectionLoader();
+            return result;
+          }, function(err){
+            releaseSectionLoader();
+            throw err;
           });
         }
         function catalogD1ClearCache(){
