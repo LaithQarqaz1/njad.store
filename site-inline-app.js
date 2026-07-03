@@ -38795,6 +38795,662 @@ function normalizeCategory(value){
         });
       }
 
+      // =====================================================================
+      // REFERRAL ROUTES — #/invite/{webuid} (landing + stash) and #/referrals
+      // (the dashboard). The client NEVER validates referral money rules;
+      // everything is enforced server-side (mode=referral-info/referral-redeem
+      // + the registration linkage). localStorage only carries the inviter
+      // webuid between the landing visit and the registration.
+      // =====================================================================
+      var referralInlineShared = (function(){
+        var STASH_KEY = 'edaa:referral:inviter:v1';
+        var LEVEL_SEEN_PREFIX = 'edaa:referral:levelSeen:v1:';
+        var EARNED_SEEN_PREFIX = 'edaa:referral:earnedSeen:v1:';
+        var styleReady = false;
+
+        function esc(value){
+          return String(value == null ? '' : value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+        }
+
+        function readSession(){
+          try {
+            var raw = localStorage.getItem('sessionKeyInfo');
+            if (!raw) return null;
+            var parsed = JSON.parse(raw);
+            if (parsed && parsed.uid && parsed.sessionKey) {
+              return { uid: String(parsed.uid), sessionKey: String(parsed.sessionKey) };
+            }
+          } catch(_){ }
+          return null;
+        }
+
+        function workerBase(){
+          var candidates = [];
+          try { candidates.push(window.API_BASE_URL, window.__API_BASE__, window.API_BASE); } catch(_){ }
+          try {
+            candidates.push(
+              localStorage.getItem('MANWAL_ROUTER_BASE'),
+              localStorage.getItem('edaa:worker'),
+              localStorage.getItem('apiBase'),
+              localStorage.getItem('workerBase')
+            );
+          } catch(_){ }
+          try {
+            if (typeof window.__getSiteSetting === 'function') {
+              candidates.push(window.__getSiteSetting('workers.routerBase', ''));
+            }
+          } catch(_){ }
+          for (var i = 0; i < candidates.length; i += 1) {
+            var value = String(candidates[i] || '').trim();
+            if (value) return value.replace(/\/+$/, '');
+          }
+          try { return String(location.origin || '').replace(/\/+$/, ''); } catch(_){ return ''; }
+        }
+
+        function toast(message, variant){
+          try { if (typeof showToast === 'function') { showToast(message, variant || 'info', 4200); return; } } catch(_){ }
+          try { if (window && typeof window.showToast === 'function') { window.showToast(message, variant || 'info', 4200); return; } } catch(_){ }
+          try { console.info('[referral]', message); } catch(_){ }
+        }
+
+        function successOverlay(options){
+          var fn = (typeof showWalletActivityOverlay === 'function')
+            ? showWalletActivityOverlay
+            : ((window && typeof window.showWalletActivityOverlay === 'function') ? window.showWalletActivityOverlay : null);
+          if (!fn) return false;
+          try { fn(options); return true; } catch(_){ return false; }
+        }
+
+        function fmtUsd(value){
+          var n = Number(value);
+          if (!Number.isFinite(n)) n = 0;
+          return '$' + n.toFixed(2);
+        }
+
+        function stashInviter(webuid){
+          try { localStorage.setItem(STASH_KEY, JSON.stringify({ webuid: String(webuid), ts: Date.now() })); } catch(_){ }
+        }
+
+        async function copyText(text){
+          try { await navigator.clipboard.writeText(text); return true; } catch(_){ }
+          try {
+            var area = document.createElement('textarea');
+            area.value = text;
+            area.style.cssText = 'position:fixed;opacity:0;pointer-events:none;';
+            document.body.appendChild(area);
+            area.select();
+            var ok = document.execCommand('copy');
+            document.body.removeChild(area);
+            return !!ok;
+          } catch(_){ return false; }
+        }
+
+        async function fetchReferralInfo(){
+          var base = workerBase();
+          var auth = readSession();
+          if (!base || !auth) return { ok: false, error: auth ? 'no_worker' : 'no_session' };
+          try {
+            var url = new URL(base + '/');
+            url.searchParams.set('mode', 'referral-info');
+            var res = await fetch(url.toString(), {
+              method: 'GET',
+              headers: { 'x-useruid': auth.uid, 'x-sessionkey': auth.sessionKey }
+            });
+            var data = await res.json().catch(function(){ return {}; });
+            if (!res.ok || !data || data.ok === false) {
+              return { ok: false, error: String((data && data.error) || 'server_error') };
+            }
+            return data;
+          } catch(_){
+            return { ok: false, error: 'network' };
+          }
+        }
+
+        async function postReferralRedeem(denominationId, nonce){
+          var base = workerBase();
+          var auth = readSession();
+          if (!base || !auth) return { ok: false, message: 'يرجى تسجيل الدخول من جديد.' };
+          try {
+            var url = new URL(base + '/');
+            url.searchParams.set('mode', 'referral-redeem');
+            var res = await fetch(url.toString(), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-useruid': auth.uid, 'x-sessionkey': auth.sessionKey },
+              body: JSON.stringify({ denominationId: denominationId, nonce: nonce })
+            });
+            var data = await res.json().catch(function(){ return {}; });
+            if (!res.ok || !data || data.ok === false) {
+              return { ok: false, message: String((data && (data.message || data.error)) || 'تعذّر الاسترداد حالياً.') };
+            }
+            return data;
+          } catch(_){
+            return { ok: false, message: 'تعذّر الاتصال بالخادم. حاول لاحقاً.' };
+          }
+        }
+
+        function ensureStyles(){
+          if (styleReady) return;
+          if (document.getElementById('referral-inline-style')) { styleReady = true; return; }
+          var css = '' +
+            '.ref-wrap{max-width:760px;margin:0 auto;padding:12px 12px 96px;direction:rtl;}' +
+            '.ref-card{background:var(--card-bg,#fff);border:1px solid var(--border-color,rgba(120,120,160,.18));border-radius:18px;padding:16px;margin-bottom:14px;box-shadow:0 6px 24px rgba(20,20,60,.06);}' +
+            '.ref-hero{position:relative;overflow:hidden;border-radius:20px;padding:22px 16px;margin-bottom:14px;color:#fff;text-align:center;' +
+              'background:linear-gradient(135deg,var(--primary-color,#6d5dfc) 0%,#9b5dfc 55%,#f472b6 120%);}' +
+            '.ref-hero h2{margin:0 0 6px;font-size:1.35rem;}' +
+            '.ref-hero p{margin:0 0 14px;opacity:.92;font-size:.95rem;}' +
+            '.ref-link-pill{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.16);border:1px dashed rgba(255,255,255,.55);' +
+              'border-radius:14px;padding:10px 12px;direction:ltr;}' +
+            '.ref-link-pill code{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.85rem;color:#fff;background:none;}' +
+            '.ref-btn{appearance:none;border:0;border-radius:12px;padding:10px 16px;font-weight:700;cursor:pointer;font-size:.92rem;' +
+              'transition:transform .15s ease, box-shadow .15s ease;-webkit-tap-highlight-color:transparent;}' +
+            '.ref-btn:active{transform:scale(.96);}' +
+            '.ref-btn-copy{background:#ffc21a;color:#1a1a1a;min-width:88px;position:relative;}' +
+            '.ref-btn-copy.copied{background:#21c065;color:#fff;}' +
+            '.ref-share-row{display:flex;gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap;}' +
+            '.ref-share-row .ref-btn{background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.4);}' +
+            '.ref-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px;}' +
+            '.ref-stat{background:var(--card-bg,#fff);border:1px solid var(--border-color,rgba(120,120,160,.18));border-radius:16px;padding:12px;text-align:center;}' +
+            '.ref-stat .v{font-size:1.25rem;font-weight:800;color:var(--primary-color,#6d5dfc);}' +
+            '.ref-stat .l{font-size:.78rem;opacity:.75;margin-top:2px;}' +
+            '.ref-level-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;}' +
+            '.ref-level-badge{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;color:#fff;flex-shrink:0;overflow:hidden;}' +
+            '.ref-level-badge img{width:100%;height:100%;object-fit:cover;}' +
+            '.ref-progress{height:12px;border-radius:999px;background:rgba(120,120,160,.16);overflow:hidden;margin:10px 0 6px;}' +
+            '.ref-progress>span{display:block;height:100%;border-radius:999px;width:0;background:linear-gradient(90deg,var(--primary-color,#6d5dfc),#f472b6);transition:width .9s cubic-bezier(.22,1,.36,1);}' +
+            '.ref-motivate{font-size:.85rem;color:var(--primary-color,#6d5dfc);font-weight:700;}' +
+            '.ref-denoms{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;}' +
+            '.ref-denom{border:1px solid var(--border-color,rgba(120,120,160,.2));border-radius:16px;padding:14px 10px;text-align:center;cursor:pointer;' +
+              'transition:transform .15s ease, border-color .15s ease;background:var(--card-bg,#fff);}' +
+            '.ref-denom:active{transform:scale(.96);}' +
+            '.ref-denom .val{font-size:1.3rem;font-weight:800;color:var(--primary-color,#6d5dfc);}' +
+            '.ref-denom .cost{font-size:.8rem;opacity:.75;margin-top:4px;}' +
+            '.ref-denom .left{font-size:.72rem;margin-top:6px;opacity:.65;}' +
+            '.ref-denom.disabled{opacity:.45;cursor:not-allowed;}' +
+            '.ref-list{list-style:none;margin:0;padding:0;}' +
+            '.ref-list li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 2px;border-bottom:1px dashed rgba(120,120,160,.16);font-size:.85rem;}' +
+            '.ref-list li:last-child{border-bottom:0;}' +
+            '.ref-list .amt{font-weight:800;color:#21c065;white-space:nowrap;}' +
+            '.ref-list .amt.muted{color:inherit;opacity:.55;font-weight:600;}' +
+            '.ref-note{font-size:.78rem;opacity:.7;line-height:1.7;}' +
+            '.ref-section-title{margin:0 0 10px;font-size:1rem;display:flex;align-items:center;gap:6px;}' +
+            '.ref-confirm-overlay{position:fixed;inset:0;z-index:99998;background:rgba(10,10,25,.55);display:flex;align-items:center;justify-content:center;padding:16px;}' +
+            '.ref-confirm{background:var(--card-bg,#fff);border-radius:18px;max-width:340px;width:100%;padding:20px;text-align:center;direction:rtl;}' +
+            '.ref-confirm h3{margin:0 0 8px;}' +
+            '.ref-confirm .row{display:flex;gap:8px;margin-top:16px;}' +
+            '.ref-confirm .row .ref-btn{flex:1;}' +
+            '.ref-burst{position:absolute;pointer-events:none;width:6px;height:6px;border-radius:2px;opacity:0;}' +
+            '@keyframes refBurstFly{0%{transform:translate(0,0) scale(1);opacity:1;}100%{transform:translate(var(--bx),var(--by)) scale(.4) rotate(240deg);opacity:0;}}' +
+            '.ref-count-pop{animation:refCountPop .5s ease;}' +
+            '@keyframes refCountPop{0%{transform:scale(1);}45%{transform:scale(1.18);}100%{transform:scale(1);}}' +
+            '.ref-invite-card{max-width:420px;margin:24px auto;text-align:center;}' +
+            '.ref-invite-emoji{font-size:52px;margin-bottom:8px;}' +
+            '@media (max-width:480px){.ref-stats{grid-template-columns:repeat(2,1fr);}.ref-hero h2{font-size:1.15rem;}}';
+          var style = document.createElement('style');
+          style.id = 'referral-inline-style';
+          style.textContent = css;
+          document.head.appendChild(style);
+          styleReady = true;
+        }
+
+        // Tiny confetti burst around an element (the copy button dopamine hit).
+        function burstAt(el){
+          try {
+            var rect = el.getBoundingClientRect();
+            var colors = ['#ffc21a', '#f472b6', '#21c065', '#6d5dfc', '#38bdf8'];
+            for (var i = 0; i < 14; i += 1) {
+              var spark = document.createElement('span');
+              spark.className = 'ref-burst';
+              spark.style.background = colors[i % colors.length];
+              spark.style.left = (rect.left + rect.width / 2) + 'px';
+              spark.style.top = (rect.top + rect.height / 2) + 'px';
+              spark.style.position = 'fixed';
+              spark.style.setProperty('--bx', (Math.cos(i / 14 * Math.PI * 2) * (46 + Math.random() * 32)) + 'px');
+              spark.style.setProperty('--by', (Math.sin(i / 14 * Math.PI * 2) * (46 + Math.random() * 32)) + 'px');
+              spark.style.animation = 'refBurstFly .7s ease-out forwards';
+              document.body.appendChild(spark);
+              (function(node){ setTimeout(function(){ try { node.remove(); } catch(_){ } }, 800); })(spark);
+            }
+          } catch(_){ }
+        }
+
+        function animateCount(el, target, isMoney){
+          var final = Number(target) || 0;
+          var start = 0;
+          var t0 = null;
+          var dur = 700;
+          function frame(ts){
+            if (t0 == null) t0 = ts;
+            var k = Math.min(1, (ts - t0) / dur);
+            var eased = 1 - Math.pow(1 - k, 3);
+            var current = start + (final - start) * eased;
+            el.textContent = isMoney ? fmtUsd(current) : String(Math.round(current));
+            if (k < 1) requestAnimationFrame(frame);
+          }
+          try { requestAnimationFrame(frame); } catch(_){ el.textContent = isMoney ? fmtUsd(final) : String(final); }
+        }
+
+        return {
+          STASH_KEY: STASH_KEY,
+          LEVEL_SEEN_PREFIX: LEVEL_SEEN_PREFIX,
+          EARNED_SEEN_PREFIX: EARNED_SEEN_PREFIX,
+          esc: esc,
+          readSession: readSession,
+          toast: toast,
+          successOverlay: successOverlay,
+          fmtUsd: fmtUsd,
+          stashInviter: stashInviter,
+          copyText: copyText,
+          fetchReferralInfo: fetchReferralInfo,
+          postReferralRedeem: postReferralRedeem,
+          ensureStyles: ensureStyles,
+          burstAt: burstAt,
+          animateCount: animateCount
+        };
+      })();
+
+      // #/invite/{webuid}: stash the inviter + a friendly landing. An invalid
+      // webuid silently lands on the home page (no error, per spec).
+      var referralInviteRoute = (function(){
+        var shared = referralInlineShared;
+        function build(){
+          shared.ensureStyles();
+          var root = document.createElement('div');
+          root.className = 'ref-wrap';
+          root.setAttribute('data-referral-invite', '1');
+          return root;
+        }
+        function onShow(ctx){
+          var root = document.querySelector('[data-referral-invite="1"]');
+          if (!root) return;
+          var raw = (ctx && Array.isArray(ctx.routeParts) && ctx.routeParts.length) ? String(ctx.routeParts[0] || '') : '';
+          var webuid = /^[0-9]{1,15}$/.test(raw.trim()) ? raw.trim().replace(/^0+(?=\d)/, '') : '';
+          if (!webuid) {
+            try { location.hash = '#/'; } catch(_){ }
+            return;
+          }
+          shared.stashInviter(webuid);
+          var session = shared.readSession();
+          var storeName = 'المتجر';
+          try {
+            var brand = window.__SITE_BRAND__ || (window.__SITE_RUNTIME__ && window.__SITE_RUNTIME__.brand) || {};
+            if (brand.storeName || brand.siteName || brand.name) storeName = String(brand.storeName || brand.siteName || brand.name);
+          } catch(_){ }
+          root.innerHTML = '' +
+            '<div class="ref-card ref-invite-card">' +
+              '<div class="ref-invite-emoji">🎁</div>' +
+              '<h2 style="margin:0 0 8px;">تمت دعوتك من صديق!</h2>' +
+              '<p class="ref-note" style="font-size:.9rem;">صديقك دعاك للانضمام إلى <b>' + shared.esc(storeName) + '</b>.' +
+              (session
+                ? ' أنت مسجّل الدخول بالفعل — يمكنك متابعة التسوق مباشرة.'
+                : ' أنشئ حسابك الآن وستُربط دعوتك تلقائيًا.') + '</p>' +
+              '<div style="display:flex;flex-direction:column;gap:10px;margin-top:16px;">' +
+                (session
+                  ? '<button class="ref-btn ref-btn-copy" data-ref-browse>تصفّح المتجر 🛍️</button>'
+                  : '<button class="ref-btn ref-btn-copy" data-ref-register>أنشئ حسابك الآن ✨</button>' +
+                    '<button class="ref-btn" style="background:rgba(120,120,160,.12);color:inherit;" data-ref-browse>تصفّح المتجر أولًا</button>') +
+              '</div>' +
+            '</div>';
+          var registerBtn = root.querySelector('[data-ref-register]');
+          if (registerBtn) registerBtn.addEventListener('click', function(){
+            try { location.hash = '#/login'; } catch(_){ }
+          });
+          var browseBtn = root.querySelector('[data-ref-browse]');
+          if (browseBtn) browseBtn.addEventListener('click', function(){
+            try { location.hash = '#/'; } catch(_){ }
+          });
+        }
+        return { build: build, onShow: onShow };
+      })();
+
+      // #/referrals: the dashboard (link + stats + level progress + redeem).
+      var referralDashboardRoute = (function(){
+        var shared = referralInlineShared;
+        var state = { root: null, info: null, busy: false };
+
+        function loginCard(){
+          return '' +
+            '<div class="ref-card ref-invite-card">' +
+              '<div class="ref-invite-emoji">🔒</div>' +
+              '<h2 style="margin:0 0 8px;">سجّل الدخول لعرض إحالاتك</h2>' +
+              '<p class="ref-note">رابط دعوتك، الكاش باك، ورصيد الإحالة — كلها بانتظارك.</p>' +
+              '<button class="ref-btn ref-btn-copy" style="margin-top:14px;" data-ref-login>تسجيل الدخول</button>' +
+            '</div>';
+        }
+
+        function disabledCard(){
+          return '' +
+            '<div class="ref-card ref-invite-card">' +
+              '<div class="ref-invite-emoji">🚧</div>' +
+              '<h2 style="margin:0 0 8px;">نظام الإحالة غير متاح حاليًا</h2>' +
+              '<p class="ref-note">فعّله لاحقًا من جديد — تابعنا!</p>' +
+            '</div>';
+        }
+
+        function motivationLine(info){
+          var next = info.nextLevel;
+          var stats = info.stats || {};
+          if (next && next.remaining > 0) {
+            if (next.remaining <= 2) return 'اقتربت من مستوى «' + shared.esc(next.name || '') + '»! بقي ' + next.remaining + ' فقط 🚀';
+            return 'ادعُ ' + next.remaining + ' أصدقاء إضافيين للوصول إلى «' + shared.esc(next.name || '') + '» 💪';
+          }
+          if ((stats.balance || 0) > 0) return 'رصيدك جاهز للاسترداد 🎉';
+          return 'شارك رابطك واربح كاش باك من إيداعات أصدقائك 💸';
+        }
+
+        function render(info){
+          var root = state.root;
+          if (!root) return;
+          state.info = info;
+          if (info && info.enabled === false) { root.innerHTML = disabledCard(); return; }
+          if (!info || info.ok === false) {
+            if (info && info.error === 'no_session') {
+              root.innerHTML = loginCard();
+              var loginBtn = root.querySelector('[data-ref-login]');
+              if (loginBtn) loginBtn.addEventListener('click', function(){ try { location.hash = '#/login'; } catch(_){ } });
+              return;
+            }
+            root.innerHTML = '' +
+              '<div class="ref-card ref-invite-card">' +
+                '<div class="ref-invite-emoji">📡</div>' +
+                '<h2 style="margin:0 0 8px;">تعذّر تحميل بيانات الإحالة</h2>' +
+                '<button class="ref-btn ref-btn-copy" style="margin-top:12px;" data-ref-retry>إعادة المحاولة</button>' +
+              '</div>';
+            var retryBtn = root.querySelector('[data-ref-retry]');
+            if (retryBtn) retryBtn.addEventListener('click', load);
+            return;
+          }
+
+          var stats = info.stats || {};
+          var link = '';
+          try { link = location.origin + '/invite/' + encodeURIComponent(String(info.webuid || '')); } catch(_){ link = '/invite/' + String(info.webuid || ''); }
+          var level = info.level;
+          var next = info.nextLevel;
+          var progressPct = next ? Math.round(Math.max(0, Math.min(1, Number(next.progress) || 0)) * 100) : 100;
+
+          var html = '' +
+            '<div class="ref-hero">' +
+              '<h2>ادعُ أصدقاءك واربح 🎁</h2>' +
+              '<p>عن كل إيداع ناجح من صديق دعوته تحصل على كاش باك' + (level ? ' بنسبة <b>' + shared.esc(String(level.percent)) + '%</b>' : '') + '</p>' +
+              '<div class="ref-link-pill">' +
+                '<button class="ref-btn ref-btn-copy" data-ref-copy>نسخ</button>' +
+                '<code data-ref-link>' + shared.esc(link) + '</code>' +
+              '</div>' +
+              '<div class="ref-share-row">' +
+                '<button class="ref-btn" data-ref-share="wa">واتساب</button>' +
+                '<button class="ref-btn" data-ref-share="tg">تيليغرام</button>' +
+                '<button class="ref-btn" data-ref-share="native">مشاركة…</button>' +
+              '</div>' +
+            '</div>' +
+
+            '<div class="ref-stats">' +
+              '<div class="ref-stat"><div class="v" data-count="' + (Number(stats.invitedCount) || 0) + '">0</div><div class="l">الأصدقاء المدعوون</div></div>' +
+              '<div class="ref-stat"><div class="v" data-count="' + (Number(stats.activeCount) || 0) + '">0</div><div class="l">إحالات نشطة</div></div>' +
+              '<div class="ref-stat"><div class="v" data-count-money="' + (Number(stats.totalEarned) || 0) + '">$0.00</div><div class="l">إجمالي الكاش باك</div></div>' +
+              '<div class="ref-stat"><div class="v" data-count-money="' + (Number(stats.balance) || 0) + '">$0.00</div><div class="l">رصيد الإحالة</div></div>' +
+              '<div class="ref-stat"><div class="v" data-count-money="' + (Number(stats.totalRedeemed) || 0) + '">$0.00</div><div class="l">تم استرداده</div></div>' +
+            '</div>' +
+
+            '<div class="ref-card">' +
+              '<div class="ref-level-head">' +
+                '<div class="ref-level-badge" style="background:' + shared.esc((level && level.color) || 'var(--primary-color,#6d5dfc)') + ';">' +
+                  (level && level.iconUrl ? '<img src="' + shared.esc(level.iconUrl) + '" alt="">' : '🏆') +
+                '</div>' +
+                '<div style="min-width:0;">' +
+                  '<div style="font-weight:800;">' + (level ? shared.esc(level.name || ('مستوى ' + level.id)) : 'بدون مستوى بعد') + '</div>' +
+                  '<div class="ref-note">' + (level ? ('كاش باك ' + shared.esc(String(level.percent)) + '% من إيداعات أصدقائك') : 'ادعُ أصدقاءك للوصول إلى أول مستوى') + '</div>' +
+                '</div>' +
+              '</div>' +
+              (next
+                ? '<div class="ref-progress"><span data-ref-progress data-target="' + progressPct + '"></span></div>' +
+                  '<div style="display:flex;justify-content:space-between;font-size:.75rem;opacity:.7;">' +
+                    '<span>' + shared.esc(level ? level.name || '' : 'البداية') + '</span>' +
+                    '<span>' + shared.esc(next.name || '') + ' (' + next.requiredInvites + ' دعوات)</span>' +
+                  '</div>'
+                : (level ? '<div class="ref-motivate" style="margin-top:6px;">أنت في أعلى مستوى! 👑</div>' : '')) +
+              '<div class="ref-motivate" style="margin-top:8px;" data-ref-motivate>' + motivationLine(info) + '</div>' +
+            '</div>';
+
+          if (Array.isArray(info.denominations) && info.denominations.length) {
+            html += '<div class="ref-card">' +
+              '<h3 class="ref-section-title">💳 استبدل رصيدك بكود شحن</h3>' +
+              '<div class="ref-denoms">';
+            info.denominations.forEach(function(denomination){
+              var soldOut = denomination.remaining != null && denomination.remaining <= 0;
+              var limitReached = denomination.perUserLimit > 0 && denomination.userUsed >= denomination.perUserLimit;
+              var blocked = soldOut || limitReached;
+              html += '<div class="ref-denom' + (blocked ? ' disabled' : '') + '" data-ref-denom="' + denomination.id + '"' + (blocked ? ' data-blocked="1"' : '') + '>' +
+                '<div class="val">' + shared.esc(shared.fmtUsd(denomination.value)) + '</div>' +
+                '<div class="cost">مقابل ' + shared.esc(shared.fmtUsd(denomination.cost)) + ' من رصيد الإحالة</div>' +
+                '<div class="left">' +
+                  (soldOut ? 'نفدت الكمية' : limitReached ? 'بلغت حدّك من هذه الفئة'
+                    : (denomination.remaining != null ? ('متبقي ' + denomination.remaining) : 'متاح')) +
+                '</div>' +
+              '</div>';
+            });
+            html += '</div>' +
+              '<p class="ref-note" style="margin:10px 0 0;">⚠️ رصيد الإحالة مستقل عن رصيد المحفظة — لا يمكن تحويله من صفحة التحويل، ويُستبدل هنا فقط مقابل كود شحن.</p>' +
+            '</div>';
+          }
+
+          if (Array.isArray(info.recentCashback) && info.recentCashback.length) {
+            html += '<div class="ref-card"><h3 class="ref-section-title">💸 آخر عمليات الكاش باك</h3><ul class="ref-list">';
+            info.recentCashback.forEach(function(op){
+              var when = op.at ? new Date(op.at).toLocaleDateString('ar') : '';
+              html += '<li>' +
+                '<span>صديقك #' + shared.esc(String(op.inviteeAccountNo || '؟')) + ' أودع ' + shared.esc(shared.fmtUsd(op.deposit)) + '<br><small style="opacity:.6;">' + shared.esc(when) + (op.levelName ? ' • ' + shared.esc(op.levelName) : '') + '</small></span>' +
+                (op.status === 'reversed'
+                  ? '<span class="amt muted">أُلغي</span>'
+                  : '<span class="amt">+' + shared.esc(shared.fmtUsd(op.cashback)) + '</span>') +
+              '</li>';
+            });
+            html += '</ul></div>';
+          }
+
+          if (Array.isArray(info.recentRedemptions) && info.recentRedemptions.length) {
+            html += '<div class="ref-card"><h3 class="ref-section-title">🎫 آخر عمليات الاسترداد</h3><ul class="ref-list">';
+            info.recentRedemptions.forEach(function(redemption){
+              var when = redemption.at ? new Date(redemption.at).toLocaleDateString('ar') : '';
+              html += '<li>' +
+                '<span>كود شحن ' + shared.esc(shared.fmtUsd(redemption.value)) + ' (رقم ' + shared.esc(String(redemption.codeSerial)) + ')<br><small style="opacity:.6;">' + shared.esc(when) + '</small></span>' +
+                '<span class="amt muted">-' + shared.esc(shared.fmtUsd(redemption.cost)) + '</span>' +
+              '</li>';
+            });
+            html += '</ul></div>';
+          }
+
+          if (info.terms) {
+            html += '<div class="ref-card"><h3 class="ref-section-title">📋 شروط الإحالة</h3><p class="ref-note" style="white-space:pre-line;">' + shared.esc(info.terms) + '</p></div>';
+          }
+
+          root.innerHTML = html;
+          bind(root, info, link);
+          celebrate(info);
+        }
+
+        function bind(root, info, link){
+          var copyBtn = root.querySelector('[data-ref-copy]');
+          if (copyBtn) copyBtn.addEventListener('click', async function(){
+            var ok = await shared.copyText(link);
+            if (ok) {
+              copyBtn.classList.add('copied');
+              copyBtn.textContent = 'تم النسخ ✓';
+              shared.burstAt(copyBtn);
+              shared.toast('تم نسخ رابط الدعوة 🎉', 'success');
+              setTimeout(function(){ copyBtn.classList.remove('copied'); copyBtn.textContent = 'نسخ'; }, 1800);
+            } else {
+              shared.toast('تعذّر النسخ — انسخ الرابط يدويًا', 'error');
+            }
+          });
+
+          var shareMessage = String(info.shareMessage || '').trim() || ('انضم إلي عبر رابط الدعوة! {link}');
+          var shareText = shareMessage.indexOf('{link}') >= 0 ? shareMessage.replace('{link}', link) : (shareMessage + ' ' + link);
+          root.querySelectorAll('[data-ref-share]').forEach(function(btn){
+            btn.addEventListener('click', function(){
+              var kind = btn.getAttribute('data-ref-share');
+              try {
+                if (kind === 'wa') {
+                  window.open('https://wa.me/?text=' + encodeURIComponent(shareText), '_blank', 'noopener');
+                } else if (kind === 'tg') {
+                  window.open('https://t.me/share/url?url=' + encodeURIComponent(link) + '&text=' + encodeURIComponent(shareMessage.replace('{link}', '').trim()), '_blank', 'noopener');
+                } else if (navigator.share) {
+                  navigator.share({ text: shareText }).catch(function(){});
+                } else {
+                  shared.copyText(shareText).then(function(ok){ if (ok) shared.toast('تم نسخ رسالة الدعوة', 'success'); });
+                }
+                shared.burstAt(btn);
+              } catch(_){ }
+            });
+          });
+
+          root.querySelectorAll('[data-count]').forEach(function(el){
+            shared.animateCount(el, Number(el.getAttribute('data-count')) || 0, false);
+          });
+          root.querySelectorAll('[data-count-money]').forEach(function(el){
+            shared.animateCount(el, Number(el.getAttribute('data-count-money')) || 0, true);
+          });
+          var bar = root.querySelector('[data-ref-progress]');
+          if (bar) setTimeout(function(){ bar.style.width = (Number(bar.getAttribute('data-target')) || 0) + '%'; }, 120);
+
+          root.querySelectorAll('[data-ref-denom]').forEach(function(card){
+            card.addEventListener('click', function(){
+              if (card.getAttribute('data-blocked') === '1' || state.busy) return;
+              var id = Number(card.getAttribute('data-ref-denom')) || 0;
+              var denomination = (info.denominations || []).find(function(d){ return d.id === id; });
+              if (denomination) confirmRedeem(denomination);
+            });
+          });
+        }
+
+        function confirmRedeem(denomination){
+          var overlay = document.createElement('div');
+          overlay.className = 'ref-confirm-overlay';
+          overlay.innerHTML = '' +
+            '<div class="ref-confirm">' +
+              '<div style="font-size:40px;">🎫</div>' +
+              '<h3>استبدال ' + shared.esc(shared.fmtUsd(denomination.cost)) + ' من رصيد الإحالة</h3>' +
+              '<p class="ref-note">ستحصل على كود شحن بقيمة <b>' + shared.esc(shared.fmtUsd(denomination.value)) + '</b>. الكود يظهر مرة واحدة فقط — انسخه فور ظهوره.</p>' +
+              '<div class="row">' +
+                '<button class="ref-btn" style="background:rgba(120,120,160,.14);color:inherit;" data-ref-cancel>إلغاء</button>' +
+                '<button class="ref-btn ref-btn-copy" data-ref-confirm>تأكيد الاسترداد</button>' +
+              '</div>' +
+            '</div>';
+          document.body.appendChild(overlay);
+          function close(){ try { overlay.remove(); } catch(_){ } }
+          overlay.addEventListener('click', function(ev){ if (ev.target === overlay) close(); });
+          overlay.querySelector('[data-ref-cancel]').addEventListener('click', close);
+          var confirmBtn = overlay.querySelector('[data-ref-confirm]');
+          var nonce = '';
+          try { nonce = (crypto && crypto.randomUUID) ? crypto.randomUUID() : ''; } catch(_){ }
+          if (!nonce) nonce = String(Date.now()) + '-' + Math.floor(Math.random() * 1e9);
+          confirmBtn.addEventListener('click', async function(){
+            if (state.busy) return;
+            state.busy = true;
+            confirmBtn.textContent = 'جارٍ الاسترداد...';
+            confirmBtn.disabled = true;
+            var result = await shared.postReferralRedeem(denomination.id, nonce);
+            state.busy = false;
+            close();
+            if (!result || result.ok === false) {
+              shared.toast(String((result && result.message) || 'تعذّر الاسترداد حالياً.'), 'error');
+              return;
+            }
+            if (result.idempotent) {
+              shared.toast(String(result.message || 'تم تنفيذ هذا الاسترداد سابقًا.'), 'info');
+              load();
+              return;
+            }
+            var shown = shared.successOverlay({
+              title: 'تم الاسترداد بنجاح 🎉',
+              bannerText: 'تم إنشاء كود الشحن الخاص بك',
+              message: 'هذا كودك — يظهر مرة واحدة فقط، انسخه الآن ثم استخدمه في شاشة «استبدال» بالمحفظة.',
+              note: 'خُصم ' + shared.fmtUsd(denomination.cost) + ' من رصيد الإحالة.',
+              detailLabel: 'كود الشحن',
+              detailText: String(result.code || ''),
+              detailCopyText: String(result.code || ''),
+              amount: Number(result.value) || denomination.value,
+              currency: 'USD',
+              primaryLabel: 'المحفظة',
+              secondaryLabel: 'الرئيسية'
+            });
+            if (!shown) {
+              shared.toast('كود الشحن: ' + String(result.code || '') + ' — انسخه الآن', 'success');
+              try { await shared.copyText(String(result.code || '')); } catch(_){ }
+            }
+            load();
+          });
+        }
+
+        // Level-up / new-cashback celebrations, detected by comparing against
+        // the last SEEN values cached locally (display-only; no money logic).
+        function celebrate(info){
+          try {
+            var session = shared.readSession();
+            if (!session || !info || info.enabled === false) return;
+            var levelKey = shared.LEVEL_SEEN_PREFIX + session.uid;
+            var earnedKey = shared.EARNED_SEEN_PREFIX + session.uid;
+            var lastLevelId = Number(localStorage.getItem(levelKey) || 0);
+            var lastEarned = Number(localStorage.getItem(earnedKey) || -1);
+            var currentLevelId = info.level ? Number(info.level.id) || 0 : 0;
+            var currentRequired = info.level ? Number(info.level.requiredInvites) || 0 : 0;
+            var earned = Number(info.stats && info.stats.totalEarned) || 0;
+            if (currentLevelId && lastLevelId && currentLevelId !== lastLevelId) {
+              var lastSeenRequired = Number(localStorage.getItem(levelKey + ':req') || -1);
+              if (currentRequired > lastSeenRequired) {
+                shared.successOverlay({
+                  title: 'ترقية مستوى الإحالة 🎉',
+                  bannerText: 'مبروك! وصلت إلى «' + String(info.level.name || '') + '»',
+                  message: 'نسبة الكاش باك الخاصة بك الآن ' + String(info.level.percent) + '%.',
+                  amountText: String(info.level.percent) + '%',
+                  primaryLabel: 'المحفظة',
+                  secondaryLabel: 'الرئيسية'
+                });
+              }
+            } else if (lastEarned >= 0 && earned > lastEarned) {
+              shared.toast('وصلك كاش باك جديد: +' + shared.fmtUsd(earned - lastEarned) + ' 🎉', 'success');
+            }
+            localStorage.setItem(levelKey, String(currentLevelId));
+            localStorage.setItem(levelKey + ':req', String(currentRequired));
+            localStorage.setItem(earnedKey, String(earned));
+          } catch(_){ }
+        }
+
+        async function load(){
+          var root = state.root;
+          if (!root) return;
+          var session = shared.readSession();
+          if (!session) { render({ ok: false, error: 'no_session' }); return; }
+          root.innerHTML = '' +
+            '<div class="ref-card ref-invite-card">' +
+              '<div class="ref-invite-emoji">✨</div>' +
+              '<h2 style="margin:0;">جارٍ تحميل إحالاتك...</h2>' +
+            '</div>';
+          var info = await shared.fetchReferralInfo();
+          render(info);
+        }
+
+        function build(){
+          shared.ensureStyles();
+          var root = document.createElement('div');
+          root.className = 'ref-wrap';
+          root.setAttribute('data-referral-dashboard', '1');
+          state.root = root;
+          return root;
+        }
+
+        function onShow(){
+          var root = document.querySelector('[data-referral-dashboard="1"]');
+          if (root) state.root = root;
+          return load();
+        }
+
+        return { build: build, onShow: onShow };
+      })();
+
       var routes = {
         'games': {
           url: 'games.html',
@@ -38878,7 +39534,9 @@ function normalizeCategory(value){
         'privacy':       { title: 'سياسة الخصوصية', build: function(){ return buildTemplateRoute('privacy-inline-template'); } },
         'terms':         { title: 'شروط الاستخدام', build: function(){ return buildTemplateRoute('terms-inline-template'); } },
         'transfer':      { title: 'تحويل رصيد', build: transferRoute.build, onShow: transferRoute.onShow, ready: transferRoute.ready },
-        'wallet':        { title: 'محفظتي', build: walletRoute.build, onShow: walletRoute.onShow, ready: walletRoute.ready }
+        'wallet':        { title: 'محفظتي', build: walletRoute.build, onShow: walletRoute.onShow, ready: walletRoute.ready },
+        'invite':        { title: 'دعوة صديق', build: referralInviteRoute.build, onShow: referralInviteRoute.onShow },
+        'referrals':     { title: 'الإحالات', build: referralDashboardRoute.build, onShow: referralDashboardRoute.onShow }
       };
       try { syncRuntimeWalletRouteTitles(); } catch(_){}
 
