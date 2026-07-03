@@ -38950,9 +38950,8 @@ function normalizeCategory(value){
               'radial-gradient(110% 120% at -5% 115%,rgba(245,158,11,.3),transparent 50%),' +
               'linear-gradient(150deg,#312e81 0%,#4c1d95 55%,#6d28d9 100%);box-shadow:0 18px 44px rgba(49,26,110,.35);}' +
             '.ref-hero-gift{position:absolute;top:12px;left:16px;font-size:56px;opacity:.12;transform:rotate(-14deg);pointer-events:none;}' +
-            '.ref-eyebrow{position:relative;display:inline-flex;align-items:center;gap:7px;font-size:.72rem;font-weight:800;color:#ffe6ad;' +
-              'background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.24);border-radius:999px;padding:6px 13px;margin-bottom:12px;backdrop-filter:blur(4px);}' +
-            '.ref-hero h2{margin:0 0 8px;font-size:1.6rem;font-weight:900;letter-spacing:-.3px;position:relative;}' +
+            '.ref-hero h2{margin:0 0 8px;font-size:1.6rem;font-weight:900;letter-spacing:-.3px;position:relative;' +
+              'color:#fff !important;-webkit-text-fill-color:#fff !important;background:none;text-shadow:0 2px 14px rgba(17,8,48,.5);}' +
             '.ref-hero p{margin:0 auto 16px;opacity:.92;font-size:.93rem;line-height:1.7;max-width:46ch;position:relative;}' +
             '.ref-hero p b{color:#fbbf24;}' +
             '.ref-link-label{position:relative;text-align:right;font-size:.74rem;font-weight:700;opacity:.85;margin:0 4px 7px;}' +
@@ -38980,8 +38979,6 @@ function normalizeCategory(value){
             '.ref-balance-label{font-size:.82rem;opacity:.7;font-weight:700;}' +
             '.ref-balance-value{font-size:1.7rem;font-weight:900;line-height:1.2;font-variant-numeric:tabular-nums;' +
               'background:linear-gradient(135deg,#7c3aed,#b45309);-webkit-background-clip:text;background-clip:text;color:transparent;}' +
-            '.ref-balance-chip{margin-right:auto;display:inline-flex;align-items:center;gap:5px;font-size:.68rem;font-weight:800;color:#b45309;' +
-              'background:rgba(245,158,11,.14);border:1px solid rgba(245,158,11,.4);border-radius:999px;padding:5px 10px;white-space:nowrap;}' +
             '.ref-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}' +
             '.ref-stat{background:var(--card-bg,#fff);border:1px solid var(--border-color,rgba(109,40,217,.12));border-radius:18px;' +
               'padding:14px 8px;text-align:center;box-shadow:0 6px 18px rgba(30,20,80,.05);}' +
@@ -39060,7 +39057,7 @@ function normalizeCategory(value){
               '.ref-btn,.ref-denom{transition:none;}.ref-count-pop{animation:none;}}' +
             '@media (max-width:560px){.ref-stats{grid-template-columns:repeat(2,1fr);}.ref-skel-grid{grid-template-columns:repeat(2,1fr);}' +
               '.ref-steps{grid-template-columns:1fr;}.ref-hero h2{font-size:1.28rem;}' +
-              '.ref-balance-value{font-size:1.45rem;}.ref-balance-chip{position:absolute;top:-10px;left:14px;margin:0;}}';
+              '.ref-balance-value{font-size:1.45rem;}}';
           var style = document.createElement('style');
           style.id = 'referral-inline-style';
           style.textContent = css;
@@ -39261,8 +39258,7 @@ function normalizeCategory(value){
           var html = '' +
             '<div class="ref-hero">' +
               '<span class="ref-hero-gift" aria-hidden="true"><i class="fa-solid fa-gift"></i></span>' +
-              '<span class="ref-eyebrow"><i class="fa-solid fa-gift"></i>برنامج الإحالة</span>' +
-              '<h2>ادعُ أصدقاءك واربح كاش باك</h2>' +
+              '<h2 style="color:#fff !important;-webkit-text-fill-color:#fff !important;">ادعُ أصدقاءك واربح كاش باك</h2>' +
               '<p>عن كل إيداع ناجح من صديق دعوته تحصل على كاش باك' + (level ? ' بنسبة <b>' + shared.esc(String(level.percent)) + '%</b>' : '') + ' يُضاف إلى رصيد إحالتك</p>' +
               (webuid
                 ? '<div class="ref-link-label">رابط الدعوة الخاص بك</div>' +
@@ -39286,7 +39282,6 @@ function normalizeCategory(value){
                 '<div class="ref-balance-label">رصيد الإحالة</div>' +
                 '<div class="ref-balance-value" data-count-money="' + (Number(stats.balance) || 0) + '">$0.00</div>' +
               '</div>' +
-              '<span class="ref-balance-chip"><i class="fa-solid fa-ticket"></i>للاستبدال فقط</span>' +
             '</div>' +
 
             '<div class="ref-stats">' +
