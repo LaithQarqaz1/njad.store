@@ -38817,6 +38817,10 @@ function normalizeCategory(value){
             .replace(/'/g, '&#39;');
         }
 
+        function prefersReducedMotion(){
+          try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch(_){ return false; }
+        }
+
         function readSession(){
           try {
             var raw = localStorage.getItem('sessionKeyInfo');
@@ -38937,59 +38941,126 @@ function normalizeCategory(value){
           if (styleReady) return;
           if (document.getElementById('referral-inline-style')) { styleReady = true; return; }
           var css = '' +
-            '.ref-wrap{max-width:760px;margin:0 auto;padding:12px 12px 96px;direction:rtl;}' +
-            '.ref-card{background:var(--card-bg,#fff);border:1px solid var(--border-color,rgba(120,120,160,.18));border-radius:18px;padding:16px;margin-bottom:14px;box-shadow:0 6px 24px rgba(20,20,60,.06);}' +
-            '.ref-hero{position:relative;overflow:hidden;border-radius:20px;padding:22px 16px;margin-bottom:14px;color:#fff;text-align:center;' +
-              'background:linear-gradient(135deg,var(--primary-color,#6d5dfc) 0%,#9b5dfc 55%,#f472b6 120%);}' +
-            '.ref-hero h2{margin:0 0 6px;font-size:1.35rem;}' +
-            '.ref-hero p{margin:0 0 14px;opacity:.92;font-size:.95rem;}' +
-            '.ref-link-pill{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.16);border:1px dashed rgba(255,255,255,.55);' +
-              'border-radius:14px;padding:10px 12px;direction:ltr;}' +
-            '.ref-link-pill code{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.85rem;color:#fff;background:none;}' +
-            '.ref-btn{appearance:none;border:0;border-radius:12px;padding:10px 16px;font-weight:700;cursor:pointer;font-size:.92rem;' +
-              'transition:transform .15s ease, box-shadow .15s ease;-webkit-tap-highlight-color:transparent;}' +
+            '.ref-wrap{max-width:880px;margin:0 auto;padding:16px 14px 110px;direction:rtl;' +
+              'font-family:inherit;color:var(--text-color,inherit);}' +
+            '.ref-card{background:var(--card-bg,#fff);border:1px solid var(--border-color,rgba(109,40,217,.12));border-radius:20px;' +
+              'padding:20px;margin-bottom:14px;box-shadow:0 6px 22px rgba(30,20,80,.06);}' +
+            '.ref-hero{position:relative;overflow:hidden;border-radius:26px;padding:30px 20px 24px;margin-bottom:14px;color:#fff;text-align:center;' +
+              'background-color:#2b1b64;background-image:radial-gradient(120% 130% at 85% -15%,rgba(167,139,250,.5),transparent 55%),' +
+              'radial-gradient(110% 120% at -5% 115%,rgba(245,158,11,.3),transparent 50%),' +
+              'linear-gradient(150deg,#312e81 0%,#4c1d95 55%,#6d28d9 100%);box-shadow:0 18px 44px rgba(49,26,110,.35);}' +
+            '.ref-hero-gift{position:absolute;top:12px;left:16px;font-size:56px;opacity:.12;transform:rotate(-14deg);pointer-events:none;}' +
+            '.ref-eyebrow{position:relative;display:inline-flex;align-items:center;gap:7px;font-size:.72rem;font-weight:800;color:#ffe6ad;' +
+              'background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.24);border-radius:999px;padding:6px 13px;margin-bottom:12px;backdrop-filter:blur(4px);}' +
+            '.ref-hero h2{margin:0 0 8px;font-size:1.6rem;font-weight:900;letter-spacing:-.3px;position:relative;}' +
+            '.ref-hero p{margin:0 auto 16px;opacity:.92;font-size:.93rem;line-height:1.7;max-width:46ch;position:relative;}' +
+            '.ref-hero p b{color:#fbbf24;}' +
+            '.ref-link-label{position:relative;text-align:right;font-size:.74rem;font-weight:700;opacity:.85;margin:0 4px 7px;}' +
+            '.ref-link-pill{position:relative;display:flex;align-items:center;gap:10px;background:rgba(12,7,34,.42);' +
+              'border:1px solid rgba(255,255,255,.22);border-radius:16px;padding:8px;direction:ltr;}' +
+            '.ref-link-pill code{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.86rem;font-weight:600;color:#fff;background:none;padding:0 8px;}' +
+            '.ref-btn{appearance:none;border:0;border-radius:13px;padding:10px 16px;min-height:44px;font-weight:800;cursor:pointer;font-size:.9rem;' +
+              'font-family:inherit;display:inline-flex;align-items:center;justify-content:center;gap:8px;' +
+              'transition:transform .18s ease,box-shadow .18s ease,filter .18s ease,background .18s ease;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}' +
+            '.ref-btn:hover{filter:brightness(1.05);}' +
             '.ref-btn:active{transform:scale(.96);}' +
-            '.ref-btn-copy{background:#ffc21a;color:#1a1a1a;min-width:88px;position:relative;}' +
-            '.ref-btn-copy.copied{background:#21c065;color:#fff;}' +
-            '.ref-share-row{display:flex;gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap;}' +
-            '.ref-share-row .ref-btn{background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.4);}' +
-            '.ref-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px;}' +
-            '.ref-stat{background:var(--card-bg,#fff);border:1px solid var(--border-color,rgba(120,120,160,.18));border-radius:16px;padding:12px;text-align:center;}' +
-            '.ref-stat .v{font-size:1.25rem;font-weight:800;color:var(--primary-color,#6d5dfc);}' +
-            '.ref-stat .l{font-size:.78rem;opacity:.75;margin-top:2px;}' +
-            '.ref-level-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;}' +
-            '.ref-level-badge{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;color:#fff;flex-shrink:0;overflow:hidden;}' +
+            '.ref-btn:focus-visible{outline:3px solid rgba(251,191,36,.6);outline-offset:2px;}' +
+            '.ref-btn-copy{background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#3b2300;box-shadow:0 8px 18px rgba(245,158,11,.35);}' +
+            '.ref-btn-copy.copied{background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;box-shadow:0 8px 18px rgba(34,197,94,.35);}' +
+            '.ref-btn-ghost{background:rgba(120,120,160,.12);color:inherit;}' +
+            '.ref-share-row{position:relative;display:flex;gap:10px;justify-content:center;margin-top:14px;flex-wrap:wrap;}' +
+            '.ref-share-row .ref-btn{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.3);backdrop-filter:blur(4px);}' +
+            '.ref-share-row .ref-btn:hover{background:rgba(255,255,255,.2);filter:none;}' +
+            '.ref-share-row .ref-btn i{font-size:1.05rem;}' +
+            '.ref-balance-card{position:relative;display:flex;align-items:center;gap:14px;border-radius:20px;padding:16px 18px;margin-bottom:12px;' +
+              'border:2px solid transparent;background:linear-gradient(var(--card-bg,#fff),var(--card-bg,#fff)) padding-box,' +
+              'linear-gradient(135deg,#7c3aed,#f59e0b) border-box;box-shadow:0 12px 30px rgba(124,58,237,.12);}' +
+            '.ref-balance-ico{width:52px;height:52px;border-radius:16px;flex-shrink:0;display:flex;align-items:center;justify-content:center;' +
+              'font-size:22px;color:#fff;background:linear-gradient(135deg,#7c3aed,#6d28d9);box-shadow:0 8px 18px rgba(124,58,237,.35);}' +
+            '.ref-balance-label{font-size:.82rem;opacity:.7;font-weight:700;}' +
+            '.ref-balance-value{font-size:1.7rem;font-weight:900;line-height:1.2;font-variant-numeric:tabular-nums;' +
+              'background:linear-gradient(135deg,#7c3aed,#b45309);-webkit-background-clip:text;background-clip:text;color:transparent;}' +
+            '.ref-balance-chip{margin-right:auto;display:inline-flex;align-items:center;gap:5px;font-size:.68rem;font-weight:800;color:#b45309;' +
+              'background:rgba(245,158,11,.14);border:1px solid rgba(245,158,11,.4);border-radius:999px;padding:5px 10px;white-space:nowrap;}' +
+            '.ref-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}' +
+            '.ref-stat{background:var(--card-bg,#fff);border:1px solid var(--border-color,rgba(109,40,217,.12));border-radius:18px;' +
+              'padding:14px 8px;text-align:center;box-shadow:0 6px 18px rgba(30,20,80,.05);}' +
+            '.ref-stat .ico{width:38px;height:38px;margin:0 auto 8px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:15px;color:#fff;}' +
+            '.ref-stat .v{font-size:1.15rem;font-weight:900;font-variant-numeric:tabular-nums;}' +
+            '.ref-stat .l{font-size:.72rem;opacity:.7;margin-top:3px;font-weight:600;}' +
+            '.ref-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}' +
+            '.ref-step{position:relative;text-align:center;padding:16px 10px 14px;border-radius:16px;' +
+              'background:rgba(124,58,237,.05);border:1px dashed rgba(124,58,237,.22);}' +
+            '.ref-step .s-ico{position:relative;width:48px;height:48px;margin:0 auto 10px;border-radius:15px;display:flex;align-items:center;justify-content:center;' +
+              'font-size:19px;color:#fff;background:linear-gradient(135deg,#7c3aed,#6d28d9);box-shadow:0 8px 18px rgba(124,58,237,.28);}' +
+            '.ref-step .s-n{position:absolute;top:-7px;right:-7px;width:21px;height:21px;border-radius:50%;background:#fbbf24;color:#3b2300;' +
+              'font-size:.68rem;font-weight:900;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 8px rgba(245,158,11,.4);}' +
+            '.ref-step .s-t{font-weight:800;font-size:.88rem;margin-bottom:4px;}' +
+            '.ref-step .s-d{font-size:.74rem;opacity:.7;line-height:1.7;}' +
+            '.ref-level-head{display:flex;align-items:center;gap:12px;margin-bottom:10px;}' +
+            '.ref-level-badge{width:52px;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:22px;color:#fff;flex-shrink:0;overflow:hidden;box-shadow:0 8px 18px rgba(0,0,0,.15);}' +
             '.ref-level-badge img{width:100%;height:100%;object-fit:cover;}' +
-            '.ref-progress{height:12px;border-radius:999px;background:rgba(120,120,160,.16);overflow:hidden;margin:10px 0 6px;}' +
-            '.ref-progress>span{display:block;height:100%;border-radius:999px;width:0;background:linear-gradient(90deg,var(--primary-color,#6d5dfc),#f472b6);transition:width .9s cubic-bezier(.22,1,.36,1);}' +
-            '.ref-motivate{font-size:.85rem;color:var(--primary-color,#6d5dfc);font-weight:700;}' +
+            '.ref-level-name{font-weight:900;font-size:1.05rem;}' +
+            '.ref-progress{position:relative;height:14px;border-radius:999px;background:rgba(124,58,237,.12);overflow:hidden;margin:12px 0 6px;}' +
+            '.ref-progress>span{display:block;height:100%;border-radius:999px;width:0;' +
+              'background:linear-gradient(90deg,#7c3aed,#f59e0b);box-shadow:0 0 10px rgba(245,158,11,.45);transition:width .9s cubic-bezier(.22,1,.36,1);}' +
+            '.ref-progress-meta{display:flex;justify-content:space-between;font-size:.72rem;opacity:.7;font-weight:600;}' +
+            '.ref-motivate{margin-top:10px;font-size:.85rem;color:#6d28d9;font-weight:800;background:rgba(124,58,237,.08);' +
+              'border-radius:12px;padding:8px 12px;display:inline-flex;align-items:center;gap:7px;}' +
+            '.ref-motivate i{color:#f59e0b;}' +
             '.ref-denoms{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;}' +
-            '.ref-denom{border:1px solid var(--border-color,rgba(120,120,160,.2));border-radius:16px;padding:14px 10px;text-align:center;cursor:pointer;' +
-              'transition:transform .15s ease, border-color .15s ease;background:var(--card-bg,#fff);}' +
-            '.ref-denom:active{transform:scale(.96);}' +
-            '.ref-denom .val{font-size:1.3rem;font-weight:800;color:var(--primary-color,#6d5dfc);}' +
-            '.ref-denom .cost{font-size:.8rem;opacity:.75;margin-top:4px;}' +
-            '.ref-denom .left{font-size:.72rem;margin-top:6px;opacity:.65;}' +
-            '.ref-denom.disabled{opacity:.45;cursor:not-allowed;}' +
+            '.ref-denom{position:relative;border:1.5px solid var(--border-color,rgba(109,40,217,.16));border-radius:18px;padding:16px 10px;text-align:center;cursor:pointer;' +
+              'transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease;background:var(--card-bg,#fff);' +
+              '-webkit-tap-highlight-color:transparent;touch-action:manipulation;}' +
+            '.ref-denom:hover{border-color:#a855f7;box-shadow:0 10px 24px rgba(124,58,237,.15);}' +
+            '.ref-denom:active{transform:scale(.95);}' +
+            '.ref-denom:focus-visible{outline:3px solid rgba(124,58,237,.45);outline-offset:2px;}' +
+            '.ref-denom .val{font-size:1.45rem;font-weight:900;font-variant-numeric:tabular-nums;' +
+              'background:linear-gradient(135deg,#7c3aed,#b45309);-webkit-background-clip:text;background-clip:text;color:transparent;}' +
+            '.ref-denom .cost{font-size:.78rem;opacity:.75;margin-top:5px;font-weight:600;}' +
+            '.ref-denom .left{font-size:.7rem;margin-top:8px;font-weight:700;color:#16a34a;background:rgba(34,197,94,.1);border-radius:999px;padding:3px 9px;display:inline-block;}' +
+            '.ref-denom.disabled{opacity:.5;cursor:not-allowed;filter:grayscale(.6);}' +
+            '.ref-denom.disabled .left{color:#b91c1c;background:rgba(239,68,68,.1);}' +
             '.ref-list{list-style:none;margin:0;padding:0;}' +
-            '.ref-list li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 2px;border-bottom:1px dashed rgba(120,120,160,.16);font-size:.85rem;}' +
+            '.ref-list li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:11px 2px;border-bottom:1px dashed rgba(124,58,237,.14);font-size:.85rem;}' +
             '.ref-list li:last-child{border-bottom:0;}' +
-            '.ref-list .amt{font-weight:800;color:#21c065;white-space:nowrap;}' +
-            '.ref-list .amt.muted{color:inherit;opacity:.55;font-weight:600;}' +
-            '.ref-note{font-size:.78rem;opacity:.7;line-height:1.7;}' +
-            '.ref-section-title{margin:0 0 10px;font-size:1rem;display:flex;align-items:center;gap:6px;}' +
-            '.ref-confirm-overlay{position:fixed;inset:0;z-index:99998;background:rgba(10,10,25,.55);display:flex;align-items:center;justify-content:center;padding:16px;}' +
-            '.ref-confirm{background:var(--card-bg,#fff);border-radius:18px;max-width:340px;width:100%;padding:20px;text-align:center;direction:rtl;}' +
+            '.ref-list .amt{font-weight:900;color:#16a34a;white-space:nowrap;font-variant-numeric:tabular-nums;}' +
+            '.ref-list .amt.muted{color:inherit;opacity:.55;font-weight:700;}' +
+            '.ref-note{font-size:.78rem;opacity:.72;line-height:1.8;}' +
+            '.ref-note .n-ico{color:#b45309;margin-left:5px;}' +
+            '.ref-section-title{margin:0 0 12px;font-size:1rem;font-weight:800;display:flex;align-items:center;gap:8px;}' +
+            '.ref-section-title .t-ico{width:30px;height:30px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;color:#fff;background:linear-gradient(135deg,#7c3aed,#6d28d9);}' +
+            '.ref-state-card{max-width:440px;margin:26px auto;text-align:center;padding:32px 22px;}' +
+            '.ref-state-ico{width:64px;height:64px;border-radius:20px;margin:0 auto 14px;display:flex;align-items:center;justify-content:center;' +
+              'font-size:25px;color:#7c3aed;background:rgba(124,58,237,.1);}' +
+            '.ref-state-ico.gold{color:#b45309;background:rgba(245,158,11,.14);}' +
+            '.ref-state-card h2{margin:0 0 8px;font-size:1.2rem;font-weight:900;}' +
+            '.ref-skel{border-radius:24px;background:linear-gradient(100deg,rgba(124,58,237,.07) 30%,rgba(124,58,237,.16) 50%,rgba(124,58,237,.07) 70%);' +
+              'background-size:200% 100%;animation:refShimmer 1.3s ease-in-out infinite;}' +
+            '@keyframes refShimmer{0%{background-position:180% 0;}100%{background-position:-20% 0;}}' +
+            '.ref-skel-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}' +
+            '.ref-confirm-overlay{position:fixed;inset:0;z-index:99998;background:rgba(10,6,30,.6);display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(3px);}' +
+            '.ref-confirm{background:var(--card-bg,#fff);border-radius:22px;max-width:340px;width:100%;padding:22px;text-align:center;direction:rtl;box-shadow:0 24px 60px rgba(0,0,0,.35);}' +
             '.ref-confirm h3{margin:0 0 8px;}' +
-            '.ref-confirm .row{display:flex;gap:8px;margin-top:16px;}' +
+            '.ref-confirm-ico{width:58px;height:58px;border-radius:18px;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;' +
+              'font-size:23px;color:#b45309;background:rgba(245,158,11,.14);}' +
+            '.ref-confirm .row{display:flex;gap:8px;margin-top:18px;}' +
             '.ref-confirm .row .ref-btn{flex:1;}' +
             '.ref-burst{position:absolute;pointer-events:none;width:6px;height:6px;border-radius:2px;opacity:0;}' +
             '@keyframes refBurstFly{0%{transform:translate(0,0) scale(1);opacity:1;}100%{transform:translate(var(--bx),var(--by)) scale(.4) rotate(240deg);opacity:0;}}' +
             '.ref-count-pop{animation:refCountPop .5s ease;}' +
             '@keyframes refCountPop{0%{transform:scale(1);}45%{transform:scale(1.18);}100%{transform:scale(1);}}' +
-            '.ref-invite-card{max-width:420px;margin:24px auto;text-align:center;}' +
-            '.ref-invite-emoji{font-size:52px;margin-bottom:8px;}' +
-            '@media (max-width:480px){.ref-stats{grid-template-columns:repeat(2,1fr);}.ref-hero h2{font-size:1.15rem;}}';
+            'body.dark-mode .ref-card,body.dark-mode .ref-stat,body.dark-mode .ref-denom,body.dark-mode .ref-confirm{background:var(--card-bg,#171528);border-color:rgba(168,130,255,.16);}' +
+            'body.dark-mode .ref-balance-card{background:linear-gradient(var(--card-bg,#171528),var(--card-bg,#171528)) padding-box,linear-gradient(135deg,#7c3aed,#f59e0b) border-box;}' +
+            'body.dark-mode .ref-step{background:rgba(139,92,246,.08);border-color:rgba(168,130,255,.22);}' +
+            'body.dark-mode .ref-balance-value,body.dark-mode .ref-denom .val{background:linear-gradient(135deg,#a78bfa,#fbbf24);-webkit-background-clip:text;background-clip:text;}' +
+            'body.dark-mode .ref-motivate{color:#c4b5fd;background:rgba(139,92,246,.14);}' +
+            'body.dark-mode .ref-skel{background:linear-gradient(100deg,rgba(139,92,246,.1) 30%,rgba(139,92,246,.2) 50%,rgba(139,92,246,.1) 70%);background-size:200% 100%;}' +
+            '@media (prefers-reduced-motion:reduce){.ref-skel{animation:none;}.ref-progress>span{transition:none;}' +
+              '.ref-btn,.ref-denom{transition:none;}.ref-count-pop{animation:none;}}' +
+            '@media (max-width:560px){.ref-stats{grid-template-columns:repeat(2,1fr);}.ref-skel-grid{grid-template-columns:repeat(2,1fr);}' +
+              '.ref-steps{grid-template-columns:1fr;}.ref-hero h2{font-size:1.28rem;}' +
+              '.ref-balance-value{font-size:1.45rem;}.ref-balance-chip{position:absolute;top:-10px;left:14px;margin:0;}}';
           var style = document.createElement('style');
           style.id = 'referral-inline-style';
           style.textContent = css;
@@ -38999,6 +39070,7 @@ function normalizeCategory(value){
 
         // Tiny confetti burst around an element (the copy button dopamine hit).
         function burstAt(el){
+          if (prefersReducedMotion()) return;
           try {
             var rect = el.getBoundingClientRect();
             var colors = ['#ffc21a', '#f472b6', '#21c065', '#6d5dfc', '#38bdf8'];
@@ -39020,6 +39092,10 @@ function normalizeCategory(value){
 
         function animateCount(el, target, isMoney){
           var final = Number(target) || 0;
+          if (prefersReducedMotion()) {
+            el.textContent = isMoney ? fmtUsd(final) : String(final);
+            return;
+          }
           var start = 0;
           var t0 = null;
           var dur = 700;
@@ -39081,18 +39157,18 @@ function normalizeCategory(value){
             if (brand.storeName || brand.siteName || brand.name) storeName = String(brand.storeName || brand.siteName || brand.name);
           } catch(_){ }
           root.innerHTML = '' +
-            '<div class="ref-card ref-invite-card">' +
-              '<div class="ref-invite-emoji">🎁</div>' +
-              '<h2 style="margin:0 0 8px;">تمت دعوتك من صديق!</h2>' +
+            '<div class="ref-card ref-state-card">' +
+              '<div class="ref-state-ico gold"><i class="fa-solid fa-gift"></i></div>' +
+              '<h2>تمت دعوتك من صديق!</h2>' +
               '<p class="ref-note" style="font-size:.9rem;">صديقك دعاك للانضمام إلى <b>' + shared.esc(storeName) + '</b>.' +
               (session
                 ? ' أنت مسجّل الدخول بالفعل — يمكنك متابعة التسوق مباشرة.'
                 : ' أنشئ حسابك الآن وستُربط دعوتك تلقائيًا.') + '</p>' +
               '<div style="display:flex;flex-direction:column;gap:10px;margin-top:16px;">' +
                 (session
-                  ? '<button class="ref-btn ref-btn-copy" data-ref-browse>تصفّح المتجر 🛍️</button>'
-                  : '<button class="ref-btn ref-btn-copy" data-ref-register>أنشئ حسابك الآن ✨</button>' +
-                    '<button class="ref-btn" style="background:rgba(120,120,160,.12);color:inherit;" data-ref-browse>تصفّح المتجر أولًا</button>') +
+                  ? '<button class="ref-btn ref-btn-copy" data-ref-browse><i class="fa-solid fa-store"></i>تصفّح المتجر</button>'
+                  : '<button class="ref-btn ref-btn-copy" data-ref-register><i class="fa-solid fa-user-plus"></i>أنشئ حسابك الآن</button>' +
+                    '<button class="ref-btn ref-btn-ghost" data-ref-browse>تصفّح المتجر أولًا</button>') +
               '</div>' +
             '</div>';
           var registerBtn = root.querySelector('[data-ref-register]');
@@ -39114,19 +39190,19 @@ function normalizeCategory(value){
 
         function loginCard(){
           return '' +
-            '<div class="ref-card ref-invite-card">' +
-              '<div class="ref-invite-emoji">🔒</div>' +
-              '<h2 style="margin:0 0 8px;">سجّل الدخول لعرض إحالاتك</h2>' +
+            '<div class="ref-card ref-state-card">' +
+              '<div class="ref-state-ico"><i class="fa-solid fa-lock"></i></div>' +
+              '<h2>سجّل الدخول لعرض إحالاتك</h2>' +
               '<p class="ref-note">رابط دعوتك، الكاش باك، ورصيد الإحالة — كلها بانتظارك.</p>' +
-              '<button class="ref-btn ref-btn-copy" style="margin-top:14px;" data-ref-login>تسجيل الدخول</button>' +
+              '<button class="ref-btn ref-btn-copy" style="margin-top:14px;" data-ref-login><i class="fa-solid fa-right-to-bracket"></i>تسجيل الدخول</button>' +
             '</div>';
         }
 
         function disabledCard(){
           return '' +
-            '<div class="ref-card ref-invite-card">' +
-              '<div class="ref-invite-emoji">🚧</div>' +
-              '<h2 style="margin:0 0 8px;">نظام الإحالة غير متاح حاليًا</h2>' +
+            '<div class="ref-card ref-state-card">' +
+              '<div class="ref-state-ico"><i class="fa-solid fa-hourglass-half"></i></div>' +
+              '<h2>نظام الإحالة غير متاح حاليًا</h2>' +
               '<p class="ref-note">فعّله لاحقًا من جديد — تابعنا!</p>' +
             '</div>';
         }
@@ -39135,11 +39211,11 @@ function normalizeCategory(value){
           var next = info.nextLevel;
           var stats = info.stats || {};
           if (next && next.remaining > 0) {
-            if (next.remaining <= 2) return 'اقتربت من مستوى «' + shared.esc(next.name || '') + '»! بقي ' + next.remaining + ' فقط 🚀';
-            return 'ادعُ ' + next.remaining + ' أصدقاء إضافيين للوصول إلى «' + shared.esc(next.name || '') + '» 💪';
+            if (next.remaining <= 2) return 'اقتربت من مستوى «' + shared.esc(next.name || '') + '»! بقي ' + next.remaining + ' فقط';
+            return 'ادعُ ' + next.remaining + ' أصدقاء إضافيين للوصول إلى «' + shared.esc(next.name || '') + '»';
           }
-          if ((stats.balance || 0) > 0) return 'رصيدك جاهز للاسترداد 🎉';
-          return 'شارك رابطك واربح كاش باك من إيداعات أصدقائك 💸';
+          if ((stats.balance || 0) > 0) return 'رصيدك جاهز للاسترداد';
+          return 'شارك رابطك واربح كاش باك من إيداعات أصدقائك';
         }
 
         function render(info){
@@ -39155,10 +39231,10 @@ function normalizeCategory(value){
               return;
             }
             root.innerHTML = '' +
-              '<div class="ref-card ref-invite-card">' +
-                '<div class="ref-invite-emoji">📡</div>' +
-                '<h2 style="margin:0 0 8px;">تعذّر تحميل بيانات الإحالة</h2>' +
-                '<button class="ref-btn ref-btn-copy" style="margin-top:12px;" data-ref-retry>إعادة المحاولة</button>' +
+              '<div class="ref-card ref-state-card">' +
+                '<div class="ref-state-ico"><i class="fa-solid fa-tower-broadcast"></i></div>' +
+                '<h2>تعذّر تحميل بيانات الإحالة</h2>' +
+                '<button class="ref-btn ref-btn-copy" style="margin-top:12px;" data-ref-retry><i class="fa-solid fa-rotate-right"></i>إعادة المحاولة</button>' +
               '</div>';
             var retryBtn = root.querySelector('[data-ref-retry]');
             if (retryBtn) retryBtn.addEventListener('click', load);
@@ -39166,64 +39242,107 @@ function normalizeCategory(value){
           }
 
           var stats = info.stats || {};
+          // The server resolves the webuid; keep a local fallback (the header
+          // caches the account number after login) so the link never renders bare.
+          var webuid = String(info.webuid || '').trim();
+          if (!/^[0-9]+$/.test(webuid)) {
+            webuid = '';
+            try {
+              var cachedNo = String(localStorage.getItem('auth:lastAccountNo') || '').trim();
+              if (/^[0-9]+$/.test(cachedNo)) webuid = cachedNo;
+            } catch(_){ }
+          }
           var link = '';
-          try { link = location.origin + '/invite/' + encodeURIComponent(String(info.webuid || '')); } catch(_){ link = '/invite/' + String(info.webuid || ''); }
+          try { link = location.origin + '/invite/' + encodeURIComponent(webuid); } catch(_){ link = '/invite/' + webuid; }
           var level = info.level;
           var next = info.nextLevel;
           var progressPct = next ? Math.round(Math.max(0, Math.min(1, Number(next.progress) || 0)) * 100) : 100;
 
           var html = '' +
             '<div class="ref-hero">' +
-              '<h2>ادعُ أصدقاءك واربح 🎁</h2>' +
-              '<p>عن كل إيداع ناجح من صديق دعوته تحصل على كاش باك' + (level ? ' بنسبة <b>' + shared.esc(String(level.percent)) + '%</b>' : '') + '</p>' +
-              '<div class="ref-link-pill">' +
-                '<button class="ref-btn ref-btn-copy" data-ref-copy>نسخ</button>' +
-                '<code data-ref-link>' + shared.esc(link) + '</code>' +
+              '<span class="ref-hero-gift" aria-hidden="true"><i class="fa-solid fa-gift"></i></span>' +
+              '<span class="ref-eyebrow"><i class="fa-solid fa-gift"></i>برنامج الإحالة</span>' +
+              '<h2>ادعُ أصدقاءك واربح كاش باك</h2>' +
+              '<p>عن كل إيداع ناجح من صديق دعوته تحصل على كاش باك' + (level ? ' بنسبة <b>' + shared.esc(String(level.percent)) + '%</b>' : '') + ' يُضاف إلى رصيد إحالتك</p>' +
+              (webuid
+                ? '<div class="ref-link-label">رابط الدعوة الخاص بك</div>' +
+                  '<div class="ref-link-pill">' +
+                    '<button class="ref-btn ref-btn-copy" data-ref-copy aria-label="نسخ رابط الدعوة"><i class="fa-solid fa-copy"></i>نسخ</button>' +
+                    '<code data-ref-link>' + shared.esc(link) + '</code>' +
+                  '</div>' +
+                  '<div class="ref-share-row">' +
+                    '<button class="ref-btn" data-ref-share="wa" aria-label="مشاركة عبر واتساب"><i class="fa-brands fa-whatsapp"></i>واتساب</button>' +
+                    '<button class="ref-btn" data-ref-share="tg" aria-label="مشاركة عبر تيليغرام"><i class="fa-brands fa-telegram"></i>تيليغرام</button>' +
+                    '<button class="ref-btn" data-ref-share="native" aria-label="مشاركة الرابط"><i class="fa-solid fa-share-nodes"></i>مشاركة</button>' +
+                  '</div>'
+                : '<div class="ref-link-pill" style="justify-content:center;direction:rtl;">' +
+                    '<code style="flex:0 1 auto;">تعذّر جلب رقم حسابك — سجّل الخروج ثم الدخول مجددًا</code>' +
+                  '</div>') +
+            '</div>' +
+
+            '<div class="ref-balance-card">' +
+              '<div class="ref-balance-ico"><i class="fa-solid fa-gem"></i></div>' +
+              '<div style="min-width:0;">' +
+                '<div class="ref-balance-label">رصيد الإحالة</div>' +
+                '<div class="ref-balance-value" data-count-money="' + (Number(stats.balance) || 0) + '">$0.00</div>' +
               '</div>' +
-              '<div class="ref-share-row">' +
-                '<button class="ref-btn" data-ref-share="wa">واتساب</button>' +
-                '<button class="ref-btn" data-ref-share="tg">تيليغرام</button>' +
-                '<button class="ref-btn" data-ref-share="native">مشاركة…</button>' +
-              '</div>' +
+              '<span class="ref-balance-chip"><i class="fa-solid fa-ticket"></i>للاستبدال فقط</span>' +
             '</div>' +
 
             '<div class="ref-stats">' +
-              '<div class="ref-stat"><div class="v" data-count="' + (Number(stats.invitedCount) || 0) + '">0</div><div class="l">الأصدقاء المدعوون</div></div>' +
-              '<div class="ref-stat"><div class="v" data-count="' + (Number(stats.activeCount) || 0) + '">0</div><div class="l">إحالات نشطة</div></div>' +
-              '<div class="ref-stat"><div class="v" data-count-money="' + (Number(stats.totalEarned) || 0) + '">$0.00</div><div class="l">إجمالي الكاش باك</div></div>' +
-              '<div class="ref-stat"><div class="v" data-count-money="' + (Number(stats.balance) || 0) + '">$0.00</div><div class="l">رصيد الإحالة</div></div>' +
-              '<div class="ref-stat"><div class="v" data-count-money="' + (Number(stats.totalRedeemed) || 0) + '">$0.00</div><div class="l">تم استرداده</div></div>' +
+              '<div class="ref-stat"><div class="ico" style="background:linear-gradient(135deg,#3b82f6,#60a5fa);"><i class="fa-solid fa-user-plus"></i></div>' +
+                '<div class="v" data-count="' + (Number(stats.invitedCount) || 0) + '">0</div><div class="l">الأصدقاء المدعوون</div></div>' +
+              '<div class="ref-stat"><div class="ico" style="background:linear-gradient(135deg,#22c55e,#4ade80);"><i class="fa-solid fa-bolt"></i></div>' +
+                '<div class="v" data-count="' + (Number(stats.activeCount) || 0) + '">0</div><div class="l">إحالات نشطة</div></div>' +
+              '<div class="ref-stat"><div class="ico" style="background:linear-gradient(135deg,#f59e0b,#fbbf24);"><i class="fa-solid fa-coins"></i></div>' +
+                '<div class="v" data-count-money="' + (Number(stats.totalEarned) || 0) + '">$0.00</div><div class="l">إجمالي الكاش باك</div></div>' +
+              '<div class="ref-stat"><div class="ico" style="background:linear-gradient(135deg,#8b5cf6,#a78bfa);"><i class="fa-solid fa-ticket"></i></div>' +
+                '<div class="v" data-count-money="' + (Number(stats.totalRedeemed) || 0) + '">$0.00</div><div class="l">تم استرداده</div></div>' +
+            '</div>' +
+
+            '<div class="ref-card">' +
+              '<h3 class="ref-section-title"><span class="t-ico"><i class="fa-solid fa-route"></i></span>كيف تربح من الإحالة؟</h3>' +
+              '<div class="ref-steps">' +
+                '<div class="ref-step"><div class="s-ico"><i class="fa-solid fa-share-nodes"></i><span class="s-n">1</span></div>' +
+                  '<div class="s-t">شارك رابطك</div><div class="s-d">أرسل رابط دعوتك لأصدقائك عبر واتساب أو تيليغرام</div></div>' +
+                '<div class="ref-step"><div class="s-ico"><i class="fa-solid fa-user-check"></i><span class="s-n">2</span></div>' +
+                  '<div class="s-t">صديقك ينضم ويودع</div><div class="s-d">يسجّل حسابه من رابطك ثم يقوم بإيداع ناجح</div></div>' +
+                '<div class="ref-step"><div class="s-ico"><i class="fa-solid fa-sack-dollar"></i><span class="s-n">3</span></div>' +
+                  '<div class="s-t">يصلك الكاش باك</div><div class="s-d">تُضاف نسبتك من كل إيداع إلى رصيد إحالتك تلقائيًا</div></div>' +
+              '</div>' +
             '</div>' +
 
             '<div class="ref-card">' +
               '<div class="ref-level-head">' +
-                '<div class="ref-level-badge" style="background:' + shared.esc((level && level.color) || 'var(--primary-color,#6d5dfc)') + ';">' +
-                  (level && level.iconUrl ? '<img src="' + shared.esc(level.iconUrl) + '" alt="">' : '🏆') +
+                '<div class="ref-level-badge" style="background:' + shared.esc((level && level.color) || '#7c3aed') + ';">' +
+                  (level && level.iconUrl ? '<img src="' + shared.esc(level.iconUrl) + '" alt="">' : '<i class="fa-solid fa-trophy"></i>') +
                 '</div>' +
                 '<div style="min-width:0;">' +
-                  '<div style="font-weight:800;">' + (level ? shared.esc(level.name || ('مستوى ' + level.id)) : 'بدون مستوى بعد') + '</div>' +
+                  '<div class="ref-level-name">' + (level ? shared.esc(level.name || ('مستوى ' + level.id)) : 'بدون مستوى بعد') + '</div>' +
                   '<div class="ref-note">' + (level ? ('كاش باك ' + shared.esc(String(level.percent)) + '% من إيداعات أصدقائك') : 'ادعُ أصدقاءك للوصول إلى أول مستوى') + '</div>' +
                 '</div>' +
               '</div>' +
               (next
-                ? '<div class="ref-progress"><span data-ref-progress data-target="' + progressPct + '"></span></div>' +
-                  '<div style="display:flex;justify-content:space-between;font-size:.75rem;opacity:.7;">' +
+                ? '<div class="ref-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + progressPct + '">' +
+                    '<span data-ref-progress data-target="' + progressPct + '"></span></div>' +
+                  '<div class="ref-progress-meta">' +
                     '<span>' + shared.esc(level ? level.name || '' : 'البداية') + '</span>' +
                     '<span>' + shared.esc(next.name || '') + ' (' + next.requiredInvites + ' دعوات)</span>' +
                   '</div>'
-                : (level ? '<div class="ref-motivate" style="margin-top:6px;">أنت في أعلى مستوى! 👑</div>' : '')) +
-              '<div class="ref-motivate" style="margin-top:8px;" data-ref-motivate>' + motivationLine(info) + '</div>' +
+                : (level ? '<div class="ref-motivate"><i class="fa-solid fa-crown"></i>أنت في أعلى مستوى!</div>' : '')) +
+              '<div class="ref-motivate" data-ref-motivate><i class="fa-solid fa-lightbulb"></i>' + motivationLine(info) + '</div>' +
             '</div>';
 
           if (Array.isArray(info.denominations) && info.denominations.length) {
             html += '<div class="ref-card">' +
-              '<h3 class="ref-section-title">💳 استبدل رصيدك بكود شحن</h3>' +
+              '<h3 class="ref-section-title"><span class="t-ico"><i class="fa-solid fa-ticket"></i></span>استبدل رصيدك بكود شحن</h3>' +
               '<div class="ref-denoms">';
             info.denominations.forEach(function(denomination){
               var soldOut = denomination.remaining != null && denomination.remaining <= 0;
               var limitReached = denomination.perUserLimit > 0 && denomination.userUsed >= denomination.perUserLimit;
               var blocked = soldOut || limitReached;
-              html += '<div class="ref-denom' + (blocked ? ' disabled' : '') + '" data-ref-denom="' + denomination.id + '"' + (blocked ? ' data-blocked="1"' : '') + '>' +
+              html += '<div class="ref-denom' + (blocked ? ' disabled' : '') + '" data-ref-denom="' + denomination.id + '"' +
+                (blocked ? ' data-blocked="1" aria-disabled="true"' : '') + ' role="button" tabindex="' + (blocked ? '-1' : '0') + '">' +
                 '<div class="val">' + shared.esc(shared.fmtUsd(denomination.value)) + '</div>' +
                 '<div class="cost">مقابل ' + shared.esc(shared.fmtUsd(denomination.cost)) + ' من رصيد الإحالة</div>' +
                 '<div class="left">' +
@@ -39233,12 +39352,12 @@ function normalizeCategory(value){
               '</div>';
             });
             html += '</div>' +
-              '<p class="ref-note" style="margin:10px 0 0;">⚠️ رصيد الإحالة مستقل عن رصيد المحفظة — لا يمكن تحويله من صفحة التحويل، ويُستبدل هنا فقط مقابل كود شحن.</p>' +
+              '<p class="ref-note" style="margin:10px 0 0;"><i class="fa-solid fa-circle-info n-ico"></i>رصيد الإحالة مستقل عن رصيد المحفظة — لا يمكن تحويله من صفحة التحويل، ويُستبدل هنا فقط مقابل كود شحن.</p>' +
             '</div>';
           }
 
           if (Array.isArray(info.recentCashback) && info.recentCashback.length) {
-            html += '<div class="ref-card"><h3 class="ref-section-title">💸 آخر عمليات الكاش باك</h3><ul class="ref-list">';
+            html += '<div class="ref-card"><h3 class="ref-section-title"><span class="t-ico"><i class="fa-solid fa-coins"></i></span>آخر عمليات الكاش باك</h3><ul class="ref-list">';
             info.recentCashback.forEach(function(op){
               var when = op.at ? new Date(op.at).toLocaleDateString('ar') : '';
               html += '<li>' +
@@ -39252,7 +39371,7 @@ function normalizeCategory(value){
           }
 
           if (Array.isArray(info.recentRedemptions) && info.recentRedemptions.length) {
-            html += '<div class="ref-card"><h3 class="ref-section-title">🎫 آخر عمليات الاسترداد</h3><ul class="ref-list">';
+            html += '<div class="ref-card"><h3 class="ref-section-title"><span class="t-ico"><i class="fa-solid fa-receipt"></i></span>آخر عمليات الاسترداد</h3><ul class="ref-list">';
             info.recentRedemptions.forEach(function(redemption){
               var when = redemption.at ? new Date(redemption.at).toLocaleDateString('ar') : '';
               html += '<li>' +
@@ -39264,7 +39383,7 @@ function normalizeCategory(value){
           }
 
           if (info.terms) {
-            html += '<div class="ref-card"><h3 class="ref-section-title">📋 شروط الإحالة</h3><p class="ref-note" style="white-space:pre-line;">' + shared.esc(info.terms) + '</p></div>';
+            html += '<div class="ref-card"><h3 class="ref-section-title"><span class="t-ico"><i class="fa-solid fa-file-lines"></i></span>شروط الإحالة</h3><p class="ref-note" style="white-space:pre-line;">' + shared.esc(info.terms) + '</p></div>';
           }
 
           root.innerHTML = html;
@@ -39278,10 +39397,10 @@ function normalizeCategory(value){
             var ok = await shared.copyText(link);
             if (ok) {
               copyBtn.classList.add('copied');
-              copyBtn.textContent = 'تم النسخ ✓';
+              copyBtn.innerHTML = '<i class="fa-solid fa-check"></i>تم النسخ';
               shared.burstAt(copyBtn);
-              shared.toast('تم نسخ رابط الدعوة 🎉', 'success');
-              setTimeout(function(){ copyBtn.classList.remove('copied'); copyBtn.textContent = 'نسخ'; }, 1800);
+              shared.toast('تم نسخ رابط الدعوة', 'success');
+              setTimeout(function(){ copyBtn.classList.remove('copied'); copyBtn.innerHTML = '<i class="fa-solid fa-copy"></i>نسخ'; }, 1800);
             } else {
               shared.toast('تعذّر النسخ — انسخ الرابط يدويًا', 'error');
             }
@@ -39317,11 +39436,15 @@ function normalizeCategory(value){
           if (bar) setTimeout(function(){ bar.style.width = (Number(bar.getAttribute('data-target')) || 0) + '%'; }, 120);
 
           root.querySelectorAll('[data-ref-denom]').forEach(function(card){
-            card.addEventListener('click', function(){
+            function activate(){
               if (card.getAttribute('data-blocked') === '1' || state.busy) return;
               var id = Number(card.getAttribute('data-ref-denom')) || 0;
               var denomination = (info.denominations || []).find(function(d){ return d.id === id; });
               if (denomination) confirmRedeem(denomination);
+            }
+            card.addEventListener('click', activate);
+            card.addEventListener('keydown', function(ev){
+              if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); activate(); }
             });
           });
         }
@@ -39331,11 +39454,11 @@ function normalizeCategory(value){
           overlay.className = 'ref-confirm-overlay';
           overlay.innerHTML = '' +
             '<div class="ref-confirm">' +
-              '<div style="font-size:40px;">🎫</div>' +
+              '<div class="ref-confirm-ico"><i class="fa-solid fa-ticket"></i></div>' +
               '<h3>استبدال ' + shared.esc(shared.fmtUsd(denomination.cost)) + ' من رصيد الإحالة</h3>' +
               '<p class="ref-note">ستحصل على كود شحن بقيمة <b>' + shared.esc(shared.fmtUsd(denomination.value)) + '</b>. الكود يظهر مرة واحدة فقط — انسخه فور ظهوره.</p>' +
               '<div class="row">' +
-                '<button class="ref-btn" style="background:rgba(120,120,160,.14);color:inherit;" data-ref-cancel>إلغاء</button>' +
+                '<button class="ref-btn ref-btn-ghost" data-ref-cancel>إلغاء</button>' +
                 '<button class="ref-btn ref-btn-copy" data-ref-confirm>تأكيد الاسترداد</button>' +
               '</div>' +
             '</div>';
@@ -39365,7 +39488,7 @@ function normalizeCategory(value){
               return;
             }
             var shown = shared.successOverlay({
-              title: 'تم الاسترداد بنجاح 🎉',
+              title: 'تم الاسترداد بنجاح',
               bannerText: 'تم إنشاء كود الشحن الخاص بك',
               message: 'هذا كودك — يظهر مرة واحدة فقط، انسخه الآن ثم استخدمه في شاشة «استبدال» بالمحفظة.',
               note: 'خُصم ' + shared.fmtUsd(denomination.cost) + ' من رصيد الإحالة.',
@@ -39402,7 +39525,7 @@ function normalizeCategory(value){
               var lastSeenRequired = Number(localStorage.getItem(levelKey + ':req') || -1);
               if (currentRequired > lastSeenRequired) {
                 shared.successOverlay({
-                  title: 'ترقية مستوى الإحالة 🎉',
+                  title: 'ترقية مستوى الإحالة',
                   bannerText: 'مبروك! وصلت إلى «' + String(info.level.name || '') + '»',
                   message: 'نسبة الكاش باك الخاصة بك الآن ' + String(info.level.percent) + '%.',
                   amountText: String(info.level.percent) + '%',
@@ -39411,7 +39534,7 @@ function normalizeCategory(value){
                 });
               }
             } else if (lastEarned >= 0 && earned > lastEarned) {
-              shared.toast('وصلك كاش باك جديد: +' + shared.fmtUsd(earned - lastEarned) + ' 🎉', 'success');
+              shared.toast('وصلك كاش باك جديد: +' + shared.fmtUsd(earned - lastEarned), 'success');
             }
             localStorage.setItem(levelKey, String(currentLevelId));
             localStorage.setItem(levelKey + ':req', String(currentRequired));
@@ -39425,9 +39548,13 @@ function normalizeCategory(value){
           var session = shared.readSession();
           if (!session) { render({ ok: false, error: 'no_session' }); return; }
           root.innerHTML = '' +
-            '<div class="ref-card ref-invite-card">' +
-              '<div class="ref-invite-emoji">✨</div>' +
-              '<h2 style="margin:0;">جارٍ تحميل إحالاتك...</h2>' +
+            '<div class="ref-skel" style="height:230px;margin-bottom:14px;" role="status" aria-label="جارٍ تحميل بيانات الإحالة"></div>' +
+            '<div class="ref-skel" style="height:88px;border-radius:20px;margin-bottom:12px;"></div>' +
+            '<div class="ref-skel-grid">' +
+              '<div class="ref-skel" style="height:112px;border-radius:18px;"></div>' +
+              '<div class="ref-skel" style="height:112px;border-radius:18px;"></div>' +
+              '<div class="ref-skel" style="height:112px;border-radius:18px;"></div>' +
+              '<div class="ref-skel" style="height:112px;border-radius:18px;"></div>' +
             '</div>';
           var info = await shared.fetchReferralInfo();
           render(info);
@@ -39450,7 +39577,6 @@ function normalizeCategory(value){
 
         return { build: build, onShow: onShow };
       })();
-
       var routes = {
         'games': {
           url: 'games.html',

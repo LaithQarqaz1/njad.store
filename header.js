@@ -7915,7 +7915,7 @@ const referralsLi = document.createElement('li');
 referralsLi.id = 'referralsBtn';
 referralsLi.className = 'sidebar-nav-item';
 referralsLi.style.setProperty('--sidebar-item-icon', '#ec4899');
-referralsLi.innerHTML = '<i class="fa-solid fa-user-plus"></i><a href="#">الإحالات 🎁</a>';
+referralsLi.innerHTML = '<i class="fa-solid fa-user-plus"></i><a href="#">الإحالات</a>';
 bindSidebarNavItem(referralsLi, '#/referrals', 'referrals');
 referralsLi.style.display = 'none';
 ul.appendChild(referralsLi);
