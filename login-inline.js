@@ -3642,6 +3642,24 @@
     }
   }
 
+  // REFERRAL: the invite landing (#/invite/{webuid}) stashes the inviter's
+  // webuid in localStorage; account creation relays it to the backend — which
+  // does ALL the validation (invalid/self/duplicate referrals are ignored
+  // server-side) — then the stash is cleared so it is never reused.
+  const REFERRAL_INVITER_STASH_KEY = 'edaa:referral:inviter:v1';
+  function readReferralInviterWebuid() {
+    try {
+      const raw = localStorage.getItem(REFERRAL_INVITER_STASH_KEY);
+      if (!raw) return '';
+      const parsed = JSON.parse(raw);
+      const webuid = String((parsed && parsed.webuid) || '').trim();
+      return /^[0-9]{1,15}$/.test(webuid) ? webuid : '';
+    } catch (_) { return ''; }
+  }
+  function clearReferralInviterStash() {
+    try { localStorage.removeItem(REFERRAL_INVITER_STASH_KEY); } catch (_) {}
+  }
+
   async function register() {
     const username = (byId('usernameInput')?.value || '').trim();
     const email = (byId('registerEmail')?.value || '').trim();
@@ -3677,12 +3695,19 @@
       const networkReady = await ensureNetworkHealthy(msg);
       if (!networkReady) return;
 
-      const registerResult = await callManualAuth("register", { username, email, password, phone }, msg);
+      const referrerWebuid = readReferralInviterWebuid();
+      const registerResult = await callManualAuth("register", {
+        username, email, password, phone,
+        ...(referrerWebuid ? { referrerWebuid } : {})
+      }, msg);
       const sessionKey = registerResult.sessionKey || "";
       const ttlSeconds = Number(registerResult.ttlSeconds) || 0;
       if (sessionKey && registerResult.uid) {
         saveSessionLocal({ uid: registerResult.uid, sessionKey, deviceId: registerResult.deviceId || getDeviceId(), ts: Date.now(), ttlSeconds });
       }
+      // The account now exists — the referral (if any) was linked server-side;
+      // drop the stash so it can never be attached to another account.
+      if (registerResult && registerResult.uid) clearReferralInviterStash();
 
       const basePayload = {
         uid: registerResult.uid || "",
@@ -3949,6 +3974,10 @@
     const user = googleFlowState.user;
     if (!user) throw new Error("google_user_missing");
     const idToken = await user.getIdToken();
+    // REFERRAL: a first-time Google sign-in creates the account server-side —
+    // relay the stashed inviter webuid; the backend links ONLY when the sync
+    // actually created the account (existing accounts are never re-linked).
+    const googleReferrerWebuid = readReferralInviterWebuid();
     const payload = {
       idToken,
       uid: user.uid || '',
@@ -3958,7 +3987,8 @@
       username: googleFlowState.profile.username || '',
       phone: googleFlowState.profile.phone || '',
       displayName: user.displayName || '',
-      photoURL: user.photoURL || ''
+      photoURL: user.photoURL || '',
+      ...(googleReferrerWebuid ? { referrerWebuid: googleReferrerWebuid } : {})
     };
     let totpCode = "";
     let totpMethod = "";
@@ -3981,6 +4011,9 @@
         const sessionKey = result.sessionKey || "";
         const ttlSeconds = Number(result.ttlSeconds) || 0;
         if (sessionKey) saveSessionLocal({ uid: result.uid, sessionKey, deviceId: result.deviceId || getDeviceId(), ts: Date.now(), ttlSeconds });
+        // Signed in with an account — the invitation intent is consumed
+        // (linked server-side if this sync created the account).
+        clearReferralInviterStash();
         return { result, idToken };
       } catch (err) {
         const code = err && err.code ? String(err.code) : "";

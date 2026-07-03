@@ -4748,6 +4748,16 @@ let bannedSessionHandled = false;
 const BAL_KEY = (uid) => `balance:cache:${uid}`;
 const LAST_UID_KEY = 'auth:lastUid';
 const LAST_ACCOUNT_NO_KEY = 'auth:lastAccountNo';
+// REFERRAL sidebar gate: «الإحالات» renders only when the server said the
+// referral system is enabled (flag rides on account-info; cached per store so
+// later page loads render correctly before the next fetch). Default = hidden.
+const REFERRALS_ENABLED_KEY = 'edaa:referrals:enabled:v1';
+function readReferralsEnabledCache(){
+  try { return localStorage.getItem(REFERRALS_ENABLED_KEY) === '1'; } catch { return false; }
+}
+function writeReferralsEnabledCache(enabled){
+  try { localStorage.setItem(REFERRALS_ENABLED_KEY, enabled ? '1' : '0'); } catch {}
+}
 const PROFILE_CACHE_PREFIX = 'auth:profile:cache:';
 const LAST_LOGGED_KEY = 'auth:lastLoggedIn';
 const BANNED_SESSION_UID_KEY = 'auth:bannedUid:session';
@@ -5650,6 +5660,7 @@ function applyAuthUi(user){
   const ordersBtn = resolveSidebarNode('ordersBtn', typeof ordersLi !== 'undefined' ? ordersLi : null);
   const walletBtn = resolveSidebarNode('walletBtn', typeof walletLi !== 'undefined' ? walletLi : null);
   const transferBtn = resolveSidebarNode('transferBtn', typeof transferLi !== 'undefined' ? transferLi : null);
+  const referralsBtn = resolveSidebarNode('referralsBtn', typeof referralsLi !== 'undefined' ? referralsLi : null);
   const securityBtn = resolveSidebarNode('securityBtn', typeof securityLi !== 'undefined' ? securityLi : null);
   const telegramBtn = resolveSidebarNode('telegramBtn', typeof telegramLi !== 'undefined' ? telegramLi : null);
   var depositDockBtn = null;
@@ -5671,6 +5682,7 @@ function applyAuthUi(user){
     setSidebarNodeVisibility(ordersBtn, true, 'flex');
     setSidebarNodeVisibility(walletBtn, true, 'flex');
     setSidebarNodeVisibility(transferBtn, true, 'flex');
+    setSidebarNodeVisibility(referralsBtn, readReferralsEnabledCache(), 'flex');
     setSidebarNodeVisibility(securityBtn, true, 'flex');
     setSidebarNodeVisibility(telegramBtn, true, 'flex');
     setSidebarNodeVisibility(depositDockBtn, showDepositBtn, '');
@@ -5688,6 +5700,7 @@ function applyAuthUi(user){
     setSidebarNodeVisibility(ordersBtn, false, 'flex');
     setSidebarNodeVisibility(walletBtn, false, 'flex');
     setSidebarNodeVisibility(transferBtn, false, 'flex');
+    setSidebarNodeVisibility(referralsBtn, false, 'flex');
     setSidebarNodeVisibility(securityBtn, false, 'flex');
     setSidebarNodeVisibility(telegramBtn, false, 'flex');
     setSidebarNodeVisibility(depositDockBtn, false, '');
@@ -5713,6 +5726,24 @@ function applyAuthUi(user){
   try { syncInstallAppSidebarUi(); } catch {}
 }
 try { window.__applyAuthUi = applyAuthUi; } catch {}
+
+// Re-applies the referral sidebar/dock visibility after the account-info fetch
+// lands (the flag may have just changed). Sidebar item: logged-in AND enabled;
+// the mobile-dock item (if the admin configured one) follows the same gate.
+function applyReferralsSidebarVisibility(){
+  let logged = false;
+  try { logged = !!window.__AUTH_LAST_USER__; } catch {}
+  const show = logged && readReferralsEnabledCache();
+  try {
+    const btn = resolveSidebarNode('referralsBtn', typeof referralsLi !== 'undefined' ? referralsLi : null);
+    setSidebarNodeVisibility(btn, show, 'flex');
+  } catch {}
+  try {
+    document.querySelectorAll('.mobile-dock .dock-item[data-key="referrals"]').forEach((node) => {
+      node.style.display = show ? '' : 'none';
+    });
+  } catch {}
+}
 
 const SITE_PWA_SW_URL = "sw.js?v=20260609-catalog-empty-route-01";
 const SITE_PWA_CACHE_DISABLED = true;
@@ -6178,6 +6209,10 @@ function buildContainedInstallAppIconDataUrl(iconUrl){
 // via <canvas> for crisp, correctly-sized icons, then refresh the manifest.
 let siteInstallRasterIcons = { key: "", entries: null };
 let siteInstallRasterPending = "";
+// Once a src fails (network/CORS or tainted canvas) never re-attempt it this
+// page load — retrying on every manifest rebuild spammed the network tab with
+// an endless stream of failing icon fetches.
+let siteInstallRasterFailedSrc = "";
 function buildSiteInstallRawIconEntries(iconUrl){
   const src = resolveInstallAppAbsoluteUrl(iconUrl, "");
   if (!src) return [];
@@ -6216,6 +6251,7 @@ function prepareSiteInstallRasterIcons(iconUrl){
   if (!src) { siteInstallRasterIcons = { key: "", entries: null }; return; }
   if (siteInstallRasterIcons.key === src && siteInstallRasterIcons.entries) return;
   if (siteInstallRasterPending === src) return;
+  if (siteInstallRasterFailedSrc === src) return;
   if (typeof Image !== "function" || typeof document === "undefined") return;
   siteInstallRasterPending = src;
   let img;
@@ -6228,12 +6264,12 @@ function prepareSiteInstallRasterIcons(iconUrl){
     const entries = [];
     if (big) entries.push({ src: big, sizes: "512x512", type: "image/png", purpose: "any" });
     if (small) entries.push({ src: small, sizes: "192x192", type: "image/png", purpose: "any" });
-    if (!entries.length) return; // canvas tainted (no CORS) — keep the raw-URL floor
+    if (!entries.length) { siteInstallRasterFailedSrc = src; return; } // canvas tainted (no CORS) — keep the raw-URL floor
     siteInstallRasterIcons = { key: src, entries: entries };
     try { ensureSiteInstallManifest(); } catch (_) {}
     try { if (typeof window.__refreshDynamicSiteManifestHead === "function") window.__refreshDynamicSiteManifestHead(); } catch (_) {}
   };
-  img.onerror = function(){ siteInstallRasterPending = ""; };
+  img.onerror = function(){ siteInstallRasterPending = ""; siteInstallRasterFailedSrc = src; };
   try { img.src = src; } catch (_) { siteInstallRasterPending = ""; }
 }
 function getSiteInstallIconEntries(iconUrl){
@@ -6274,21 +6310,41 @@ function buildSiteInstallManifestPayload(){
     ]
   };
 }
+let __siteManifestBlobMemo = { json: "", href: "" };
 function setDynamicSiteManifestLink(){
   // Build the manifest from the admin's Design store name and serve it as a blob so
   // the INSTALLED app carries the admin's name, not the hardcoded static file. Any
   // failure falls back to the static /manifest.webmanifest so install never breaks.
+  // While the payload is unchanged the PREVIOUS blob URL is reused — minting a new
+  // blob per theme/brand/media apply made the browser refetch the manifest each time.
   try {
     const payload = buildSiteInstallManifestPayload();
     if (payload && window.URL && typeof window.URL.createObjectURL === "function" && typeof Blob === "function") {
-      const blob = new Blob([JSON.stringify(payload)], { type: "application/manifest+json" });
+      const json = JSON.stringify(payload);
+      if (json === __siteManifestBlobMemo.json && __siteManifestBlobMemo.href) {
+        return setSiteManifestLinkHref(__siteManifestBlobMemo.href, true);
+      }
+      const blob = new Blob([json], { type: "application/manifest+json" });
       const blobUrl = window.URL.createObjectURL(blob);
-      if (blobUrl) return setSiteManifestLinkHref(blobUrl, true);
+      if (blobUrl) {
+        __siteManifestBlobMemo = { json: json, href: blobUrl };
+        return setSiteManifestLinkHref(blobUrl, true);
+      }
     }
   } catch {}
   return setStaticSiteManifestLink();
 }
 function ensureSiteInstallManifest(){
+  // The index.html-inline manifest system (window.__refreshDynamicSiteManifestHead)
+  // owns the SAME <link rel="manifest"> element. Running both systems made them
+  // ping-pong two different blob URLs on one link — an endless manifest+icon
+  // refetch loop in the network tab. Delegate to the inline owner when present.
+  try {
+    if (typeof window.__refreshDynamicSiteManifestHead === "function"
+        && window.__refreshDynamicSiteManifestHead !== ensureSiteInstallManifest) {
+      return window.__refreshDynamicSiteManifestHead();
+    }
+  } catch {}
   return setDynamicSiteManifestLink();
 }
 function registerSitePwaServiceWorker(){
@@ -7907,6 +7963,15 @@ transferLi.innerHTML = '<i class="fa-solid fa-right-left"></i><a href="#" data-i
 bindSidebarNavItem(transferLi, '#/transfer', 'transfer');
 transferLi.style.display = 'none';
 ul.appendChild(transferLi);
+// الإحالات
+const referralsLi = document.createElement('li');
+referralsLi.id = 'referralsBtn';
+referralsLi.className = 'sidebar-nav-item';
+referralsLi.style.setProperty('--sidebar-item-icon', '#ec4899');
+referralsLi.innerHTML = '<i class="fa-solid fa-user-plus"></i><a href="#">الإحالات</a>';
+bindSidebarNavItem(referralsLi, '#/referrals', 'referrals');
+referralsLi.style.display = 'none';
+ul.appendChild(referralsLi);
 // الرئيسية
 const reviewsLi = document.createElement('li');
 reviewsLi.id = 'reviewsBtn';
@@ -8719,6 +8784,10 @@ try {
           handleBannedAccount(headerServerInfo.banReason, headerServerInfo.webuid || user.uid || '', user.uid);
           headerLoadedFromServer = true;
         } else if (headerServerInfo && headerServerInfo.ok) {
+          try {
+            writeReferralsEnabledCache(!!(headerServerInfo.info && headerServerInfo.info.referralsEnabled === true));
+            applyReferralsSidebarVisibility();
+          } catch {}
           handleBalanceSnap({ exists: true, data: () => mapServerInfoToHeaderData(headerServerInfo.info, user) });
           headerLoadedFromServer = true;
         } else if (attempt < 3) {
@@ -8789,6 +8858,7 @@ function initMobileDock(){
       orders: { iconClass: 'fa-solid fa-cart-shopping', label: 'طلباتي', href: 'index.html#/orders', route: '#/orders' },
       wallet: { iconClass: 'fa-solid fa-wallet', label: 'محفظتي', href: 'index.html#/wallet', route: '#/wallet' },
       transfer: { iconClass: 'fa-solid fa-right-left', label: 'تحويل الرصيد', href: 'index.html#/transfer', route: '#/transfer' },
+      referrals: { iconClass: 'fa-solid fa-user-plus', label: 'الإحالات', href: 'index.html#/referrals', route: '#/referrals' },
       reviews: { iconClass: 'fa-solid fa-star', label: 'التقييمات', href: 'index.html#/reviews', route: '#/reviews', public: true },
       agents: { iconClass: 'fa-solid fa-user-tie', label: 'وكلاؤنا', href: 'index.html#/agents', route: '#/agents', public: true },
       security: { iconClass: 'fa-solid fa-shield-halved', label: 'حماية الحساب', href: 'index.html#/security', route: '#/security' },

@@ -38795,6 +38795,824 @@ function normalizeCategory(value){
         });
       }
 
+      // =====================================================================
+      // REFERRAL ROUTES — #/invite/{webuid} (landing + stash) and #/referrals
+      // (the dashboard). The client NEVER validates referral money rules;
+      // everything is enforced server-side (mode=referral-info/referral-redeem
+      // + the registration linkage). localStorage only carries the inviter
+      // webuid between the landing visit and the registration.
+      // =====================================================================
+      var referralInlineShared = (function(){
+        var STASH_KEY = 'edaa:referral:inviter:v1';
+        var LEVEL_SEEN_PREFIX = 'edaa:referral:levelSeen:v1:';
+        var EARNED_SEEN_PREFIX = 'edaa:referral:earnedSeen:v1:';
+        var styleReady = false;
+
+        function esc(value){
+          return String(value == null ? '' : value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+        }
+
+        function prefersReducedMotion(){
+          try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch(_){ return false; }
+        }
+
+        function readSession(){
+          try {
+            var raw = localStorage.getItem('sessionKeyInfo');
+            if (!raw) return null;
+            var parsed = JSON.parse(raw);
+            if (parsed && parsed.uid && parsed.sessionKey) {
+              return { uid: String(parsed.uid), sessionKey: String(parsed.sessionKey) };
+            }
+          } catch(_){ }
+          return null;
+        }
+
+        function workerBase(){
+          var candidates = [];
+          try { candidates.push(window.API_BASE_URL, window.__API_BASE__, window.API_BASE); } catch(_){ }
+          try {
+            candidates.push(
+              localStorage.getItem('MANWAL_ROUTER_BASE'),
+              localStorage.getItem('edaa:worker'),
+              localStorage.getItem('apiBase'),
+              localStorage.getItem('workerBase')
+            );
+          } catch(_){ }
+          try {
+            if (typeof window.__getSiteSetting === 'function') {
+              candidates.push(window.__getSiteSetting('workers.routerBase', ''));
+            }
+          } catch(_){ }
+          for (var i = 0; i < candidates.length; i += 1) {
+            var value = String(candidates[i] || '').trim();
+            if (value) return value.replace(/\/+$/, '');
+          }
+          try { return String(location.origin || '').replace(/\/+$/, ''); } catch(_){ return ''; }
+        }
+
+        function toast(message, variant){
+          try { if (typeof showToast === 'function') { showToast(message, variant || 'info', 4200); return; } } catch(_){ }
+          try { if (window && typeof window.showToast === 'function') { window.showToast(message, variant || 'info', 4200); return; } } catch(_){ }
+          try { console.info('[referral]', message); } catch(_){ }
+        }
+
+        function successOverlay(options){
+          var fn = (typeof showWalletActivityOverlay === 'function')
+            ? showWalletActivityOverlay
+            : ((window && typeof window.showWalletActivityOverlay === 'function') ? window.showWalletActivityOverlay : null);
+          if (!fn) return false;
+          try { fn(options); return true; } catch(_){ return false; }
+        }
+
+        function fmtUsd(value){
+          var n = Number(value);
+          if (!Number.isFinite(n)) n = 0;
+          return '$' + n.toFixed(2);
+        }
+
+        function stashInviter(webuid){
+          try { localStorage.setItem(STASH_KEY, JSON.stringify({ webuid: String(webuid), ts: Date.now() })); } catch(_){ }
+        }
+
+        async function copyText(text){
+          try { await navigator.clipboard.writeText(text); return true; } catch(_){ }
+          try {
+            var area = document.createElement('textarea');
+            area.value = text;
+            area.style.cssText = 'position:fixed;opacity:0;pointer-events:none;';
+            document.body.appendChild(area);
+            area.select();
+            var ok = document.execCommand('copy');
+            document.body.removeChild(area);
+            return !!ok;
+          } catch(_){ return false; }
+        }
+
+        async function fetchReferralInfo(){
+          var base = workerBase();
+          var auth = readSession();
+          if (!base || !auth) return { ok: false, error: auth ? 'no_worker' : 'no_session' };
+          try {
+            var url = new URL(base + '/');
+            url.searchParams.set('mode', 'referral-info');
+            var res = await fetch(url.toString(), {
+              method: 'GET',
+              headers: { 'x-useruid': auth.uid, 'x-sessionkey': auth.sessionKey }
+            });
+            var data = await res.json().catch(function(){ return {}; });
+            if (!res.ok || !data || data.ok === false) {
+              return { ok: false, error: String((data && data.error) || 'server_error') };
+            }
+            return data;
+          } catch(_){
+            return { ok: false, error: 'network' };
+          }
+        }
+
+        async function postReferralRedeem(denominationId, nonce){
+          var base = workerBase();
+          var auth = readSession();
+          if (!base || !auth) return { ok: false, message: 'يرجى تسجيل الدخول من جديد.' };
+          try {
+            var url = new URL(base + '/');
+            url.searchParams.set('mode', 'referral-redeem');
+            var res = await fetch(url.toString(), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-useruid': auth.uid, 'x-sessionkey': auth.sessionKey },
+              body: JSON.stringify({ denominationId: denominationId, nonce: nonce })
+            });
+            var data = await res.json().catch(function(){ return {}; });
+            if (!res.ok || !data || data.ok === false) {
+              return { ok: false, message: String((data && (data.message || data.error)) || 'تعذّر الاسترداد حالياً.') };
+            }
+            return data;
+          } catch(_){
+            return { ok: false, message: 'تعذّر الاتصال بالخادم. حاول لاحقاً.' };
+          }
+        }
+
+        function ensureStyles(){
+          if (styleReady) return;
+          if (document.getElementById('referral-inline-style')) { styleReady = true; return; }
+          var css = '' +
+            '.ref-wrap{max-width:880px;margin:0 auto;padding:16px 14px 110px;direction:rtl;' +
+              'font-family:inherit;color:var(--text-color,inherit);}' +
+            '.ref-card{background:var(--card-bg,#fff);border:1px solid var(--border-color,rgba(109,40,217,.12));border-radius:20px;' +
+              'padding:20px;margin-bottom:14px;box-shadow:0 6px 22px rgba(30,20,80,.06);}' +
+            '.ref-hero{position:relative;overflow:hidden;border-radius:26px;padding:30px 20px 24px;margin-bottom:14px;color:#fff;text-align:center;' +
+              'background-color:#2b1b64;background-image:radial-gradient(120% 130% at 85% -15%,rgba(167,139,250,.5),transparent 55%),' +
+              'radial-gradient(110% 120% at -5% 115%,rgba(245,158,11,.3),transparent 50%),' +
+              'linear-gradient(150deg,#312e81 0%,#4c1d95 55%,#6d28d9 100%);box-shadow:0 18px 44px rgba(49,26,110,.35);}' +
+            '.ref-hero-gift{position:absolute;top:12px;left:16px;font-size:56px;opacity:.12;transform:rotate(-14deg);pointer-events:none;}' +
+            '.ref-hero h2{margin:0 0 8px;font-size:1.6rem;font-weight:900;letter-spacing:-.3px;position:relative;' +
+              'color:#fff !important;-webkit-text-fill-color:#fff !important;background:none;text-shadow:0 2px 14px rgba(17,8,48,.5);}' +
+            '.ref-hero p{margin:0 auto 16px;opacity:.92;font-size:.93rem;line-height:1.7;max-width:46ch;position:relative;}' +
+            '.ref-hero p b{color:#fbbf24;}' +
+            '.ref-link-label{position:relative;text-align:right;font-size:.74rem;font-weight:700;opacity:.85;margin:0 4px 7px;}' +
+            '.ref-link-pill{position:relative;display:flex;align-items:center;gap:10px;background:rgba(12,7,34,.42);' +
+              'border:1px solid rgba(255,255,255,.22);border-radius:16px;padding:8px;direction:ltr;}' +
+            '.ref-link-pill code{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.86rem;font-weight:600;color:#fff;background:none;padding:0 8px;}' +
+            '.ref-btn{appearance:none;border:0;border-radius:13px;padding:10px 16px;min-height:44px;font-weight:800;cursor:pointer;font-size:.9rem;' +
+              'font-family:inherit;display:inline-flex;align-items:center;justify-content:center;gap:8px;' +
+              'transition:transform .18s ease,box-shadow .18s ease,filter .18s ease,background .18s ease;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}' +
+            '.ref-btn:hover{filter:brightness(1.05);}' +
+            '.ref-btn:active{transform:scale(.96);}' +
+            '.ref-btn:focus-visible{outline:3px solid rgba(251,191,36,.6);outline-offset:2px;}' +
+            '.ref-btn-copy{background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#3b2300;box-shadow:0 8px 18px rgba(245,158,11,.35);}' +
+            '.ref-btn-copy.copied{background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;box-shadow:0 8px 18px rgba(34,197,94,.35);}' +
+            '.ref-btn-ghost{background:rgba(120,120,160,.12);color:inherit;}' +
+            '.ref-share-row{position:relative;display:flex;gap:10px;justify-content:center;margin-top:14px;flex-wrap:wrap;}' +
+            '.ref-share-row .ref-btn{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.3);backdrop-filter:blur(4px);}' +
+            '.ref-share-row .ref-btn:hover{background:rgba(255,255,255,.2);filter:none;}' +
+            '.ref-share-row .ref-btn i{font-size:1.05rem;}' +
+            '.ref-balance-card{position:relative;display:flex;align-items:center;gap:14px;border-radius:20px;padding:16px 18px;margin-bottom:12px;' +
+              'border:2px solid transparent;background:linear-gradient(var(--card-bg,#fff),var(--card-bg,#fff)) padding-box,' +
+              'linear-gradient(135deg,#7c3aed,#f59e0b) border-box;box-shadow:0 12px 30px rgba(124,58,237,.12);}' +
+            '.ref-balance-ico{width:52px;height:52px;border-radius:16px;flex-shrink:0;display:flex;align-items:center;justify-content:center;' +
+              'font-size:22px;color:#fff;background:linear-gradient(135deg,#7c3aed,#6d28d9);box-shadow:0 8px 18px rgba(124,58,237,.35);}' +
+            '.ref-balance-label{font-size:.82rem;opacity:.7;font-weight:700;}' +
+            '.ref-balance-value{font-size:1.7rem;font-weight:900;line-height:1.2;font-variant-numeric:tabular-nums;' +
+              'background:linear-gradient(135deg,#7c3aed,#b45309);-webkit-background-clip:text;background-clip:text;color:transparent;}' +
+            '.ref-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}' +
+            '.ref-stat{background:var(--card-bg,#fff);border:1px solid var(--border-color,rgba(109,40,217,.12));border-radius:18px;' +
+              'padding:14px 8px;text-align:center;box-shadow:0 6px 18px rgba(30,20,80,.05);}' +
+            '.ref-stat .ico{width:38px;height:38px;margin:0 auto 8px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:15px;color:#fff;}' +
+            '.ref-stat .v{font-size:1.15rem;font-weight:900;font-variant-numeric:tabular-nums;}' +
+            '.ref-stat .l{font-size:.72rem;opacity:.7;margin-top:3px;font-weight:600;}' +
+            '.ref-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}' +
+            '.ref-step{position:relative;text-align:center;padding:16px 10px 14px;border-radius:16px;' +
+              'background:rgba(124,58,237,.05);border:1px dashed rgba(124,58,237,.22);}' +
+            '.ref-step .s-ico{position:relative;width:48px;height:48px;margin:0 auto 10px;border-radius:15px;display:flex;align-items:center;justify-content:center;' +
+              'font-size:19px;color:#fff;background:linear-gradient(135deg,#7c3aed,#6d28d9);box-shadow:0 8px 18px rgba(124,58,237,.28);}' +
+            '.ref-step .s-n{position:absolute;top:-7px;right:-7px;width:21px;height:21px;border-radius:50%;background:#fbbf24;color:#3b2300;' +
+              'font-size:.68rem;font-weight:900;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 8px rgba(245,158,11,.4);}' +
+            '.ref-step .s-t{font-weight:800;font-size:.88rem;margin-bottom:4px;}' +
+            '.ref-step .s-d{font-size:.74rem;opacity:.7;line-height:1.7;}' +
+            '.ref-level-head{display:flex;align-items:center;gap:12px;margin-bottom:10px;}' +
+            '.ref-level-badge{width:52px;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:22px;color:#fff;flex-shrink:0;overflow:hidden;box-shadow:0 8px 18px rgba(0,0,0,.15);}' +
+            '.ref-level-badge img{width:100%;height:100%;object-fit:cover;}' +
+            '.ref-level-name{font-weight:900;font-size:1.05rem;}' +
+            '.ref-progress{position:relative;height:14px;border-radius:999px;background:rgba(124,58,237,.12);overflow:hidden;margin:12px 0 6px;}' +
+            '.ref-progress>span{display:block;height:100%;border-radius:999px;width:0;' +
+              'background:linear-gradient(90deg,#7c3aed,#f59e0b);box-shadow:0 0 10px rgba(245,158,11,.45);transition:width .9s cubic-bezier(.22,1,.36,1);}' +
+            '.ref-progress-meta{display:flex;justify-content:space-between;font-size:.72rem;opacity:.7;font-weight:600;}' +
+            '.ref-motivate{margin-top:10px;font-size:.85rem;color:#6d28d9;font-weight:800;background:rgba(124,58,237,.08);' +
+              'border-radius:12px;padding:8px 12px;display:inline-flex;align-items:center;gap:7px;}' +
+            '.ref-motivate i{color:#f59e0b;}' +
+            '.ref-denoms{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;}' +
+            '.ref-denom{position:relative;border:1.5px solid var(--border-color,rgba(109,40,217,.16));border-radius:18px;padding:16px 10px;text-align:center;cursor:pointer;' +
+              'transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease;background:var(--card-bg,#fff);' +
+              '-webkit-tap-highlight-color:transparent;touch-action:manipulation;}' +
+            '.ref-denom:hover{border-color:#a855f7;box-shadow:0 10px 24px rgba(124,58,237,.15);}' +
+            '.ref-denom:active{transform:scale(.95);}' +
+            '.ref-denom:focus-visible{outline:3px solid rgba(124,58,237,.45);outline-offset:2px;}' +
+            '.ref-denom .val{font-size:1.45rem;font-weight:900;font-variant-numeric:tabular-nums;' +
+              'background:linear-gradient(135deg,#7c3aed,#b45309);-webkit-background-clip:text;background-clip:text;color:transparent;}' +
+            '.ref-denom .cost{font-size:.78rem;opacity:.75;margin-top:5px;font-weight:600;}' +
+            '.ref-denom .left{font-size:.7rem;margin-top:8px;font-weight:700;color:#16a34a;background:rgba(34,197,94,.1);border-radius:999px;padding:3px 9px;display:inline-block;}' +
+            '.ref-denom.disabled{opacity:.5;cursor:not-allowed;filter:grayscale(.6);}' +
+            '.ref-denom.disabled .left{color:#b91c1c;background:rgba(239,68,68,.1);}' +
+            '.ref-list{list-style:none;margin:0;padding:0;}' +
+            '.ref-list li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:11px 2px;border-bottom:1px dashed rgba(124,58,237,.14);font-size:.85rem;}' +
+            '.ref-list li:last-child{border-bottom:0;}' +
+            '.ref-list .amt{font-weight:900;color:#16a34a;white-space:nowrap;font-variant-numeric:tabular-nums;}' +
+            '.ref-list .amt.muted{color:inherit;opacity:.55;font-weight:700;}' +
+            '.ref-redeem-code{display:inline-flex;align-items:center;gap:6px;direction:ltr;font-size:.78rem;font-weight:700;' +
+              'font-variant-numeric:tabular-nums;background:rgba(124,58,237,.08);border:1px dashed rgba(124,58,237,.35);' +
+              'border-radius:8px;padding:3px 8px;margin-top:6px;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}' +
+            '.ref-redeem-code i{font-size:.7rem;opacity:.6;}' +
+            '.ref-redeem-code:focus-visible{outline:3px solid rgba(124,58,237,.45);outline-offset:2px;}' +
+            'body.dark-mode .ref-redeem-code{background:rgba(139,92,246,.14);border-color:rgba(168,130,255,.4);}' +
+            '.ref-note{font-size:.78rem;opacity:.72;line-height:1.8;}' +
+            '.ref-note .n-ico{color:#b45309;margin-left:5px;}' +
+            '.ref-section-title{margin:0 0 12px;font-size:1rem;font-weight:800;display:flex;align-items:center;gap:8px;}' +
+            '.ref-section-title .t-ico{width:30px;height:30px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;color:#fff;background:linear-gradient(135deg,#7c3aed,#6d28d9);}' +
+            '.ref-state-card{max-width:440px;margin:26px auto;text-align:center;padding:32px 22px;}' +
+            '.ref-state-ico{width:64px;height:64px;border-radius:20px;margin:0 auto 14px;display:flex;align-items:center;justify-content:center;' +
+              'font-size:25px;color:#7c3aed;background:rgba(124,58,237,.1);}' +
+            '.ref-state-ico.gold{color:#b45309;background:rgba(245,158,11,.14);}' +
+            '.ref-state-card h2{margin:0 0 8px;font-size:1.2rem;font-weight:900;}' +
+            '.ref-skel{border-radius:24px;background:linear-gradient(100deg,rgba(124,58,237,.07) 30%,rgba(124,58,237,.16) 50%,rgba(124,58,237,.07) 70%);' +
+              'background-size:200% 100%;animation:refShimmer 1.3s ease-in-out infinite;}' +
+            '@keyframes refShimmer{0%{background-position:180% 0;}100%{background-position:-20% 0;}}' +
+            '.ref-skel-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}' +
+            '.ref-confirm-overlay{position:fixed;inset:0;z-index:99998;background:rgba(10,6,30,.6);display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(3px);}' +
+            '.ref-confirm{background:var(--card-bg,#fff);border-radius:22px;max-width:340px;width:100%;padding:22px;text-align:center;direction:rtl;box-shadow:0 24px 60px rgba(0,0,0,.35);}' +
+            '.ref-confirm h3{margin:0 0 8px;}' +
+            '.ref-confirm-ico{width:58px;height:58px;border-radius:18px;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;' +
+              'font-size:23px;color:#b45309;background:rgba(245,158,11,.14);}' +
+            '.ref-confirm .row{display:flex;gap:8px;margin-top:18px;}' +
+            '.ref-confirm .row .ref-btn{flex:1;}' +
+            '.ref-burst{position:absolute;pointer-events:none;width:6px;height:6px;border-radius:2px;opacity:0;}' +
+            '@keyframes refBurstFly{0%{transform:translate(0,0) scale(1);opacity:1;}100%{transform:translate(var(--bx),var(--by)) scale(.4) rotate(240deg);opacity:0;}}' +
+            '.ref-count-pop{animation:refCountPop .5s ease;}' +
+            '@keyframes refCountPop{0%{transform:scale(1);}45%{transform:scale(1.18);}100%{transform:scale(1);}}' +
+            'body.dark-mode .ref-card,body.dark-mode .ref-stat,body.dark-mode .ref-denom,body.dark-mode .ref-confirm{background:var(--card-bg,#171528);border-color:rgba(168,130,255,.16);}' +
+            'body.dark-mode .ref-balance-card{background:linear-gradient(var(--card-bg,#171528),var(--card-bg,#171528)) padding-box,linear-gradient(135deg,#7c3aed,#f59e0b) border-box;}' +
+            'body.dark-mode .ref-step{background:rgba(139,92,246,.08);border-color:rgba(168,130,255,.22);}' +
+            'body.dark-mode .ref-balance-value,body.dark-mode .ref-denom .val{background:linear-gradient(135deg,#a78bfa,#fbbf24);-webkit-background-clip:text;background-clip:text;}' +
+            'body.dark-mode .ref-motivate{color:#c4b5fd;background:rgba(139,92,246,.14);}' +
+            'body.dark-mode .ref-skel{background:linear-gradient(100deg,rgba(139,92,246,.1) 30%,rgba(139,92,246,.2) 50%,rgba(139,92,246,.1) 70%);background-size:200% 100%;}' +
+            '@media (prefers-reduced-motion:reduce){.ref-skel{animation:none;}.ref-progress>span{transition:none;}' +
+              '.ref-btn,.ref-denom{transition:none;}.ref-count-pop{animation:none;}}' +
+            '@media (max-width:560px){.ref-stats{grid-template-columns:repeat(2,1fr);}.ref-skel-grid{grid-template-columns:repeat(2,1fr);}' +
+              '.ref-steps{grid-template-columns:1fr;}.ref-hero h2{font-size:1.28rem;}' +
+              '.ref-balance-value{font-size:1.45rem;}}';
+          var style = document.createElement('style');
+          style.id = 'referral-inline-style';
+          style.textContent = css;
+          document.head.appendChild(style);
+          styleReady = true;
+        }
+
+        // Tiny confetti burst around an element (the copy button dopamine hit).
+        function burstAt(el){
+          if (prefersReducedMotion()) return;
+          try {
+            var rect = el.getBoundingClientRect();
+            var colors = ['#ffc21a', '#f472b6', '#21c065', '#6d5dfc', '#38bdf8'];
+            for (var i = 0; i < 14; i += 1) {
+              var spark = document.createElement('span');
+              spark.className = 'ref-burst';
+              spark.style.background = colors[i % colors.length];
+              spark.style.left = (rect.left + rect.width / 2) + 'px';
+              spark.style.top = (rect.top + rect.height / 2) + 'px';
+              spark.style.position = 'fixed';
+              spark.style.setProperty('--bx', (Math.cos(i / 14 * Math.PI * 2) * (46 + Math.random() * 32)) + 'px');
+              spark.style.setProperty('--by', (Math.sin(i / 14 * Math.PI * 2) * (46 + Math.random() * 32)) + 'px');
+              spark.style.animation = 'refBurstFly .7s ease-out forwards';
+              document.body.appendChild(spark);
+              (function(node){ setTimeout(function(){ try { node.remove(); } catch(_){ } }, 800); })(spark);
+            }
+          } catch(_){ }
+        }
+
+        function animateCount(el, target, isMoney){
+          var final = Number(target) || 0;
+          if (prefersReducedMotion()) {
+            el.textContent = isMoney ? fmtUsd(final) : String(final);
+            return;
+          }
+          var start = 0;
+          var t0 = null;
+          var dur = 700;
+          function frame(ts){
+            if (t0 == null) t0 = ts;
+            var k = Math.min(1, (ts - t0) / dur);
+            var eased = 1 - Math.pow(1 - k, 3);
+            var current = start + (final - start) * eased;
+            el.textContent = isMoney ? fmtUsd(current) : String(Math.round(current));
+            if (k < 1) requestAnimationFrame(frame);
+          }
+          try { requestAnimationFrame(frame); } catch(_){ el.textContent = isMoney ? fmtUsd(final) : String(final); }
+        }
+
+        return {
+          STASH_KEY: STASH_KEY,
+          LEVEL_SEEN_PREFIX: LEVEL_SEEN_PREFIX,
+          EARNED_SEEN_PREFIX: EARNED_SEEN_PREFIX,
+          esc: esc,
+          readSession: readSession,
+          toast: toast,
+          successOverlay: successOverlay,
+          fmtUsd: fmtUsd,
+          stashInviter: stashInviter,
+          copyText: copyText,
+          fetchReferralInfo: fetchReferralInfo,
+          postReferralRedeem: postReferralRedeem,
+          ensureStyles: ensureStyles,
+          burstAt: burstAt,
+          animateCount: animateCount
+        };
+      })();
+
+      // #/invite/{webuid}: stash the inviter + a friendly landing. An invalid
+      // webuid silently lands on the home page (no error, per spec).
+      var referralInviteRoute = (function(){
+        var shared = referralInlineShared;
+        function build(){
+          shared.ensureStyles();
+          var root = document.createElement('div');
+          root.className = 'ref-wrap';
+          root.setAttribute('data-referral-invite', '1');
+          return root;
+        }
+        function onShow(ctx){
+          var root = document.querySelector('[data-referral-invite="1"]');
+          if (!root) return;
+          var raw = (ctx && Array.isArray(ctx.routeParts) && ctx.routeParts.length) ? String(ctx.routeParts[0] || '') : '';
+          var webuid = /^[0-9]{1,15}$/.test(raw.trim()) ? raw.trim().replace(/^0+(?=\d)/, '') : '';
+          if (!webuid) {
+            try { location.hash = '#/'; } catch(_){ }
+            return;
+          }
+          shared.stashInviter(webuid);
+          var session = shared.readSession();
+          var storeName = 'المتجر';
+          try {
+            var brand = window.__SITE_BRAND__ || (window.__SITE_RUNTIME__ && window.__SITE_RUNTIME__.brand) || {};
+            if (brand.storeName || brand.siteName || brand.name) storeName = String(brand.storeName || brand.siteName || brand.name);
+          } catch(_){ }
+          root.innerHTML = '' +
+            '<div class="ref-card ref-state-card">' +
+              '<div class="ref-state-ico gold"><i class="fa-solid fa-gift"></i></div>' +
+              '<h2>تمت دعوتك من صديق!</h2>' +
+              '<p class="ref-note" style="font-size:.9rem;">صديقك دعاك للانضمام إلى <b>' + shared.esc(storeName) + '</b>.' +
+              (session
+                ? ' أنت مسجّل الدخول بالفعل — يمكنك متابعة التسوق مباشرة.'
+                : ' أنشئ حسابك الآن وستُربط دعوتك تلقائيًا.') + '</p>' +
+              '<div style="display:flex;flex-direction:column;gap:10px;margin-top:16px;">' +
+                (session
+                  ? '<button class="ref-btn ref-btn-copy" data-ref-browse><i class="fa-solid fa-store"></i>تصفّح المتجر</button>'
+                  : '<button class="ref-btn ref-btn-copy" data-ref-register><i class="fa-solid fa-user-plus"></i>أنشئ حسابك الآن</button>' +
+                    '<button class="ref-btn ref-btn-ghost" data-ref-browse>تصفّح المتجر أولًا</button>') +
+              '</div>' +
+            '</div>';
+          var registerBtn = root.querySelector('[data-ref-register]');
+          if (registerBtn) registerBtn.addEventListener('click', function(){
+            try { location.hash = '#/login'; } catch(_){ }
+          });
+          var browseBtn = root.querySelector('[data-ref-browse]');
+          if (browseBtn) browseBtn.addEventListener('click', function(){
+            try { location.hash = '#/'; } catch(_){ }
+          });
+        }
+        return { build: build, onShow: onShow };
+      })();
+
+      // #/referrals: the dashboard (link + stats + level progress + redeem).
+      var referralDashboardRoute = (function(){
+        var shared = referralInlineShared;
+        var state = { root: null, info: null, busy: false };
+
+        function loginCard(){
+          return '' +
+            '<div class="ref-card ref-state-card">' +
+              '<div class="ref-state-ico"><i class="fa-solid fa-lock"></i></div>' +
+              '<h2>سجّل الدخول لعرض إحالاتك</h2>' +
+              '<p class="ref-note">رابط دعوتك، الكاش باك، ورصيد الإحالة — كلها بانتظارك.</p>' +
+              '<button class="ref-btn ref-btn-copy" style="margin-top:14px;" data-ref-login><i class="fa-solid fa-right-to-bracket"></i>تسجيل الدخول</button>' +
+            '</div>';
+        }
+
+        function disabledCard(){
+          return '' +
+            '<div class="ref-card ref-state-card">' +
+              '<div class="ref-state-ico"><i class="fa-solid fa-hourglass-half"></i></div>' +
+              '<h2>نظام الإحالة غير متاح حاليًا</h2>' +
+              '<p class="ref-note">فعّله لاحقًا من جديد — تابعنا!</p>' +
+            '</div>';
+        }
+
+        function motivationLine(info){
+          var next = info.nextLevel;
+          var stats = info.stats || {};
+          if (next && next.remaining > 0) {
+            if (next.remaining <= 2) return 'اقتربت من مستوى «' + shared.esc(next.name || '') + '»! بقي ' + next.remaining + ' فقط';
+            return 'ادعُ ' + next.remaining + ' أصدقاء إضافيين للوصول إلى «' + shared.esc(next.name || '') + '»';
+          }
+          if ((stats.balance || 0) > 0) return 'رصيدك جاهز للاسترداد';
+          return 'شارك رابطك واربح كاش باك من إيداعات أصدقائك';
+        }
+
+        function render(info){
+          var root = state.root;
+          if (!root) return;
+          state.info = info;
+          if (info && info.enabled === false) { root.innerHTML = disabledCard(); return; }
+          if (!info || info.ok === false) {
+            if (info && info.error === 'no_session') {
+              root.innerHTML = loginCard();
+              var loginBtn = root.querySelector('[data-ref-login]');
+              if (loginBtn) loginBtn.addEventListener('click', function(){ try { location.hash = '#/login'; } catch(_){ } });
+              return;
+            }
+            root.innerHTML = '' +
+              '<div class="ref-card ref-state-card">' +
+                '<div class="ref-state-ico"><i class="fa-solid fa-tower-broadcast"></i></div>' +
+                '<h2>تعذّر تحميل بيانات الإحالة</h2>' +
+                '<button class="ref-btn ref-btn-copy" style="margin-top:12px;" data-ref-retry><i class="fa-solid fa-rotate-right"></i>إعادة المحاولة</button>' +
+              '</div>';
+            var retryBtn = root.querySelector('[data-ref-retry]');
+            if (retryBtn) retryBtn.addEventListener('click', load);
+            return;
+          }
+
+          var stats = info.stats || {};
+          // The server resolves the webuid; keep a local fallback (the header
+          // caches the account number after login) so the link never renders bare.
+          var webuid = String(info.webuid || '').trim();
+          if (!/^[0-9]+$/.test(webuid)) {
+            webuid = '';
+            try {
+              var cachedNo = String(localStorage.getItem('auth:lastAccountNo') || '').trim();
+              if (/^[0-9]+$/.test(cachedNo)) webuid = cachedNo;
+            } catch(_){ }
+          }
+          var link = '';
+          try { link = location.origin + '/invite/' + encodeURIComponent(webuid); } catch(_){ link = '/invite/' + webuid; }
+          var level = info.level;
+          var next = info.nextLevel;
+          var progressPct = next ? Math.round(Math.max(0, Math.min(1, Number(next.progress) || 0)) * 100) : 100;
+
+          var html = '' +
+            '<div class="ref-hero">' +
+              '<span class="ref-hero-gift" aria-hidden="true"><i class="fa-solid fa-gift"></i></span>' +
+              '<h2 style="color:#fff !important;-webkit-text-fill-color:#fff !important;">ادعُ أصدقاءك واربح كاش باك</h2>' +
+              '<p>عن كل إيداع ناجح من صديق دعوته تحصل على كاش باك' + (level ? ' بنسبة <b>' + shared.esc(String(level.percent)) + '%</b>' : '') + ' يُضاف إلى رصيد إحالتك</p>' +
+              (webuid
+                ? '<div class="ref-link-label">رابط الدعوة الخاص بك</div>' +
+                  '<div class="ref-link-pill">' +
+                    '<button class="ref-btn ref-btn-copy" data-ref-copy aria-label="نسخ رابط الدعوة"><i class="fa-solid fa-copy"></i>نسخ</button>' +
+                    '<code data-ref-link>' + shared.esc(link) + '</code>' +
+                  '</div>' +
+                  '<div class="ref-share-row">' +
+                    '<button class="ref-btn" data-ref-share="wa" aria-label="مشاركة عبر واتساب"><i class="fa-brands fa-whatsapp"></i>واتساب</button>' +
+                    '<button class="ref-btn" data-ref-share="tg" aria-label="مشاركة عبر تيليغرام"><i class="fa-brands fa-telegram"></i>تيليغرام</button>' +
+                    '<button class="ref-btn" data-ref-share="native" aria-label="مشاركة الرابط"><i class="fa-solid fa-share-nodes"></i>مشاركة</button>' +
+                  '</div>'
+                : '<div class="ref-link-pill" style="justify-content:center;direction:rtl;">' +
+                    '<code style="flex:0 1 auto;">تعذّر جلب رقم حسابك — سجّل الخروج ثم الدخول مجددًا</code>' +
+                  '</div>') +
+            '</div>' +
+
+            '<div class="ref-balance-card">' +
+              '<div class="ref-balance-ico"><i class="fa-solid fa-gem"></i></div>' +
+              '<div style="min-width:0;">' +
+                '<div class="ref-balance-label">رصيد الإحالة</div>' +
+                '<div class="ref-balance-value" data-count-money="' + (Number(stats.balance) || 0) + '">$0.00</div>' +
+              '</div>' +
+            '</div>' +
+
+            '<div class="ref-stats">' +
+              '<div class="ref-stat"><div class="ico" style="background:linear-gradient(135deg,#3b82f6,#60a5fa);"><i class="fa-solid fa-user-plus"></i></div>' +
+                '<div class="v" data-count="' + (Number(stats.invitedCount) || 0) + '">0</div><div class="l">الأصدقاء المدعوون</div></div>' +
+              '<div class="ref-stat"><div class="ico" style="background:linear-gradient(135deg,#22c55e,#4ade80);"><i class="fa-solid fa-bolt"></i></div>' +
+                '<div class="v" data-count="' + (Number(stats.activeCount) || 0) + '">0</div><div class="l">إحالات نشطة</div></div>' +
+              '<div class="ref-stat"><div class="ico" style="background:linear-gradient(135deg,#f59e0b,#fbbf24);"><i class="fa-solid fa-coins"></i></div>' +
+                '<div class="v" data-count-money="' + (Number(stats.totalEarned) || 0) + '">$0.00</div><div class="l">إجمالي الكاش باك</div></div>' +
+              '<div class="ref-stat"><div class="ico" style="background:linear-gradient(135deg,#8b5cf6,#a78bfa);"><i class="fa-solid fa-ticket"></i></div>' +
+                '<div class="v" data-count-money="' + (Number(stats.totalRedeemed) || 0) + '">$0.00</div><div class="l">تم استرداده</div></div>' +
+            '</div>' +
+
+            '<div class="ref-card">' +
+              '<h3 class="ref-section-title"><span class="t-ico"><i class="fa-solid fa-route"></i></span>كيف تربح من الإحالة؟</h3>' +
+              '<div class="ref-steps">' +
+                '<div class="ref-step"><div class="s-ico"><i class="fa-solid fa-share-nodes"></i><span class="s-n">1</span></div>' +
+                  '<div class="s-t">شارك رابطك</div><div class="s-d">أرسل رابط دعوتك لأصدقائك عبر واتساب أو تيليغرام</div></div>' +
+                '<div class="ref-step"><div class="s-ico"><i class="fa-solid fa-user-check"></i><span class="s-n">2</span></div>' +
+                  '<div class="s-t">صديقك ينضم ويودع</div><div class="s-d">يسجّل حسابه من رابطك ثم يقوم بإيداع ناجح</div></div>' +
+                '<div class="ref-step"><div class="s-ico"><i class="fa-solid fa-sack-dollar"></i><span class="s-n">3</span></div>' +
+                  '<div class="s-t">يصلك الكاش باك</div><div class="s-d">تُضاف نسبتك من كل إيداع إلى رصيد إحالتك تلقائيًا</div></div>' +
+              '</div>' +
+            '</div>' +
+
+            '<div class="ref-card">' +
+              '<div class="ref-level-head">' +
+                '<div class="ref-level-badge" style="background:' + shared.esc((level && level.color) || '#7c3aed') + ';">' +
+                  (level && level.iconUrl ? '<img src="' + shared.esc(level.iconUrl) + '" alt="">' : '<i class="fa-solid fa-trophy"></i>') +
+                '</div>' +
+                '<div style="min-width:0;">' +
+                  '<div class="ref-level-name">' + (level ? shared.esc(level.name || ('مستوى ' + level.id)) : 'بدون مستوى بعد') + '</div>' +
+                  '<div class="ref-note">' + (level ? ('كاش باك ' + shared.esc(String(level.percent)) + '% من إيداعات أصدقائك') : 'ادعُ أصدقاءك للوصول إلى أول مستوى') + '</div>' +
+                '</div>' +
+              '</div>' +
+              (next
+                ? '<div class="ref-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + progressPct + '">' +
+                    '<span data-ref-progress data-target="' + progressPct + '"></span></div>' +
+                  '<div class="ref-progress-meta">' +
+                    '<span>' + shared.esc(level ? level.name || '' : 'البداية') + '</span>' +
+                    '<span>' + shared.esc(next.name || '') + ' (' + next.requiredInvites + ' دعوات)</span>' +
+                  '</div>'
+                : (level ? '<div class="ref-motivate"><i class="fa-solid fa-crown"></i>أنت في أعلى مستوى!</div>' : '')) +
+              '<div class="ref-motivate" data-ref-motivate><i class="fa-solid fa-lightbulb"></i>' + motivationLine(info) + '</div>' +
+            '</div>';
+
+          if (Array.isArray(info.denominations) && info.denominations.length) {
+            html += '<div class="ref-card">' +
+              '<h3 class="ref-section-title"><span class="t-ico"><i class="fa-solid fa-ticket"></i></span>استبدل رصيدك بكود شحن</h3>' +
+              '<div class="ref-denoms">';
+            info.denominations.forEach(function(denomination){
+              var soldOut = denomination.remaining != null && denomination.remaining <= 0;
+              var limitReached = denomination.perUserLimit > 0 && denomination.userUsed >= denomination.perUserLimit;
+              var blocked = soldOut || limitReached;
+              html += '<div class="ref-denom' + (blocked ? ' disabled' : '') + '" data-ref-denom="' + denomination.id + '"' +
+                (blocked ? ' data-blocked="1" aria-disabled="true"' : '') + ' role="button" tabindex="' + (blocked ? '-1' : '0') + '">' +
+                '<div class="val">' + shared.esc(shared.fmtUsd(denomination.value)) + '</div>' +
+                '<div class="cost">مقابل ' + shared.esc(shared.fmtUsd(denomination.cost)) + ' من رصيد الإحالة</div>' +
+                '<div class="left">' +
+                  (soldOut ? 'نفدت الكمية' : limitReached ? 'بلغت حدّك من هذه الفئة'
+                    : (denomination.remaining != null ? ('متبقي ' + denomination.remaining) : 'متاح')) +
+                '</div>' +
+              '</div>';
+            });
+            html += '</div>' +
+              '<p class="ref-note" style="margin:10px 0 0;"><i class="fa-solid fa-circle-info n-ico"></i>رصيد الإحالة مستقل عن رصيد المحفظة — لا يمكن تحويله من صفحة التحويل، ويُستبدل هنا فقط مقابل كود شحن.</p>' +
+            '</div>';
+          }
+
+          if (Array.isArray(info.recentCashback) && info.recentCashback.length) {
+            html += '<div class="ref-card"><h3 class="ref-section-title"><span class="t-ico"><i class="fa-solid fa-coins"></i></span>آخر عمليات الكاش باك</h3><ul class="ref-list">';
+            info.recentCashback.forEach(function(op){
+              var when = op.at ? new Date(op.at).toLocaleDateString('ar') : '';
+              html += '<li>' +
+                '<span>صديقك #' + shared.esc(String(op.inviteeAccountNo || '؟')) + ' أودع ' + shared.esc(shared.fmtUsd(op.deposit)) + '<br><small style="opacity:.6;">' + shared.esc(when) + (op.levelName ? ' • ' + shared.esc(op.levelName) : '') + '</small></span>' +
+                (op.status === 'reversed'
+                  ? '<span class="amt muted">أُلغي</span>'
+                  : '<span class="amt">+' + shared.esc(shared.fmtUsd(op.cashback)) + '</span>') +
+              '</li>';
+            });
+            html += '</ul></div>';
+          }
+
+          if (Array.isArray(info.recentRedemptions) && info.recentRedemptions.length) {
+            html += '<div class="ref-card"><h3 class="ref-section-title"><span class="t-ico"><i class="fa-solid fa-receipt"></i></span>آخر عمليات الاسترداد</h3><ul class="ref-list">';
+            info.recentRedemptions.forEach(function(redemption){
+              var when = redemption.at ? new Date(redemption.at).toLocaleDateString('ar') : '';
+              // The code is persisted server-side (store-owner decision) so the
+              // customer can always re-open + copy it from this list.
+              var codeChip = redemption.code
+                ? '<br><code class="ref-redeem-code" role="button" tabindex="0" title="اضغط للنسخ" data-ref-code="' + shared.esc(String(redemption.code)) + '">' +
+                    shared.esc(String(redemption.code)) + ' <i class="fa-solid fa-copy"></i></code>'
+                : '';
+              html += '<li>' +
+                '<span>كود شحن ' + shared.esc(shared.fmtUsd(redemption.value)) + ' (رقم ' + shared.esc(String(redemption.codeSerial)) + ')<br><small style="opacity:.6;">' + shared.esc(when) + '</small>' + codeChip + '</span>' +
+                '<span class="amt muted">-' + shared.esc(shared.fmtUsd(redemption.cost)) + '</span>' +
+              '</li>';
+            });
+            html += '</ul></div>';
+          }
+
+          if (info.terms) {
+            html += '<div class="ref-card"><h3 class="ref-section-title"><span class="t-ico"><i class="fa-solid fa-file-lines"></i></span>شروط الإحالة</h3><p class="ref-note" style="white-space:pre-line;">' + shared.esc(info.terms) + '</p></div>';
+          }
+
+          root.innerHTML = html;
+          bind(root, info, link);
+          celebrate(info);
+        }
+
+        function bind(root, info, link){
+          var copyBtn = root.querySelector('[data-ref-copy]');
+          if (copyBtn) copyBtn.addEventListener('click', async function(){
+            var ok = await shared.copyText(link);
+            if (ok) {
+              copyBtn.classList.add('copied');
+              copyBtn.innerHTML = '<i class="fa-solid fa-check"></i>تم النسخ';
+              shared.burstAt(copyBtn);
+              shared.toast('تم نسخ رابط الدعوة', 'success');
+              setTimeout(function(){ copyBtn.classList.remove('copied'); copyBtn.innerHTML = '<i class="fa-solid fa-copy"></i>نسخ'; }, 1800);
+            } else {
+              shared.toast('تعذّر النسخ — انسخ الرابط يدويًا', 'error');
+            }
+          });
+
+          var shareMessage = String(info.shareMessage || '').trim() || ('انضم إلي عبر رابط الدعوة! {link}');
+          var shareText = shareMessage.indexOf('{link}') >= 0 ? shareMessage.replace('{link}', link) : (shareMessage + ' ' + link);
+          root.querySelectorAll('[data-ref-share]').forEach(function(btn){
+            btn.addEventListener('click', function(){
+              var kind = btn.getAttribute('data-ref-share');
+              try {
+                if (kind === 'wa') {
+                  window.open('https://wa.me/?text=' + encodeURIComponent(shareText), '_blank', 'noopener');
+                } else if (kind === 'tg') {
+                  window.open('https://t.me/share/url?url=' + encodeURIComponent(link) + '&text=' + encodeURIComponent(shareMessage.replace('{link}', '').trim()), '_blank', 'noopener');
+                } else if (navigator.share) {
+                  navigator.share({ text: shareText }).catch(function(){});
+                } else {
+                  shared.copyText(shareText).then(function(ok){ if (ok) shared.toast('تم نسخ رسالة الدعوة', 'success'); });
+                }
+                shared.burstAt(btn);
+              } catch(_){ }
+            });
+          });
+
+          root.querySelectorAll('[data-count]').forEach(function(el){
+            shared.animateCount(el, Number(el.getAttribute('data-count')) || 0, false);
+          });
+          root.querySelectorAll('[data-count-money]').forEach(function(el){
+            shared.animateCount(el, Number(el.getAttribute('data-count-money')) || 0, true);
+          });
+          var bar = root.querySelector('[data-ref-progress]');
+          if (bar) setTimeout(function(){ bar.style.width = (Number(bar.getAttribute('data-target')) || 0) + '%'; }, 120);
+
+          root.querySelectorAll('[data-ref-code]').forEach(function(el){
+            function copyRedeemCode(){
+              shared.copyText(el.getAttribute('data-ref-code') || '').then(function(ok){
+                shared.toast(ok ? 'تم نسخ كود الشحن' : 'تعذّر النسخ — انسخه يدويًا', ok ? 'success' : 'error');
+              });
+            }
+            el.addEventListener('click', copyRedeemCode);
+            el.addEventListener('keydown', function(ev){
+              if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); copyRedeemCode(); }
+            });
+          });
+
+          root.querySelectorAll('[data-ref-denom]').forEach(function(card){
+            function activate(){
+              if (card.getAttribute('data-blocked') === '1' || state.busy) return;
+              var id = Number(card.getAttribute('data-ref-denom')) || 0;
+              var denomination = (info.denominations || []).find(function(d){ return d.id === id; });
+              if (denomination) confirmRedeem(denomination);
+            }
+            card.addEventListener('click', activate);
+            card.addEventListener('keydown', function(ev){
+              if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); activate(); }
+            });
+          });
+        }
+
+        function confirmRedeem(denomination){
+          var overlay = document.createElement('div');
+          overlay.className = 'ref-confirm-overlay';
+          overlay.innerHTML = '' +
+            '<div class="ref-confirm">' +
+              '<div class="ref-confirm-ico"><i class="fa-solid fa-ticket"></i></div>' +
+              '<h3>استبدال ' + shared.esc(shared.fmtUsd(denomination.cost)) + ' من رصيد الإحالة</h3>' +
+              '<p class="ref-note">ستحصل على كود شحن بقيمة <b>' + shared.esc(shared.fmtUsd(denomination.value)) + '</b>. ستجد الكود محفوظًا في سجل الاسترداد متى احتجته.</p>' +
+              '<div class="row">' +
+                '<button class="ref-btn ref-btn-ghost" data-ref-cancel>إلغاء</button>' +
+                '<button class="ref-btn ref-btn-copy" data-ref-confirm>تأكيد الاسترداد</button>' +
+              '</div>' +
+            '</div>';
+          document.body.appendChild(overlay);
+          function close(){ try { overlay.remove(); } catch(_){ } }
+          overlay.addEventListener('click', function(ev){ if (ev.target === overlay) close(); });
+          overlay.querySelector('[data-ref-cancel]').addEventListener('click', close);
+          var confirmBtn = overlay.querySelector('[data-ref-confirm]');
+          var nonce = '';
+          try { nonce = (crypto && crypto.randomUUID) ? crypto.randomUUID() : ''; } catch(_){ }
+          if (!nonce) nonce = String(Date.now()) + '-' + Math.floor(Math.random() * 1e9);
+          confirmBtn.addEventListener('click', async function(){
+            if (state.busy) return;
+            state.busy = true;
+            confirmBtn.textContent = 'جارٍ الاسترداد...';
+            confirmBtn.disabled = true;
+            var result = await shared.postReferralRedeem(denomination.id, nonce);
+            state.busy = false;
+            close();
+            if (!result || result.ok === false) {
+              shared.toast(String((result && result.message) || 'تعذّر الاسترداد حالياً.'), 'error');
+              return;
+            }
+            if (result.idempotent) {
+              // The code is persisted server-side now, so a replay can show it
+              // again instead of pointing the user at support.
+              if (result.code) {
+                shared.successOverlay({
+                  title: 'استرداد سابق — هذا كودك',
+                  bannerText: 'كود الشحن الخاص بك',
+                  message: 'هذا الاسترداد نُفّذ سابقًا؛ هذا هو كودك نفسه، وتجده أيضًا في سجل الاسترداد.',
+                  detailLabel: 'كود الشحن',
+                  detailText: String(result.code || ''),
+                  detailCopyText: String(result.code || ''),
+                  amount: Number(result.value) || denomination.value,
+                  currency: 'USD',
+                  primaryLabel: 'المحفظة',
+                  secondaryLabel: 'الرئيسية'
+                });
+              } else {
+                shared.toast(String(result.message || 'تم تنفيذ هذا الاسترداد سابقًا.'), 'info');
+              }
+              load();
+              return;
+            }
+            var shown = shared.successOverlay({
+              title: 'تم الاسترداد بنجاح',
+              bannerText: 'تم إنشاء كود الشحن الخاص بك',
+              message: 'هذا كودك — استخدمه في شاشة «استبدال» بالمحفظة، وستجده محفوظًا في سجل الاسترداد.',
+              note: 'خُصم ' + shared.fmtUsd(denomination.cost) + ' من رصيد الإحالة.',
+              detailLabel: 'كود الشحن',
+              detailText: String(result.code || ''),
+              detailCopyText: String(result.code || ''),
+              amount: Number(result.value) || denomination.value,
+              currency: 'USD',
+              primaryLabel: 'المحفظة',
+              secondaryLabel: 'الرئيسية'
+            });
+            if (!shown) {
+              shared.toast('كود الشحن: ' + String(result.code || '') + ' — انسخه الآن', 'success');
+              try { await shared.copyText(String(result.code || '')); } catch(_){ }
+            }
+            load();
+          });
+        }
+
+        // Level-up / new-cashback celebrations, detected by comparing against
+        // the last SEEN values cached locally (display-only; no money logic).
+        function celebrate(info){
+          try {
+            var session = shared.readSession();
+            if (!session || !info || info.enabled === false) return;
+            var levelKey = shared.LEVEL_SEEN_PREFIX + session.uid;
+            var earnedKey = shared.EARNED_SEEN_PREFIX + session.uid;
+            var lastLevelId = Number(localStorage.getItem(levelKey) || 0);
+            var lastEarned = Number(localStorage.getItem(earnedKey) || -1);
+            var currentLevelId = info.level ? Number(info.level.id) || 0 : 0;
+            var currentRequired = info.level ? Number(info.level.requiredInvites) || 0 : 0;
+            var earned = Number(info.stats && info.stats.totalEarned) || 0;
+            if (currentLevelId && lastLevelId && currentLevelId !== lastLevelId) {
+              var lastSeenRequired = Number(localStorage.getItem(levelKey + ':req') || -1);
+              if (currentRequired > lastSeenRequired) {
+                shared.successOverlay({
+                  title: 'ترقية مستوى الإحالة',
+                  bannerText: 'مبروك! وصلت إلى «' + String(info.level.name || '') + '»',
+                  message: 'نسبة الكاش باك الخاصة بك الآن ' + String(info.level.percent) + '%.',
+                  amountText: String(info.level.percent) + '%',
+                  primaryLabel: 'المحفظة',
+                  secondaryLabel: 'الرئيسية'
+                });
+              }
+            } else if (lastEarned >= 0 && earned > lastEarned) {
+              shared.toast('وصلك كاش باك جديد: +' + shared.fmtUsd(earned - lastEarned), 'success');
+            }
+            localStorage.setItem(levelKey, String(currentLevelId));
+            localStorage.setItem(levelKey + ':req', String(currentRequired));
+            localStorage.setItem(earnedKey, String(earned));
+          } catch(_){ }
+        }
+
+        async function load(){
+          var root = state.root;
+          if (!root) return;
+          var session = shared.readSession();
+          if (!session) { render({ ok: false, error: 'no_session' }); return; }
+          root.innerHTML = '' +
+            '<div class="ref-skel" style="height:230px;margin-bottom:14px;" role="status" aria-label="جارٍ تحميل بيانات الإحالة"></div>' +
+            '<div class="ref-skel" style="height:88px;border-radius:20px;margin-bottom:12px;"></div>' +
+            '<div class="ref-skel-grid">' +
+              '<div class="ref-skel" style="height:112px;border-radius:18px;"></div>' +
+              '<div class="ref-skel" style="height:112px;border-radius:18px;"></div>' +
+              '<div class="ref-skel" style="height:112px;border-radius:18px;"></div>' +
+              '<div class="ref-skel" style="height:112px;border-radius:18px;"></div>' +
+            '</div>';
+          var info = await shared.fetchReferralInfo();
+          render(info);
+        }
+
+        function build(){
+          shared.ensureStyles();
+          var root = document.createElement('div');
+          root.className = 'ref-wrap';
+          root.setAttribute('data-referral-dashboard', '1');
+          state.root = root;
+          return root;
+        }
+
+        function onShow(){
+          var root = document.querySelector('[data-referral-dashboard="1"]');
+          if (root) state.root = root;
+          return load();
+        }
+
+        return { build: build, onShow: onShow };
+      })();
       var routes = {
         'games': {
           url: 'games.html',
@@ -38878,7 +39696,9 @@ function normalizeCategory(value){
         'privacy':       { title: 'سياسة الخصوصية', build: function(){ return buildTemplateRoute('privacy-inline-template'); } },
         'terms':         { title: 'شروط الاستخدام', build: function(){ return buildTemplateRoute('terms-inline-template'); } },
         'transfer':      { title: 'تحويل رصيد', build: transferRoute.build, onShow: transferRoute.onShow, ready: transferRoute.ready },
-        'wallet':        { title: 'محفظتي', build: walletRoute.build, onShow: walletRoute.onShow, ready: walletRoute.ready }
+        'wallet':        { title: 'محفظتي', build: walletRoute.build, onShow: walletRoute.onShow, ready: walletRoute.ready },
+        'invite':        { title: 'دعوة صديق', build: referralInviteRoute.build, onShow: referralInviteRoute.onShow },
+        'referrals':     { title: 'الإحالات', build: referralDashboardRoute.build, onShow: referralDashboardRoute.onShow }
       };
       try { syncRuntimeWalletRouteTitles(); } catch(_){}
 
