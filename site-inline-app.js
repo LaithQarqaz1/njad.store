@@ -38957,7 +38957,9 @@ function normalizeCategory(value){
             '.ref-link-label{position:relative;text-align:right;font-size:.74rem;font-weight:700;opacity:.85;margin:0 4px 7px;}' +
             '.ref-link-pill{position:relative;display:flex;align-items:center;gap:10px;background:rgba(12,7,34,.42);' +
               'border:1px solid rgba(255,255,255,.22);border-radius:16px;padding:8px;direction:ltr;}' +
-            '.ref-link-pill code{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.86rem;font-weight:600;color:#fff;background:none;padding:0 8px;}' +
+            '.ref-link-pill code{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.86rem;font-weight:600;color:#fff;background:none;padding:0 8px;text-align:center;}' +
+            // Fixed-width copy button so swapping «نسخ» ↔ «تم النسخ» never shifts the link.
+            '.ref-link-pill .ref-btn-copy{flex:0 0 auto;width:104px;min-width:104px;padding:10px 12px;}' +
             '.ref-btn{appearance:none;border:0;border-radius:13px;padding:10px 16px;min-height:44px;font-weight:800;cursor:pointer;font-size:.9rem;' +
               'font-family:inherit;display:inline-flex;align-items:center;justify-content:center;gap:8px;' +
               'transition:transform .18s ease,box-shadow .18s ease,filter .18s ease,background .18s ease;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}' +
@@ -39062,7 +39064,23 @@ function normalizeCategory(value){
             '@media (prefers-reduced-motion:reduce){.ref-skel{animation:none;}.ref-progress>span{transition:none;}' +
               '.ref-btn,.ref-denom{transition:none;}.ref-count-pop{animation:none;}}' +
             '@media (max-width:560px){.ref-stats{grid-template-columns:repeat(2,1fr);}.ref-skel-grid{grid-template-columns:repeat(2,1fr);}' +
-              '.ref-steps{grid-template-columns:1fr;}.ref-hero h2{font-size:1.28rem;}' +
+              // Full-bleed hero: break out to the screen edges + top so it reads as a
+              // page header attached to the page, not a floating popup card.
+              '.ref-wrap{padding:0 12px 96px;}' +
+              '.ref-hero{margin-left:calc(50% - 50vw);margin-right:calc(50% - 50vw);margin-top:0;margin-bottom:14px;' +
+                'border-radius:0 0 22px 22px;padding:26px 16px 20px;}' +
+              '.ref-hero h2{font-size:1.28rem;}' +
+              '.ref-link-pill .ref-btn-copy{width:88px;min-width:88px;padding:9px 8px;font-size:.84rem;}' +
+              // Share buttons: one compact row, sized to sit level with the text.
+              '.ref-share-row{gap:8px;flex-wrap:nowrap;margin-top:12px;}' +
+              '.ref-share-row .ref-btn{flex:1;min-height:36px;padding:7px 4px;font-size:.78rem;gap:5px;border-radius:11px;}' +
+              '.ref-share-row .ref-btn i{font-size:.92rem;}' +
+              // How-it-works: compact horizontal rows instead of tall stacked cards.
+              '.ref-steps{grid-template-columns:1fr;gap:8px;}' +
+              '.ref-step{display:flex;align-items:center;gap:12px;text-align:right;padding:12px 14px;}' +
+              '.ref-step .s-ico{margin:0;width:44px;height:44px;flex-shrink:0;}' +
+              '.ref-step .s-body{flex:1;min-width:0;}' +
+              '.ref-step .s-t{margin-bottom:2px;}' +
               '.ref-balance-value{font-size:1.45rem;}}';
           var style = document.createElement('style');
           style.id = 'referral-inline-style';
@@ -39305,11 +39323,11 @@ function normalizeCategory(value){
               '<h3 class="ref-section-title"><span class="t-ico"><i class="fa-solid fa-route"></i></span>كيف تربح من الإحالة؟</h3>' +
               '<div class="ref-steps">' +
                 '<div class="ref-step"><div class="s-ico"><i class="fa-solid fa-share-nodes"></i><span class="s-n">1</span></div>' +
-                  '<div class="s-t">شارك رابطك</div><div class="s-d">أرسل رابط دعوتك لأصدقائك عبر واتساب أو تيليغرام</div></div>' +
+                  '<div class="s-body"><div class="s-t">شارك رابطك</div><div class="s-d">أرسل رابط دعوتك لأصدقائك عبر واتساب أو تيليغرام</div></div></div>' +
                 '<div class="ref-step"><div class="s-ico"><i class="fa-solid fa-user-check"></i><span class="s-n">2</span></div>' +
-                  '<div class="s-t">صديقك ينضم ويودع</div><div class="s-d">يسجّل حسابه من رابطك ثم يقوم بإيداع ناجح</div></div>' +
+                  '<div class="s-body"><div class="s-t">صديقك ينضم ويودع</div><div class="s-d">يسجّل حسابه من رابطك ثم يقوم بإيداع ناجح</div></div></div>' +
                 '<div class="ref-step"><div class="s-ico"><i class="fa-solid fa-sack-dollar"></i><span class="s-n">3</span></div>' +
-                  '<div class="s-t">يصلك الكاش باك</div><div class="s-d">تُضاف نسبتك من كل إيداع إلى رصيد إحالتك تلقائيًا</div></div>' +
+                  '<div class="s-body"><div class="s-t">يصلك الكاش باك</div><div class="s-d">تُضاف نسبتك من كل إيداع إلى رصيد إحالتك تلقائيًا</div></div></div>' +
               '</div>' +
             '</div>' +
 
