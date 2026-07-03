@@ -322,11 +322,24 @@ function resolveSiteLoaderLogoCandidates(primary){
   return out;
 }
 
+// Reads the site-media byte-cache before the settings runtime defines its
+// helpers (this early code runs first): a stored copy means no network warm.
+function readCachedSiteMediaImageEarly(url){
+  try {
+    const raw = String(url == null ? '' : url).trim();
+    if (!raw || raw.indexOf('data:') === 0 || raw.indexOf('blob:') === 0) return '';
+    const cached = localStorage.getItem('site:media:img:v1:' + raw);
+    if (typeof cached === 'string' && cached.indexOf('data:image/') === 0) return cached;
+  } catch {}
+  return '';
+}
+
 // Preload image asset used elsewhere
 (function(){
   try {
     const imgHref = resolveSiteMediaFallbackUrl('loader');
     if (!imgHref) return;
+    if (readCachedSiteMediaImageEarly(imgHref)) return;
     if (document.head && !document.querySelector(`link[rel='preload'][as='image'][href='${imgHref}']`)){
       const ln2 = document.createElement('link'); ln2.rel = 'preload'; ln2.as = 'image'; ln2.href = imgHref; document.head.appendChild(ln2);
     }
@@ -696,6 +709,11 @@ function ensureSiteLoaderLogoNode(loaderNode){
       try {
         const current = trimSiteMediaUrl(img.getAttribute('src') || '');
         const primary = trimSiteMediaUrl(img.getAttribute('data-loader-logo-primary') || current);
+        // A corrupt locally-cached copy must not wedge the loader logo: drop it
+        // and fall through to the raw-URL candidates below.
+        if (current.indexOf('data:') === 0 && primary && primary !== current) {
+          try { if (typeof window.__dropCachedSiteMediaImage === 'function') window.__dropCachedSiteMediaImage(primary); } catch {}
+        }
         const candidates = resolveSiteLoaderLogoCandidates(primary);
         const currentIndex = candidates.indexOf(current);
         const startIndex = currentIndex >= 0 ? currentIndex + 1 : 0;
@@ -4403,9 +4421,10 @@ logo.addEventListener('error', function(){
   } catch {}
 });
 if (initialHeaderLogo) {
-  logo.src = initialHeaderLogo;
+  // First paint straight from the local byte-cache when the logo is stored there.
+  logo.src = readCachedSiteMediaImageEarly(initialHeaderLogo) || initialHeaderLogo;
 }
-(function(){ try { const href = initialHeaderLogo; if (href && document.head && !document.querySelector(`link[rel='preload'][as='image'][href='${href}']`)){ const l = document.createElement('link'); l.rel='preload'; l.as='image'; l.href=href; document.head.appendChild(l); } } catch {} })();
+(function(){ try { const href = initialHeaderLogo; if (href && !readCachedSiteMediaImageEarly(href) && document.head && !document.querySelector(`link[rel='preload'][as='image'][href='${href}']`)){ const l = document.createElement('link'); l.rel='preload'; l.as='image'; l.href=href; document.head.appendChild(l); } } catch {} })();
 const logoLink = document.createElement('a');
 logoLink.href = resolveHomeUrl();
 logoLink.style.marginLeft = '0';
@@ -19290,6 +19309,117 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
       return text.slice(0, 2000);
     }
 
+    // -----------------------------------------------------------------------
+    // Site media image byte-cache: البنرات وشعار الهيدر وصورة الموقع تُحفَظ
+    // مرة واحدة كـ data URLs في localStorage وتُعرَض منها محليًا، بدل إعادة
+    // طلبها من الخادم عند كل تحديث دوري للإعدادات أو كل دورة عرض للبنرات.
+    // Entries are pruned automatically when the admin swaps the media set.
+    // -----------------------------------------------------------------------
+    const SITE_MEDIA_IMAGE_CACHE_PREFIX = "site:media:img:v1:";
+    const SITE_MEDIA_IMAGE_CACHE_ENTRY_MAX_CHARS = 950000;
+    const SITE_MEDIA_IMAGE_CACHE_TOTAL_MAX_CHARS = 3800000;
+    const __siteMediaImagePersistInFlight = new Set();
+    const __sitePreloadedImageUrls = new Set();
+
+    function siteMediaImageCacheKey(url){
+      return SITE_MEDIA_IMAGE_CACHE_PREFIX + String(url == null ? "" : url);
+    }
+
+    function readCachedSiteMediaImage(url){
+      const src = normalizeSiteMediaUrl(url);
+      if (!src || src.indexOf("data:") === 0 || src.indexOf("blob:") === 0) return "";
+      try {
+        const value = localStorage.getItem(siteMediaImageCacheKey(src));
+        if (typeof value === "string" && value.indexOf("data:image/") === 0) return value;
+      } catch {}
+      return "";
+    }
+
+    function resolveSiteMediaImageSrc(url){
+      const src = normalizeSiteMediaUrl(url);
+      if (!src) return "";
+      return readCachedSiteMediaImage(src) || src;
+    }
+    try { window.__resolveSiteMediaImageSrc = resolveSiteMediaImageSrc; } catch {}
+
+    function dropCachedSiteMediaImage(url){
+      const src = normalizeSiteMediaUrl(url);
+      if (!src) return;
+      try { localStorage.removeItem(siteMediaImageCacheKey(src)); } catch {}
+    }
+    try { window.__dropCachedSiteMediaImage = dropCachedSiteMediaImage; } catch {}
+
+    function listSiteMediaImageCacheKeys(){
+      const keys = [];
+      try {
+        for (let i = 0; i < localStorage.length; i += 1) {
+          const key = localStorage.key(i);
+          if (key && key.indexOf(SITE_MEDIA_IMAGE_CACHE_PREFIX) === 0) keys.push(key);
+        }
+      } catch {}
+      return keys;
+    }
+
+    function siteMediaImageCacheTotalChars(){
+      let total = 0;
+      try {
+        listSiteMediaImageCacheKeys().forEach((key) => {
+          const value = localStorage.getItem(key);
+          if (typeof value === "string") total += value.length;
+        });
+      } catch {}
+      return total;
+    }
+
+    function pruneSiteMediaImageCache(activeUrls){
+      try {
+        const keep = new Set();
+        (activeUrls || []).forEach((url) => {
+          const src = normalizeSiteMediaUrl(url);
+          if (src) keep.add(siteMediaImageCacheKey(src));
+        });
+        listSiteMediaImageCacheKeys().forEach((key) => {
+          if (!keep.has(key)) { try { localStorage.removeItem(key); } catch {} }
+        });
+      } catch {}
+    }
+
+    // Fetch the image ONCE (through the HTTP cache when possible) and persist
+    // it locally. Hosts that refuse CORS simply skip caching — the <img> tags
+    // keep working off the raw URL exactly as before.
+    function persistSiteMediaImageToCache(url){
+      const src = normalizeSiteMediaUrl(url);
+      if (!src || src.indexOf("data:") === 0 || src.indexOf("blob:") === 0) return;
+      if (typeof fetch !== "function") return;
+      if (readCachedSiteMediaImage(src)) return;
+      if (__siteMediaImagePersistInFlight.has(src)) return;
+      __siteMediaImagePersistInFlight.add(src);
+      Promise.resolve().then(async () => {
+        const res = await fetch(src, { mode: "cors", credentials: "omit", cache: "force-cache" });
+        if (!res || !res.ok) return;
+        const blob = await res.blob();
+        if (!blob || !blob.size) return;
+        const type = String(blob.type || res.headers.get("content-type") || "").toLowerCase();
+        if (type && type.indexOf("image/") !== 0) return;
+        // data URL is ~4/3 of the raw bytes; gate before encoding.
+        if (blob.size > SITE_MEDIA_IMAGE_CACHE_ENTRY_MAX_CHARS * 0.74) return;
+        const dataUrl = await new Promise((resolve) => {
+          try {
+            const reader = new FileReader();
+            reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+            reader.onerror = () => resolve("");
+            reader.readAsDataURL(blob);
+          } catch { resolve(""); }
+        });
+        if (!dataUrl || dataUrl.indexOf("data:image/") !== 0) return;
+        if (dataUrl.length > SITE_MEDIA_IMAGE_CACHE_ENTRY_MAX_CHARS) return;
+        if (siteMediaImageCacheTotalChars() + dataUrl.length > SITE_MEDIA_IMAGE_CACHE_TOTAL_MAX_CHARS) return;
+        try { localStorage.setItem(siteMediaImageCacheKey(src), dataUrl); } catch {}
+      }).catch(() => {}).finally(() => {
+        __siteMediaImagePersistInFlight.delete(src);
+      });
+    }
+
     function normalizeSiteBannerLink(value){
       const text = String(value == null ? "" : value).trim();
       if (!text) return "";
@@ -19716,6 +19846,13 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
     function preloadImageAsset(url){
       const src = normalizeSiteMediaUrl(url);
       if (!src) return;
+      // Already stored locally — nothing to warm, and no network hit.
+      if (readCachedSiteMediaImage(src)) return;
+      persistSiteMediaImageToCache(src);
+      // Legacy warm path (covers hosts that refuse the CORS fetch above) —
+      // once per session instead of once per applySiteMedia poll.
+      if (__sitePreloadedImageUrls.has(src)) return;
+      __sitePreloadedImageUrls.add(src);
       try {
         if (document.head && !document.querySelector("link[rel='preload'][as='image'][href='" + src.replace(/'/g, "\\'") + "']")) {
           const ln = document.createElement("link");
@@ -19735,13 +19872,22 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
 
     function cacheSiteMedia(media){
       try {
+        const loaderLogo = normalizeSiteMediaUrl(media?.loaderLogo || "");
+        const headerLogo = normalizeSiteMediaUrl(media?.headerLogo || "");
+        const siteImage = normalizeSiteMediaUrl(media?.siteImage || media?.siteIcon || "");
+        const siteIcon = normalizeSiteMediaUrl(media?.siteIcon || "");
+        const heroBanners = normalizeSiteMediaBanners(media?.heroBanners || []);
         writeSiteJsonCacheIfChanged(SITE_MEDIA_CACHE_KEY, {
-          loaderLogo: normalizeSiteMediaUrl(media?.loaderLogo || ""),
-          headerLogo: normalizeSiteMediaUrl(media?.headerLogo || ""),
-          siteImage: normalizeSiteMediaUrl(media?.siteImage || media?.siteIcon || ""),
-          siteIcon: normalizeSiteMediaUrl(media?.siteIcon || ""),
-          heroBanners: normalizeSiteMediaBanners(media?.heroBanners || [])
+          loaderLogo,
+          headerLogo,
+          siteImage,
+          siteIcon,
+          heroBanners
         });
+        const activeUrls = [loaderLogo, headerLogo, siteImage, siteIcon]
+          .concat(heroBanners.map((item) => (item && item.image) || ""));
+        pruneSiteMediaImageCache(activeUrls);
+        activeUrls.forEach((activeUrl) => { if (activeUrl) persistSiteMediaImageToCache(activeUrl); });
       } catch {}
     }
 
@@ -19797,6 +19943,9 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
     function applyHeaderLogo(url){
       const next = normalizeSiteMediaUrl(url) || DEFAULT_SITE_HEADER_LOGO;
       try { window.__SITE_HEADER_LOGO__ = next; } catch {}
+      // Serve the pixels from the local byte-cache when available; the raw URL
+      // stays in __SITE_HEADER_LOGO__ for consumers that need it (manifest etc).
+      const displaySrc = next ? (readCachedSiteMediaImage(next) || next) : "";
       try {
         document.querySelectorAll(".header-logo").forEach((imgEl) => {
           if (!(imgEl instanceof HTMLImageElement)) return;
@@ -19811,8 +19960,8 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
             }
             return;
           }
-          if (imgEl.getAttribute("src") !== next) {
-            imgEl.src = next;
+          if (imgEl.getAttribute("src") !== displaySrc) {
+            imgEl.src = displaySrc;
           }
           try { imgEl.hidden = false; } catch {}
           try { imgEl.style.display = ""; } catch {}
@@ -19863,27 +20012,30 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
       const next = normalizeSiteMediaUrl(url);
       if (!next) return;
       try { window.__SITE_ICON__ = next; } catch {}
-      const type = guessSiteMediaMimeType(next);
+      // Favicon links can render straight from the local byte-cache; raw URL
+      // stays in __SITE_ICON__ / the site:icon event for the manifest pipeline.
+      const displaySrc = readCachedSiteMediaImage(next) || next;
+      const type = guessSiteMediaMimeType(displaySrc);
       try {
         document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"]').forEach((linkEl) => {
           if (!(linkEl instanceof HTMLLinkElement)) return;
-          linkEl.href = next;
+          if (linkEl.getAttribute("href") !== displaySrc) linkEl.href = displaySrc;
           linkEl.type = type;
         });
       } catch {}
       const primaryIcon = ensureSiteIconLink("icon");
       if (primaryIcon) {
-        primaryIcon.href = next;
+        if (primaryIcon.getAttribute("href") !== displaySrc) primaryIcon.href = displaySrc;
         primaryIcon.type = type;
       }
       const shortcutIcon = ensureSiteIconLink("shortcut icon");
       if (shortcutIcon) {
-        shortcutIcon.href = next;
+        if (shortcutIcon.getAttribute("href") !== displaySrc) shortcutIcon.href = displaySrc;
         shortcutIcon.type = type;
       }
       const appleIcon = ensureSiteIconLink("apple-touch-icon");
       if (appleIcon) {
-        appleIcon.href = next;
+        if (appleIcon.getAttribute("href") !== displaySrc) appleIcon.href = displaySrc;
         appleIcon.type = type;
         appleIcon.setAttribute("sizes", "180x180");
       }
@@ -19895,6 +20047,7 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
     function applyLoaderLogo(url){
       const next = normalizeSiteMediaUrl(url) || DEFAULT_SITE_LOADER_LOGO;
       try { window.__SITE_LOADER_IMAGE__ = next; } catch {}
+      const displaySrc = next ? (readCachedSiteMediaImage(next) || next) : "";
       try {
         const loaderNodes = document.querySelectorAll("#preloader .loader");
         loaderNodes.forEach((node) => {
@@ -19915,7 +20068,9 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
           try { logo.style.display = ""; } catch {}
           try { logo.setAttribute("data-loader-logo-primary", next); } catch {}
           try { logo.setAttribute("data-loader-logo-fallback-index", "0"); } catch {}
-          logo.src = next;
+          if (logo.getAttribute("src") !== displaySrc) {
+            logo.src = displaySrc;
+          }
         });
       } catch {}
       try {

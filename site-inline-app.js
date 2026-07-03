@@ -218,10 +218,32 @@
         return out.slice(0, 8);
       }
 
+      // Reads the site-media byte-cache directly: this slider boots BEFORE the
+      // settings runtime defines window.__resolveSiteMediaImageSrc, so it needs
+      // its own localStorage fallback to render cached banners on first paint.
+      function resolveBannerImageSrc(url){
+        var raw = String(url == null ? '' : url).trim();
+        if (!raw || raw.indexOf('data:') === 0 || raw.indexOf('blob:') === 0) return raw;
+        try {
+          if (typeof window.__resolveSiteMediaImageSrc === 'function') {
+            return String(window.__resolveSiteMediaImageSrc(raw) || raw);
+          }
+        } catch(_){}
+        try {
+          var cached = localStorage.getItem('site:media:img:v1:' + raw);
+          if (typeof cached === 'string' && cached.indexOf('data:image/') === 0) return cached;
+        } catch(_){}
+        return raw;
+      }
+
       function preloadImage(src){
         try {
           var imageUrl = String(src && src.image ? src.image : src || '').trim();
           if (!imageUrl) return;
+          // Served from the localStorage byte-cache — nothing to warm over the network.
+          var resolvedWarm = resolveBannerImageSrc(imageUrl);
+          if (resolvedWarm.indexOf('data:') === 0) return;
+          imageUrl = resolvedWarm;
           var img = new Image();
           img.decoding = 'async';
           img.loading = 'lazy';
@@ -297,12 +319,23 @@
         slide.className = 'hero-slide';
         var img = document.createElement('img');
         img.draggable = false;
-        img.src = item.image;
+        // Render from the localStorage byte-cache when the banner was stored
+        // there; the raw URL stays the identity (signature/dedupe) everywhere.
+        var rawBannerSrc = String(item.image || '');
+        img.src = resolveBannerImageSrc(rawBannerSrc);
         img.alt = 'بانر ' + String(position + 1);
         img.decoding = 'async';
         img.loading = position === 0 ? 'eager' : 'lazy';
         try { img.fetchPriority = position === 0 ? 'high' : 'low'; } catch(_){}
         img.addEventListener('error', function(){
+          // A corrupt cached copy falls back to the raw URL once (and is dropped).
+          try {
+            if (rawBannerSrc && String(img.getAttribute('src') || '').indexOf('data:') === 0 && img.getAttribute('src') !== rawBannerSrc) {
+              try { if (typeof window.__dropCachedSiteMediaImage === 'function') window.__dropCachedSiteMediaImage(rawBannerSrc); } catch(_){}
+              img.src = rawBannerSrc;
+              return;
+            }
+          } catch(_){}
           try { slide.style.display = 'none'; } catch(_) {}
           try {
             var hasVisibleSlides = Array.prototype.slice.call(track.querySelectorAll('.hero-slide')).some(function(node){
