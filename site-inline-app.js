@@ -39067,7 +39067,12 @@ function normalizeCategory(value){
               // Full-bleed hero: break out to the screen edges + top so it reads as a
               // page header attached to the page, not a floating popup card.
               '.ref-wrap{padding:0 12px 96px;}' +
-              '.ref-hero{margin-left:calc(50% - 50vw);margin-right:calc(50% - 50vw);margin-top:0;margin-bottom:14px;' +
+              // Pull the full-bleed hero UP by the header GAP so it sits flush under
+              // the fixed header (body reserves header-height + gap; we cancel the
+              // gap here). Uses the same runtime vars the layout sets, so it tracks
+              // the real header height instead of hardcoding a fragile pixel value.
+              '.ref-hero{margin-left:calc(50% - 50vw);margin-right:calc(50% - 50vw);' +
+                'margin-top:calc(var(--app-header-height, 70px) - var(--app-header-offset, 84px));margin-bottom:14px;' +
                 'border-radius:0 0 22px 22px;padding:26px 16px 20px;}' +
               '.ref-hero h2{font-size:1.28rem;}' +
               '.ref-link-pill .ref-btn-copy{width:88px;min-width:88px;padding:9px 8px;font-size:.84rem;}' +
