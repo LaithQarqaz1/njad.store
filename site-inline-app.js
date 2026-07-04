@@ -39494,7 +39494,7 @@ function normalizeCategory(value){
                 '</div>' +
                 '<div class="ref-denom-divider"></div>' +
                 '<div class="ref-denom-bottom">' +
-                  '<div class="cost"><i class="fa-solid fa-gem"></i>مقابل ' + shared.esc(shared.fmtUsd(denomination.cost)) + ' من رصيدك</div>' +
+                  '<div class="cost"><i class="fa-solid fa-gem"></i>يُخصم من رصيد الإحالة</div>' +
                   '<div class="left"><i class="fa-solid ' + leftIcon + '"></i>' + shared.esc(leftText) + '</div>' +
                 '</div>' +
               '</div>';
