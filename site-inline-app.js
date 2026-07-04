@@ -2395,6 +2395,21 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       '#depositInlineApp #methodModal.inline-method-page #dynamicExtraFields .dynamic-extra-label{background:transparent !important;border:0 !important;box-shadow:none !important;padding:0 !important;pointer-events:none !important;}',
       '#depositInlineApp #methodModal.inline-method-page #dynamicExtraFields .dynamic-extra-badge, #depositInlineApp #methodModal.inline-method-page #dynamicExtraFields .dynamic-extra-hint{display:none !important;}',
       '#depositInlineApp #methodModal.inline-method-page :is(.calc input,.info-value,.dynamic-extra-control){height:46px !important;min-height:46px !important;border-radius:999px !important;font-size:.98rem !important;font-weight:900 !important;padding:0 16px !important;}',
+      '#depositInlineApp #methodModal.inline-method-page #fieldRecv{position:relative !important;}',
+      '#depositInlineApp #methodModal.inline-method-page #fieldRecv .inline-recv-currency-chip{display:none;}',
+      '#depositInlineApp #methodModal.inline-method-page #fieldRecv.has-recv-currency-chip .inline-recv-currency-chip{position:absolute !important;z-index:4 !important;left:6px !important;right:auto !important;bottom:0 !important;height:46px !important;display:inline-flex !important;align-items:center !important;justify-content:center !important;gap:5px !important;padding:0 12px !important;border:0 !important;border-radius:999px !important;cursor:pointer !important;font-size:.8rem !important;font-weight:900 !important;line-height:1 !important;letter-spacing:.3px !important;color:#fff !important;-webkit-text-fill-color:#fff !important;background:var(--site-accent-runtime-strong, var(--site-accent-runtime, var(--accent-theme, #0b6388))) !important;box-shadow:0 6px 16px rgba(var(--site-accent-rgb, 148, 163, 184), .3) !important;}',
+      '#depositInlineApp #methodModal.inline-method-page #fieldRecv.has-recv-currency-chip .inline-recv-currency-chip i{font-size:.7rem !important;opacity:.92 !important;}',
+      '#depositInlineApp #methodModal.inline-method-page #fieldRecv.has-recv-currency-chip .inline-recv-currency-chip:hover{filter:brightness(1.06) !important;}',
+      '#depositInlineApp #methodModal.inline-method-page #fieldRecv.has-recv-currency-chip input{padding-left:78px !important;border:1.5px solid var(--site-accent-runtime, var(--accent-theme, rgba(var(--site-accent-rgb, 148, 163, 184), .8))) !important;}',
+      '#depositInlineApp #methodModal.inline-method-page #fieldRecv.has-recv-currency-chip input:focus{border-color:var(--site-accent-runtime-strong, var(--site-accent-runtime, var(--accent-theme, #0b6388))) !important;box-shadow:0 0 0 3px rgba(var(--site-accent-rgb, 148, 163, 184), .18) !important;}',
+      '#depositInlineApp #methodModal.inline-method-page #fieldRecv .inline-recv-currency-menu{position:absolute !important;z-index:30 !important;left:6px !important;right:auto !important;bottom:52px !important;min-width:174px !important;max-height:232px !important;overflow-y:auto !important;padding:6px !important;border-radius:16px !important;background:var(--bg-app, #0b1020) !important;border:1px solid rgba(var(--site-accent-rgb, 148, 163, 184), .4) !important;box-shadow:0 18px 44px rgba(0,0,0,.42) !important;display:flex !important;flex-direction:column !important;gap:3px !important;}',
+      '#depositInlineApp #methodModal.inline-method-page #fieldRecv .inline-recv-currency-menu[hidden]{display:none !important;}',
+      '#depositInlineApp #methodModal.inline-method-page #fieldRecv .inline-recv-currency-option{display:flex !important;align-items:center !important;gap:8px !important;width:100% !important;padding:9px 12px !important;border:0 !important;border-radius:12px !important;cursor:pointer !important;background:transparent !important;color:var(--text) !important;font-size:.85rem !important;font-weight:800 !important;text-align:start !important;}',
+      '#depositInlineApp #methodModal.inline-method-page #fieldRecv .inline-recv-currency-option:hover{background:rgba(var(--site-accent-rgb, 148, 163, 184), .16) !important;}',
+      '#depositInlineApp #methodModal.inline-method-page #fieldRecv .inline-recv-currency-option.is-active{background:rgba(var(--site-accent-rgb, 148, 163, 184), .24) !important;}',
+      '#depositInlineApp #methodModal.inline-method-page #fieldRecv .inline-recv-currency-option-code{min-width:44px !important;font-weight:900 !important;color:var(--site-accent-runtime, var(--accent-theme, inherit)) !important;}',
+      '#depositInlineApp #methodModal.inline-method-page #fieldRecv .inline-recv-currency-option-name{flex:1 1 auto !important;opacity:.72 !important;font-weight:700 !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;}',
+      '#depositInlineApp #methodModal.inline-method-page #fieldRecv .inline-recv-currency-option-sym{opacity:.7 !important;font-weight:800 !important;}',
       '#depositInlineApp #methodModal.inline-method-page .actions{display:grid !important;grid-template-columns:1fr !important;gap:10px !important;margin:10px 0 0 !important;padding:0 !important;background:transparent !important;border:0 !important;box-shadow:none !important;}',
       '#depositInlineApp #methodModal.inline-method-page #proofTrigger, #depositInlineApp #methodModal.inline-method-page #submitDepositBtn, #depositInlineApp #methodModal.inline-method-page #closeModal{grid-column:1/-1 !important;width:100% !important;height:48px !important;min-height:48px !important;border-radius:999px !important;}',
       '#depositInlineApp #methodModal.inline-method-page #submitDepositBtn{background:var(--site-accent-runtime-strong, var(--site-accent-runtime, var(--accent-theme, #0b6388))) !important;color:#fff !important;border:0 !important;box-shadow:none !important;}',
@@ -8530,8 +8545,12 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       payLabel.textContent = 'المبلغ (' + methodCurrency + ')';
     }
     if (recvLabel) {
-      recvLabel.textContent = 'سيُضاف (USD)';
+      recvLabel.textContent = isWithdraw ? 'سيُضاف (USD)' : 'سيُضاف';
     }
+    try {
+      if (isWithdraw) { if (typeof hideRecvCurrencyChip === 'function') hideRecvCurrencyChip(); }
+      else if (typeof ensureRecvCurrencyChip === 'function') { ensureRecvCurrencyChip(); refreshRecvCurrencyChipLabel(); }
+    } catch (_) {}
     if (submitDepositBtn) {
       submitDepositBtn.innerHTML = '<i class="fa-solid fa-paper-plane" aria-hidden="true"></i><span>طلب</span>';
     }
@@ -9939,6 +9958,211 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
     }
   }
 
+  // ==== مُحدِّد عملة عرض حقل «سيُضاف» (recvCUR) — عرض فقط: يُرسَل payAmount دائمًا والسيرفر يحسب الدولار ====
+  var recvDisplayCurrency = '';
+  var recvCurrencyUserOverride = false;
+  var recvCurrencyMenuOpen = false;
+  var recvCurrencyDocBound = false;
+  function inlineNormalizeCurrencyCode(code){
+    var c = String(code == null ? '' : code).trim().toUpperCase();
+    return /^[A-Z0-9]{2,8}$/.test(c) ? c : '';
+  }
+  function inlineResolveDefaultRecvCurrency(){
+    try {
+      if (typeof window !== 'undefined' && typeof window.getSelectedCurrencyCode === 'function') {
+        var c = inlineNormalizeCurrencyCode(window.getSelectedCurrencyCode());
+        if (c) return c;
+      }
+    } catch (_) {}
+    return 'USD';
+  }
+  function inlineRecvActiveCurrency(){
+    var c = inlineNormalizeCurrencyCode(recvDisplayCurrency);
+    return c || inlineResolveDefaultRecvCurrency();
+  }
+  function inlineRecvCurrencyOptions(){
+    try {
+      if (typeof window !== 'undefined' && typeof window.getSiteCurrencyOptions === 'function') {
+        var list = window.getSiteCurrencyOptions();
+        if (Array.isArray(list) && list.length) return list;
+      }
+    } catch (_) {}
+    return [{ code: 'USD', key: 'USD', symbol: '$', name: 'USD' }];
+  }
+  function inlineConvertUsdToDisplay(usd){
+    var n = Number(usd);
+    if (!Number.isFinite(n)) return NaN;
+    var code = inlineRecvActiveCurrency();
+    if (code === 'USD') return n;
+    try {
+      if (typeof window !== 'undefined' && typeof window.convertFromJOD === 'function') {
+        var out = Number(window.convertFromJOD(n, code));
+        if (Number.isFinite(out)) return out;
+      }
+    } catch (_) {}
+    return n;
+  }
+  function inlineConvertDisplayToUsd(amount){
+    var n = Number(amount);
+    if (!Number.isFinite(n)) return NaN;
+    var code = inlineRecvActiveCurrency();
+    if (code === 'USD') return n;
+    try {
+      if (typeof window !== 'undefined' && typeof window.convertToBaseCurrency === 'function') {
+        var out = Number(window.convertToBaseCurrency(n, code));
+        if (Number.isFinite(out)) return out;
+      }
+    } catch (_) {}
+    return n;
+  }
+  function inlineToggleRecvFilled(){
+    try {
+      var f = document.getElementById('fieldRecv');
+      if (f && f.classList) {
+        var rv = Number(recvCUR && recvCUR.value);
+        f.classList.toggle('filled', Number.isFinite(rv) && rv > 0);
+      }
+    } catch (_) {}
+  }
+  function inlineDepositReadRecvNetUsd(){
+    var typed = resolveInlinePositiveNumber(recvCUR.value);
+    if (!typed) return 0;
+    if (inlineRecvActiveCurrency() === 'USD') return typed;
+    return resolveInlinePositiveNumber(inlineConvertDisplayToUsd(typed)) || 0;
+  }
+  function inlineDepositWriteRecvDisplay(netUsd){
+    if (!recvCUR) return;
+    var n = Number(netUsd);
+    if (!Number.isFinite(n) || n <= 0) { recvCUR.value = ''; inlineToggleRecvFilled(); return; }
+    var display = inlineConvertUsdToDisplay(n);
+    if (!Number.isFinite(Number(display)) || Number(display) <= 0) { recvCUR.value = ''; inlineToggleRecvFilled(); return; }
+    recvCUR.value = roundInlineAmount(Number(display), 2).toFixed(2);
+    inlineToggleRecvFilled();
+  }
+  function inlineRecvCurrencySymbol(code){
+    var target = inlineNormalizeCurrencyCode(code) || 'USD';
+    var opts = inlineRecvCurrencyOptions();
+    for (var i = 0; i < opts.length; i += 1) {
+      if (inlineNormalizeCurrencyCode(opts[i] && opts[i].code) === target) return String(opts[i].symbol || target);
+    }
+    return target;
+  }
+  function refreshRecvCurrencyChipLabel(){
+    try {
+      var chip = document.getElementById('recvCurrencyChip');
+      if (!chip) return;
+      var codeEl = chip.querySelector('.inline-recv-currency-chip-code');
+      if (codeEl) codeEl.textContent = inlineRecvActiveCurrency();
+    } catch (_) {}
+  }
+  function closeRecvCurrencyMenu(){
+    recvCurrencyMenuOpen = false;
+    try {
+      var menu = document.getElementById('recvCurrencyMenu');
+      if (menu) menu.hidden = true;
+      var chip = document.getElementById('recvCurrencyChip');
+      if (chip) chip.setAttribute('aria-expanded', 'false');
+    } catch (_) {}
+  }
+  function applyRecvCurrencySelection(code){
+    var c = inlineNormalizeCurrencyCode(code);
+    if (!c) return;
+    recvDisplayCurrency = c;
+    recvCurrencyUserOverride = true;
+    refreshRecvCurrencyChipLabel();
+    closeRecvCurrencyMenu();
+    try { syncInlineDepositAmountsFromSource('pay'); } catch (_) {}
+  }
+  function buildRecvCurrencyMenu(menu){
+    if (!menu) return;
+    var opts = inlineRecvCurrencyOptions();
+    var active = inlineRecvActiveCurrency();
+    var html = '';
+    for (var i = 0; i < opts.length; i += 1) {
+      var code = inlineNormalizeCurrencyCode(opts[i] && opts[i].code);
+      if (!code) continue;
+      var sym = String(opts[i] && opts[i].symbol || code);
+      var name = String(opts[i] && opts[i].name || code);
+      html += '<button type="button" class="inline-recv-currency-option' + (code === active ? ' is-active' : '') + '" data-code="' + code + '">'
+        + '<span class="inline-recv-currency-option-code">' + code + '</span>'
+        + '<span class="inline-recv-currency-option-name">' + name + '</span>'
+        + '<span class="inline-recv-currency-option-sym">' + sym + '</span>'
+        + '</button>';
+    }
+    menu.innerHTML = html;
+  }
+  function toggleRecvCurrencyMenu(){
+    var menu = document.getElementById('recvCurrencyMenu');
+    var chip = document.getElementById('recvCurrencyChip');
+    if (!menu || !chip) return;
+    if (recvCurrencyMenuOpen) { closeRecvCurrencyMenu(); return; }
+    buildRecvCurrencyMenu(menu);
+    menu.hidden = false;
+    recvCurrencyMenuOpen = true;
+    chip.setAttribute('aria-expanded', 'true');
+  }
+  function hideRecvCurrencyChip(){
+    try {
+      closeRecvCurrencyMenu();
+      var field = document.getElementById('fieldRecv');
+      if (field && field.classList) field.classList.remove('has-recv-currency-chip');
+    } catch (_) {}
+  }
+  function ensureRecvCurrencyChip(){
+    try {
+      var field = document.getElementById('fieldRecv');
+      if (!field) return;
+      if (!recvCurrencyUserOverride) recvDisplayCurrency = inlineResolveDefaultRecvCurrency();
+      var chip = document.getElementById('recvCurrencyChip');
+      if (!chip) {
+        chip = document.createElement('button');
+        chip.type = 'button';
+        chip.id = 'recvCurrencyChip';
+        chip.className = 'inline-recv-currency-chip';
+        chip.setAttribute('aria-haspopup', 'listbox');
+        chip.setAttribute('aria-expanded', 'false');
+        chip.innerHTML = '<span class="inline-recv-currency-chip-code">USD</span><i class="fa-solid fa-angle-down" aria-hidden="true"></i>';
+        chip.addEventListener('click', function(ev){
+          try { ev.preventDefault(); ev.stopPropagation(); } catch (_) {}
+          toggleRecvCurrencyMenu();
+        });
+        var menu = document.createElement('div');
+        menu.id = 'recvCurrencyMenu';
+        menu.className = 'inline-recv-currency-menu';
+        menu.hidden = true;
+        menu.addEventListener('click', function(ev){
+          var btn = ev && ev.target && ev.target.closest ? ev.target.closest('.inline-recv-currency-option') : null;
+          if (!btn) return;
+          try { ev.preventDefault(); ev.stopPropagation(); } catch (_) {}
+          applyRecvCurrencySelection(btn.getAttribute('data-code'));
+        });
+        field.appendChild(chip);
+        field.appendChild(menu);
+      }
+      field.classList.add('has-recv-currency-chip');
+      refreshRecvCurrencyChipLabel();
+      if (!recvCurrencyDocBound) {
+        recvCurrencyDocBound = true;
+        try {
+          document.addEventListener('click', function(ev){
+            if (!recvCurrencyMenuOpen) return;
+            var t = ev && ev.target;
+            if (t && t.closest && (t.closest('#recvCurrencyMenu') || t.closest('#recvCurrencyChip'))) return;
+            closeRecvCurrencyMenu();
+          }, true);
+        } catch (_) {}
+        try {
+          window.addEventListener('currency:change', function(){
+            if (recvCurrencyUserOverride) return;
+            recvDisplayCurrency = inlineResolveDefaultRecvCurrency();
+            refreshRecvCurrencyChipLabel();
+            try { syncInlineDepositAmountsFromSource('pay'); } catch (_) {}
+          });
+        } catch (_) {}
+      }
+    } catch (_) {}
+  }
+
   let inlineDepositAmountSyncing = false;
   function syncInlineDepositAmountsFromSource(source, methodOverride){
     if (inlineDepositAmountSyncing || isInlineWithdrawFlowActive()) return false;
@@ -9949,7 +10173,7 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       inlineDepositAmountSyncing = true;
 
       if (source === 'usd') {
-        const netUsd = resolveInlinePositiveNumber(recvCUR.value);
+        const netUsd = inlineDepositReadRecvNetUsd();
         if (!netUsd) {
           sendJOD.value = '';
           return false;
@@ -9977,7 +10201,7 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
         try { updateSubmitState(); } catch (_) {}
         return false;
       }
-      recvCUR.value = roundInlineAmount(netUsd, 2).toFixed(2);
+      inlineDepositWriteRecvDisplay(netUsd);
       try { updateSubmitState(); } catch (_) {}
       return true;
     } finally {
@@ -10085,10 +10309,12 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       try {
         sendJOD.oninput();
       } catch (_) {
-        recvCUR.value = usdAmount.toFixed(2);
+        if (isWithdraw) recvCUR.value = usdAmount.toFixed(2);
+        else inlineDepositWriteRecvDisplay(usdAmount);
       }
     } else {
-      recvCUR.value = usdAmount.toFixed(2);
+      if (isWithdraw) recvCUR.value = usdAmount.toFixed(2);
+      else inlineDepositWriteRecvDisplay(usdAmount);
     }
     return true;
   }
