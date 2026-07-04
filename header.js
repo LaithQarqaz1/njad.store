@@ -19444,6 +19444,13 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
       return text.slice(0, 2000);
     }
 
+    function normalizeSiteBannerCopySource(value){
+      const v = String(value == null ? "" : value).trim().toLowerCase();
+      if (v === "referral" || v === "invite" || v === "ref") return "referral";
+      if (v === "domain" || v === "site" || v === "origin" || v === "home") return "domain";
+      return "custom";
+    }
+
     function normalizeSiteCollectionId(value, fallback){
       const text = String(value == null ? "" : value).trim().toLowerCase()
         .replace(/[^a-z0-9_-]+/g, "-")
@@ -19533,7 +19540,21 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
           : "",
         "banner-" + String(order)
       );
-      return { id, image, href, order, enabled: !!enabled };
+      const copySource = normalizeSiteBannerCopySource(
+        src ? (src.copySource ?? src.copy_source ?? src.copyType ?? src.copy_type) : ""
+      );
+      const copyOnClick = !!(
+        src &&
+        (
+          src.copyOnClick === true ||
+          src.copy_on_click === true ||
+          src.copyLink === true ||
+          src.copy_link === true ||
+          src.copy === true ||
+          String(src.copyOnClick ?? src.copy_on_click ?? src.copyLink ?? src.copy_link ?? src.copy ?? "").trim().toLowerCase() === "true"
+        )
+      );
+      return { id, image, href, order, enabled: !!enabled, copyOnClick, copySource };
     }
 
     function normalizeSiteMediaBanners(list){
@@ -19560,7 +19581,9 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
           image: item.image,
           href: item.href,
           order: item.order,
-          enabled: item.enabled
+          enabled: item.enabled,
+          copyOnClick: !!item.copyOnClick,
+          copySource: item.copySource || "custom"
         }));
     }
 
