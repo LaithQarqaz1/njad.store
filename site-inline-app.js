@@ -39474,8 +39474,14 @@ function normalizeCategory(value){
             info.denominations.forEach(function(denomination){
               var soldOut = denomination.remaining != null && denomination.remaining <= 0;
               var limitReached = denomination.perUserLimit > 0 && denomination.userUsed >= denomination.perUserLimit;
-              var blocked = soldOut || limitReached;
+              // Client affordability guard: gray out (and block the click on) a
+              // denomination the balance can't cover, so a user with too little
+              // referral balance gets an immediate honest "رصيدك لا يكفي" instead
+              // of a confusing server round-trip. The server still re-enforces.
+              var notEnough = !soldOut && !limitReached && (Number(denomination.cost) || 0) > redeemBalance;
+              var blocked = soldOut || limitReached || notEnough;
               var leftText = soldOut ? 'نفدت الكمية' : limitReached ? 'بلغت حدّك من هذه الفئة'
+                : notEnough ? 'رصيدك لا يكفي'
                 : (denomination.remaining != null ? ('متبقي ' + denomination.remaining) : 'متاح');
               var leftIcon = blocked ? 'fa-circle-xmark' : 'fa-circle-check';
               html += '<div class="ref-denom' + (blocked ? ' disabled' : '') + '" data-ref-denom="' + denomination.id + '"' +
