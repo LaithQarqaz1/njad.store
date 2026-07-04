@@ -3659,6 +3659,24 @@
   function clearReferralInviterStash() {
     try { localStorage.removeItem(REFERRAL_INVITER_STASH_KEY); } catch (_) {}
   }
+  // The account was created, but the server declined the referral for a
+  // same-device / same-IP policy — let the new user know (their account is fine;
+  // only the invite bonus was rejected). Delayed so the toast lands after the
+  // post-auth navigation settles. Benign non-links never set referralRejected.
+  function notifyReferralRejectedIfNeeded(authResult) {
+    try {
+      if (!authResult || authResult.referralRejected !== true) return;
+      const reason = String(authResult.referralRejectReason || '');
+      const text = reason === 'same_ip_blocked'
+        ? 'تعذّر تفعيل الإحالة: لا يمكن قبول دعوة من نفس الشبكة.'
+        : reason === 'same_device_blocked'
+          ? 'تعذّر تفعيل الإحالة: لا يمكن قبول دعوة من نفس الجهاز.'
+          : 'تعذّر تفعيل الإحالة لهذه الدعوة.';
+      setTimeout(function () {
+        try { if (typeof window !== 'undefined' && typeof window.showToast === 'function') window.showToast(text, 'warning', 6000); } catch (_) {}
+      }, 900);
+    } catch (_) {}
+  }
 
   async function register() {
     const username = (byId('usernameInput')?.value || '').trim();
@@ -3708,6 +3726,7 @@
       // The account now exists — the referral (if any) was linked server-side;
       // drop the stash so it can never be attached to another account.
       if (registerResult && registerResult.uid) clearReferralInviterStash();
+      notifyReferralRejectedIfNeeded(registerResult);
 
       const basePayload = {
         uid: registerResult.uid || "",
@@ -4014,6 +4033,7 @@
         // Signed in with an account — the invitation intent is consumed
         // (linked server-side if this sync created the account).
         clearReferralInviterStash();
+        notifyReferralRejectedIfNeeded(result);
         return { result, idToken };
       } catch (err) {
         const code = err && err.code ? String(err.code) : "";

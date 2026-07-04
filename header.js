@@ -1685,7 +1685,7 @@ function watchSessionDocForDevice(user){
     const RATES_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
     const STORE_BASE_CODE = 'USD'; // Balance stored in database is USD.
-    // Rates map â€” filled from cache or Firebase
+    // Rates map — filled from cache or Firebase
     const CURRENCIES = {};
     let ratesListenerStarted = false;
     let ratesRestLoadInFlight = false;
@@ -4732,8 +4732,8 @@ balanceSpan.style.minWidth = '0';
 balanceSpan.innerHTML = `
   <span class="header-balance__metrics">
     <button type="button" class="header-balance__deposit-btn" id="headerBalanceDepositBtn" aria-label="فتح الإيداع" title="فتح الإيداع"><i class="fa-solid fa-plus" aria-hidden="true"></i></button>
-    <span class="header-balance__currency" id="headerBalanceCurrency">â€”</span>
-    <span class="header-balance__value" id="headerBalanceText">â€¦</span>
+    <span class="header-balance__currency" id="headerBalanceCurrency">—</span>
+    <span class="header-balance__value" id="headerBalanceText">…</span>
   </span>
 `;
 
@@ -5262,35 +5262,35 @@ function setHeaderBalance(text){
     if (Number.isFinite(numeric)) {
       text = formatHeaderBalanceText(numeric);
     } else {
-      valueEl.textContent = text == null ? 'â€”' : String(text);
-      if (currencyEl) currencyEl.textContent = 'â€”';
+      valueEl.textContent = text == null ? '—' : String(text);
+      if (currencyEl) currencyEl.textContent = '—';
       enforceFixedSidebarCurrencyBadgeColor();
       return;
     }
   }
   const trimmed = text.trim();
   if (!trimmed) {
-    valueEl.textContent = 'â€”';
-    if (currencyEl) currencyEl.textContent = 'â€”';
+    valueEl.textContent = '—';
+    if (currencyEl) currencyEl.textContent = '—';
     enforceFixedSidebarCurrencyBadgeColor();
     return;
   }
   const hasDigits = /[0-9]/.test(trimmed);
   if (!hasDigits) {
     valueEl.textContent = trimmed;
-    if (currencyEl) currencyEl.textContent = 'â€”';
+    if (currencyEl) currencyEl.textContent = '—';
     enforceFixedSidebarCurrencyBadgeColor();
     return;
   }
   const parts = splitHeaderBalanceParts(trimmed);
   if (parts) {
     valueEl.textContent = parts.value || trimmed;
-    if (currencyEl) currencyEl.textContent = headerGetSelectedCurrencyText(parts.currency) || headerGetSelectedCurrencyText() || 'â€”';
+    if (currencyEl) currencyEl.textContent = headerGetSelectedCurrencyText(parts.currency) || headerGetSelectedCurrencyText() || '—';
     enforceFixedSidebarCurrencyBadgeColor();
     return;
   }
   valueEl.textContent = trimmed;
-  if (currencyEl) currencyEl.textContent = headerGetSelectedCurrencyText() || 'â€”';
+  if (currencyEl) currencyEl.textContent = headerGetSelectedCurrencyText() || '—';
   enforceFixedSidebarCurrencyBadgeColor();
 }
 try {
@@ -7782,7 +7782,7 @@ function syncSidebarBalanceFromHeader(){
     const val = node ? String(node.textContent || '').trim() : '';
     const cur = curNode ? String(curNode.textContent || '').trim() : '';
     if (!val && !cur) return;
-    setSidebarBalanceText(cur && cur !== 'â€”' ? `${val} ${cur}` : val);
+    setSidebarBalanceText(cur && cur !== '—' ? `${val} ${cur}` : val);
   } catch {}
 }
 

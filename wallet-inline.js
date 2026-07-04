@@ -450,8 +450,8 @@
 
       function normStatus(s){
         const v = (s||'').toString().toLowerCase();
-        if (v.includes('reject') || v.includes('مرفوض') || v.includes('ظâ€¦طآ±فظث†طآ¶')) return 'rejected';
-        if (v.includes('approved') || v.includes('accept') || v.includes('accepted') || v.includes('done') || v.includes('completed') || v.includes('success') || v.includes('تم') || v.includes('مقبول') || v.includes('مقبولة') || v.includes('تظâ€¦') || v.includes('ظâ€¦ظâ€ڑطآ¨ظث†ظâ€‍')) return 'approved';
+        if (v.includes('reject') || v.includes('مرفوض') || v.includes('ظ…طآ±فظث†طآ¶')) return 'rejected';
+        if (v.includes('approved') || v.includes('accept') || v.includes('accepted') || v.includes('done') || v.includes('completed') || v.includes('success') || v.includes('تم') || v.includes('مقبول') || v.includes('مقبولة') || v.includes('تظ…') || v.includes('ظ…ظâ€ڑطآ¨ظث†ظâ€‍')) return 'approved';
         return 'pending';
       }
       function statusClass(s){
@@ -1245,7 +1245,7 @@
       function isGenericTransferPeer(value){
         var txt = fixWalletText((value == null ? '' : value).toString()).trim();
         if (!txt) return true;
-        return txt === 'مستلم' || txt === 'مرسل' || txt === 'مستخدم' || txt === '-' || txt === 'â€”';
+        return txt === 'مستلم' || txt === 'مرسل' || txt === 'مستخدم' || txt === '-' || txt === '—';
       }
 
       function resolveTransferPeer(item){
@@ -2736,8 +2736,8 @@
           var methodName = fixWalletText(String(methodNameRaw || ''));
           var entryType = String(readField(flat,'entryType') || readField(flat,'entry_type') || '').trim().toLowerCase();
           var descriptionText = fixWalletText(String(readField(flat,'description') || ''));
-          var genericWithdrawMethod = /تحويل\s*إلى\s*(مستلم|مستخدم|-|â€”)?\s*$/;
-          var genericDepositMethod = /تحويل\s*من\s*(مرسل|مستخدم|-|â€”)?\s*$/;
+          var genericWithdrawMethod = /تحويل\s*إلى\s*(مستلم|مستخدم|-|—)?\s*$/;
+          var genericDepositMethod = /تحويل\s*من\s*(مرسل|مستخدم|-|—)?\s*$/;
           var countryNameRaw = readField(flat,'countryName') || readField(flat,'country') || readField(flat,'countryLabel') || '';
           var codeText = String(readField(flat,'code') || '').trim();
           var purchaseName = fixWalletText(String(

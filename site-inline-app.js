@@ -14454,7 +14454,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     for (const key of keys) {
       const value = String(entry?.[key] || "").trim();
       if (!value) continue;
-      if (value === "-" || value === "â€”" || value === "مستخدم" || value === "مرسل" || value === "مستلم") continue;
+      if (value === "-" || value === "—" || value === "مستخدم" || value === "مرسل" || value === "مستلم") continue;
       return value;
     }
     return "";
@@ -24073,7 +24073,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           var normalized = normalizeLevelAsciiDigits(value)
             .replace(/[\u200E\u200F\u061C]/g, '')
             .replace(/[\u00A0\u202F\s]/g, '')
-            .replace(/[âˆ’â€“â€”]/g, '-')
+            .replace(/[âˆ’â€“—]/g, '-')
             .replace(/[\u066B]/g, '.')
             .replace(/[\u066C\u060C]/g, ',')
             .trim();
@@ -27363,7 +27363,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
             var sub = document.createElement("div");
             sub.className = "device-sub";
             var timeLabel = dev.lastSeenISO || dev.createdAtISO || "";
-            sub.textContent = timeLabel ? ("آخر نشاط: " + formatDeviceDate(timeLabel)) : "â€”";
+            sub.textContent = timeLabel ? ("آخر نشاط: " + formatDeviceDate(timeLabel)) : "—";
             var locationSub = null;
             var locationLabel = formatDeviceApproxLocation(dev);
             if (locationLabel) {
