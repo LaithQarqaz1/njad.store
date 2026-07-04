@@ -39068,19 +39068,52 @@ function normalizeCategory(value){
             '.ref-motivate{margin-top:10px;font-size:.85rem;color:#6d28d9;font-weight:800;background:rgba(124,58,237,.08);' +
               'border-radius:12px;padding:8px 12px;display:inline-flex;align-items:center;gap:7px;}' +
             '.ref-motivate i{color:#f59e0b;}' +
-            '.ref-denoms{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;}' +
-            '.ref-denom{position:relative;border:1.5px solid var(--border-color,rgba(109,40,217,.16));border-radius:18px;padding:16px 10px;text-align:center;cursor:pointer;' +
-              'transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease;background:var(--card-bg,#fff);' +
-              '-webkit-tap-highlight-color:transparent;touch-action:manipulation;}' +
-            '.ref-denom:hover{border-color:#a855f7;box-shadow:0 10px 24px rgba(124,58,237,.15);}' +
-            '.ref-denom:active{transform:scale(.95);}' +
-            '.ref-denom:focus-visible{outline:3px solid rgba(124,58,237,.45);outline-offset:2px;}' +
-            '.ref-denom .val{font-size:1.45rem;font-weight:900;font-variant-numeric:tabular-nums;' +
+            // Redeem section — premium voucher layout. A full-width header +
+            // redeemable-balance strip give the card real hierarchy, so it reads
+            // as intentional even with a SINGLE denomination (auto-fit collapses
+            // empty tracks + a capped 200px max keeps one voucher a sane size,
+            // centered, instead of a tiny tile floating in an empty grid).
+            '.ref-redeem-card{position:relative;overflow:hidden;}' +
+            '.ref-redeem-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:14px;}' +
+            '.ref-redeem-head .t-ico{width:36px;height:36px;flex-shrink:0;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;' +
+              'font-size:16px;color:#fff;background:linear-gradient(135deg,#7c3aed,#6d28d9);box-shadow:0 8px 18px rgba(124,58,237,.28);}' +
+            '.ref-redeem-titles h3{margin:0;font-size:1rem;font-weight:800;}' +
+            '.ref-redeem-titles p{margin:4px 0 0;font-size:.78rem;opacity:.72;line-height:1.65;}' +
+            '.ref-redeem-balance{position:relative;display:flex;align-items:center;gap:12px;border-radius:16px;padding:13px 15px;margin-bottom:16px;' +
+              'background:linear-gradient(135deg,rgba(124,58,237,.13),rgba(245,158,11,.12));border:1px solid rgba(124,58,237,.2);}' +
+            '.ref-redeem-balance .r-ico{width:44px;height:44px;flex-shrink:0;border-radius:14px;display:flex;align-items:center;justify-content:center;' +
+              'font-size:18px;color:#3b2300;background:linear-gradient(135deg,#fbbf24,#f59e0b);box-shadow:0 8px 18px rgba(245,158,11,.32);}' +
+            '.ref-redeem-balance .lbl{font-size:.74rem;opacity:.75;font-weight:700;}' +
+            '.ref-redeem-balance .amt{font-size:1.5rem;font-weight:900;line-height:1.15;font-variant-numeric:tabular-nums;' +
               'background:linear-gradient(135deg,#7c3aed,#b45309);-webkit-background-clip:text;background-clip:text;color:transparent;}' +
-            '.ref-denom .cost{font-size:.78rem;opacity:.75;margin-top:5px;font-weight:600;}' +
-            '.ref-denom .left{font-size:.7rem;margin-top:8px;font-weight:700;color:#16a34a;background:rgba(34,197,94,.1);border-radius:999px;padding:3px 9px;display:inline-block;}' +
-            '.ref-denom.disabled{opacity:.5;cursor:not-allowed;filter:grayscale(.6);}' +
-            '.ref-denom.disabled .left{color:#b91c1c;background:rgba(239,68,68,.1);}' +
+            '.ref-redeem-hint{margin-right:auto;font-size:.72rem;font-weight:700;color:#6d28d9;background:rgba(124,58,237,.12);' +
+              'border-radius:999px;padding:6px 11px;white-space:nowrap;display:inline-flex;align-items:center;gap:5px;}' +
+            '.ref-denoms{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,200px));gap:12px;justify-content:center;}' +
+            '.ref-denom{position:relative;overflow:hidden;border:1.5px solid var(--border-color,rgba(109,40,217,.16));border-radius:18px;padding:0;text-align:center;cursor:pointer;' +
+              'background:var(--card-bg,#fff);transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease;' +
+              '-webkit-tap-highlight-color:transparent;touch-action:manipulation;}' +
+            '.ref-denom:hover{border-color:#a855f7;box-shadow:0 14px 30px rgba(124,58,237,.18);transform:translateY(-2px);}' +
+            '.ref-denom:active{transform:scale(.97);}' +
+            '.ref-denom:focus-visible{outline:3px solid rgba(124,58,237,.45);outline-offset:2px;}' +
+            '.ref-denom-top{position:relative;padding:16px 12px 13px;background:linear-gradient(135deg,rgba(124,58,237,.10),rgba(245,158,11,.09));}' +
+            '.ref-denom-gift{position:absolute;top:7px;left:9px;font-size:30px;opacity:.10;transform:rotate(-12deg);pointer-events:none;}' +
+            '.ref-denom-badge{position:relative;display:inline-flex;align-items:center;gap:5px;font-size:.62rem;font-weight:800;letter-spacing:.2px;' +
+              'color:#6d28d9;background:rgba(124,58,237,.14);border-radius:999px;padding:3px 9px;margin-bottom:9px;}' +
+            '.ref-denom .val{position:relative;font-size:1.7rem;font-weight:900;line-height:1;font-variant-numeric:tabular-nums;' +
+              'background:linear-gradient(135deg,#7c3aed,#b45309);-webkit-background-clip:text;background-clip:text;color:transparent;}' +
+            '.ref-denom-divider{height:0;border-top:1.6px dashed var(--border-color,rgba(109,40,217,.24));margin:0;}' +
+            '.ref-denom-bottom{padding:12px 12px 14px;}' +
+            '.ref-denom .cost{font-size:.75rem;opacity:.82;font-weight:600;display:flex;align-items:center;justify-content:center;gap:5px;}' +
+            '.ref-denom .cost i{color:#7c3aed;font-size:.72rem;}' +
+            '.ref-denom .left{font-size:.7rem;margin-top:9px;font-weight:800;color:#16a34a;background:rgba(34,197,94,.12);border-radius:999px;padding:4px 10px;display:inline-flex;align-items:center;gap:5px;}' +
+            '.ref-denom.disabled{opacity:.55;cursor:not-allowed;filter:grayscale(.55);}' +
+            '.ref-denom.disabled:hover{transform:none;box-shadow:none;border-color:var(--border-color,rgba(109,40,217,.16));}' +
+            '.ref-denom.disabled .left{color:#b91c1c;background:rgba(239,68,68,.12);}' +
+            'body.dark-mode .ref-redeem-balance{background:linear-gradient(135deg,rgba(139,92,246,.16),rgba(245,158,11,.12));border-color:rgba(168,130,255,.24);}' +
+            'body.dark-mode .ref-denom-top{background:linear-gradient(135deg,rgba(139,92,246,.14),rgba(245,158,11,.10));}' +
+            'body.dark-mode .ref-denom-badge{color:#c4b5fd;background:rgba(139,92,246,.2);}' +
+            'body.dark-mode .ref-redeem-hint{color:#c4b5fd;background:rgba(139,92,246,.18);}' +
+            'body.dark-mode .ref-redeem-balance .amt,body.dark-mode .ref-denom .val{background:linear-gradient(135deg,#a78bfa,#fbbf24);-webkit-background-clip:text;background-clip:text;}' +
             '.ref-list{list-style:none;margin:0;padding:0;}' +
             '.ref-list li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:11px 2px;border-bottom:1px dashed rgba(124,58,237,.14);font-size:.85rem;}' +
             '.ref-list li:last-child{border-bottom:0;}' +
@@ -39420,25 +39453,48 @@ function normalizeCategory(value){
             '</div>';
 
           if (Array.isArray(info.denominations) && info.denominations.length) {
-            html += '<div class="ref-card">' +
-              '<h3 class="ref-section-title"><span class="t-ico"><i class="fa-solid fa-ticket"></i></span>استبدل رصيدك بكود شحن</h3>' +
+            var redeemBalance = Number(stats.balance) || 0;
+            html += '<div class="ref-card ref-redeem-card">' +
+              '<div class="ref-redeem-head">' +
+                '<span class="t-ico"><i class="fa-solid fa-gift"></i></span>' +
+                '<div class="ref-redeem-titles">' +
+                  '<h3>استبدل رصيدك بكود شحن</h3>' +
+                  '<p>حوّل رصيد الإحالة إلى كود شحن جاهز تستخدمه في محفظتك فورًا.</p>' +
+                '</div>' +
+              '</div>' +
+              '<div class="ref-redeem-balance">' +
+                '<div class="r-ico"><i class="fa-solid fa-wallet"></i></div>' +
+                '<div style="min-width:0;">' +
+                  '<div class="lbl">رصيدك المتاح للاستبدال</div>' +
+                  '<div class="amt" data-count-money="' + redeemBalance + '">$0.00</div>' +
+                '</div>' +
+                '<span class="ref-redeem-hint"><i class="fa-solid fa-hand-pointer"></i>اختر فئة</span>' +
+              '</div>' +
               '<div class="ref-denoms">';
             info.denominations.forEach(function(denomination){
               var soldOut = denomination.remaining != null && denomination.remaining <= 0;
               var limitReached = denomination.perUserLimit > 0 && denomination.userUsed >= denomination.perUserLimit;
               var blocked = soldOut || limitReached;
+              var leftText = soldOut ? 'نفدت الكمية' : limitReached ? 'بلغت حدّك من هذه الفئة'
+                : (denomination.remaining != null ? ('متبقي ' + denomination.remaining) : 'متاح');
+              var leftIcon = blocked ? 'fa-circle-xmark' : 'fa-circle-check';
               html += '<div class="ref-denom' + (blocked ? ' disabled' : '') + '" data-ref-denom="' + denomination.id + '"' +
-                (blocked ? ' data-blocked="1" aria-disabled="true"' : '') + ' role="button" tabindex="' + (blocked ? '-1' : '0') + '">' +
-                '<div class="val">' + shared.esc(shared.fmtUsd(denomination.value)) + '</div>' +
-                '<div class="cost">مقابل ' + shared.esc(shared.fmtUsd(denomination.cost)) + ' من رصيد الإحالة</div>' +
-                '<div class="left">' +
-                  (soldOut ? 'نفدت الكمية' : limitReached ? 'بلغت حدّك من هذه الفئة'
-                    : (denomination.remaining != null ? ('متبقي ' + denomination.remaining) : 'متاح')) +
+                (blocked ? ' data-blocked="1" aria-disabled="true"' : '') + ' role="button" tabindex="' + (blocked ? '-1' : '0') +
+                '" aria-label="استبدال ' + shared.esc(shared.fmtUsd(denomination.value)) + '">' +
+                '<div class="ref-denom-top">' +
+                  '<span class="ref-denom-gift" aria-hidden="true"><i class="fa-solid fa-gift"></i></span>' +
+                  '<span class="ref-denom-badge"><i class="fa-solid fa-ticket"></i>كود شحن</span>' +
+                  '<div class="val">' + shared.esc(shared.fmtUsd(denomination.value)) + '</div>' +
+                '</div>' +
+                '<div class="ref-denom-divider"></div>' +
+                '<div class="ref-denom-bottom">' +
+                  '<div class="cost"><i class="fa-solid fa-gem"></i>مقابل ' + shared.esc(shared.fmtUsd(denomination.cost)) + ' من رصيدك</div>' +
+                  '<div class="left"><i class="fa-solid ' + leftIcon + '"></i>' + shared.esc(leftText) + '</div>' +
                 '</div>' +
               '</div>';
             });
             html += '</div>' +
-              '<p class="ref-note" style="margin:10px 0 0;"><i class="fa-solid fa-circle-info n-ico"></i>رصيد الإحالة مستقل عن رصيد المحفظة — لا يمكن تحويله من صفحة التحويل، ويُستبدل هنا فقط مقابل كود شحن.</p>' +
+              '<p class="ref-note" style="margin:14px 0 0;"><i class="fa-solid fa-circle-info n-ico"></i>رصيد الإحالة مستقل عن رصيد المحفظة — لا يمكن تحويله من صفحة التحويل، ويُستبدل هنا فقط مقابل كود شحن.</p>' +
             '</div>';
           }
 
