@@ -38871,7 +38871,21 @@ function normalizeCategory(value){
 
         function workerBase(){
           var candidates = [];
-          try { candidates.push(window.API_BASE_URL, window.__API_BASE__, window.API_BASE); } catch(_){ }
+          // Canonical resolvers FIRST — the same source every working feature
+          // (wallet/support/deposit) uses. The live site delivers the API base
+          // through these (runtime config), NOT through __getSiteSetting; a module
+          // that skips them falls through to the Pages origin and silently fetches
+          // the SPA's index.html instead of the API.
+          try { if (window.__getSiteWorkerBase) candidates.push(window.__getSiteWorkerBase({ trailingSlash: true, allowStorageOverride: true })); } catch(_){ }
+          try { if (window.__getSiteWorkerBaseDefault) candidates.push(window.__getSiteWorkerBaseDefault({ trailingSlash: true })); } catch(_){ }
+          try {
+            candidates.push(
+              window.API_BASE_URL,
+              window.__API_BASE__,
+              window.API_BASE,
+              document.documentElement && document.documentElement.getAttribute('data-api-base')
+            );
+          } catch(_){ }
           try {
             candidates.push(
               localStorage.getItem('MANWAL_ROUTER_BASE'),
@@ -38889,6 +38903,10 @@ function normalizeCategory(value){
             var value = String(candidates[i] || '').trim();
             if (value) return value.replace(/\/+$/, '');
           }
+          // Last resort only: same-origin. For a cross-origin API (api.njad.store
+          // vs the Pages domain) this fetches the SPA's index.html (HTTP 200 HTML);
+          // the ok:true guard in fetchReferralInfo turns that into an honest error
+          // instead of an all-zeros dashboard.
           try { return String(location.origin || '').replace(/\/+$/, ''); } catch(_){ return ''; }
         }
 
@@ -38944,8 +38962,12 @@ function normalizeCategory(value){
               method: 'GET',
               headers: { 'x-useruid': auth.uid, 'x-sessionkey': auth.sessionKey }
             });
-            var data = await res.json().catch(function(){ return {}; });
-            if (!res.ok || !data || data.ok === false) {
+            var data = await res.json().catch(function(){ return null; });
+            // Require an explicit ok:true. A same-origin/HTML fallback response
+            // parses to null or {} — treat that as an error rather than rendering
+            // a misleading all-zeros dashboard (the server always sets ok:true,
+            // including for the enabled:false case).
+            if (!res.ok || !data || data.ok !== true) {
               return { ok: false, error: String((data && data.error) || 'server_error') };
             }
             return data;
