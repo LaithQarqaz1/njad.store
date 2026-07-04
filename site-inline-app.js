@@ -38913,7 +38913,10 @@ function normalizeCategory(value){
         }
 
         function stashInviter(webuid){
-          try { localStorage.setItem(STASH_KEY, JSON.stringify({ webuid: String(webuid), ts: Date.now() })); } catch(_){ }
+          try {
+            localStorage.setItem(STASH_KEY, JSON.stringify({ webuid: String(webuid), ts: Date.now() }));
+            try { console.info('[referral] تم تخزين الدعوة webuid=' + webuid + ' — ستُرفق عند إنشاء حساب من هذا المتصفح'); } catch(_){ }
+          } catch(_){ }
         }
 
         async function copyText(text){
@@ -39208,6 +39211,7 @@ function normalizeCategory(value){
           var raw = (ctx && Array.isArray(ctx.routeParts) && ctx.routeParts.length) ? String(ctx.routeParts[0] || '') : '';
           var webuid = /^[0-9]{1,15}$/.test(raw.trim()) ? raw.trim().replace(/^0+(?=\d)/, '') : '';
           if (!webuid) {
+            try { console.warn('[referral] رابط دعوة بلا رقم صالح (raw="' + raw + '") — لم تُخزَّن دعوة'); } catch(_){ }
             try { location.hash = '#/'; } catch(_){ }
             return;
           }

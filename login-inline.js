@@ -3647,13 +3647,24 @@
   // does ALL the validation (invalid/self/duplicate referrals are ignored
   // server-side) — then the stash is cleared so it is never reused.
   const REFERRAL_INVITER_STASH_KEY = 'edaa:referral:inviter:v1';
+  // Reads the inviter webuid stashed by the /invite/{webuid} landing. Prints a
+  // clear client-side line so the sign-up flow is debuggable in the browser
+  // console: whether a referral is present and will be attached to the request.
   function readReferralInviterWebuid() {
     try {
       const raw = localStorage.getItem(REFERRAL_INVITER_STASH_KEY);
-      if (!raw) return '';
+      if (!raw) {
+        try { console.info('[referral] لا توجد دعوة مخزّنة — تسجيل عادي (لن تُرسل إحالة)'); } catch (_) {}
+        return '';
+      }
       const parsed = JSON.parse(raw);
       const webuid = String((parsed && parsed.webuid) || '').trim();
-      return /^[0-9]{1,15}$/.test(webuid) ? webuid : '';
+      if (/^[0-9]{1,15}$/.test(webuid)) {
+        try { console.info('[referral] دعوة مخزّنة webuid=' + webuid + ' — ستُرفق بطلب إنشاء الحساب'); } catch (_) {}
+        return webuid;
+      }
+      try { console.warn('[referral] الدعوة المخزّنة غير صالحة (webuid=' + webuid + ') — لن تُرسل'); } catch (_) {}
+      return '';
     } catch (_) { return ''; }
   }
   function clearReferralInviterStash() {
