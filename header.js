@@ -19319,6 +19319,11 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
     const SITE_MEDIA_IMAGE_CACHE_ENTRY_MAX_CHARS = 950000;
     const SITE_MEDIA_IMAGE_CACHE_TOTAL_MAX_CHARS = 3800000;
     const __siteMediaImagePersistInFlight = new Set();
+    // URLs whose byte-cache fetch failed once (CORS refusal, non-image, oversized,
+    // storage full, …). They are NEVER re-fetched this session — without this,
+    // every applySiteMedia poll re-tries the same failing fetch and floods the
+    // network with an unbounded retry storm.
+    const __siteMediaImagePersistFailed = new Set();
     const __sitePreloadedImageUrls = new Set();
 
     function siteMediaImageCacheKey(url){
@@ -19393,29 +19398,38 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
       if (typeof fetch !== "function") return;
       if (readCachedSiteMediaImage(src)) return;
       if (__siteMediaImagePersistInFlight.has(src)) return;
+      if (__siteMediaImagePersistFailed.has(src)) return;
       __siteMediaImagePersistInFlight.add(src);
       Promise.resolve().then(async () => {
-        const res = await fetch(src, { mode: "cors", credentials: "omit", cache: "force-cache" });
-        if (!res || !res.ok) return;
-        const blob = await res.blob();
-        if (!blob || !blob.size) return;
-        const type = String(blob.type || res.headers.get("content-type") || "").toLowerCase();
-        if (type && type.indexOf("image/") !== 0) return;
-        // data URL is ~4/3 of the raw bytes; gate before encoding.
-        if (blob.size > SITE_MEDIA_IMAGE_CACHE_ENTRY_MAX_CHARS * 0.74) return;
-        const dataUrl = await new Promise((resolve) => {
-          try {
-            const reader = new FileReader();
-            reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
-            reader.onerror = () => resolve("");
-            reader.readAsDataURL(blob);
-          } catch { resolve(""); }
-        });
-        if (!dataUrl || dataUrl.indexOf("data:image/") !== 0) return;
-        if (dataUrl.length > SITE_MEDIA_IMAGE_CACHE_ENTRY_MAX_CHARS) return;
-        if (siteMediaImageCacheTotalChars() + dataUrl.length > SITE_MEDIA_IMAGE_CACHE_TOTAL_MAX_CHARS) return;
-        try { localStorage.setItem(siteMediaImageCacheKey(src), dataUrl); } catch {}
-      }).catch(() => {}).finally(() => {
+        let cached = false;
+        try {
+          const res = await fetch(src, { mode: "cors", credentials: "omit", cache: "force-cache" });
+          if (!res || !res.ok) return;
+          const blob = await res.blob();
+          if (!blob || !blob.size) return;
+          const type = String(blob.type || res.headers.get("content-type") || "").toLowerCase();
+          if (type && type.indexOf("image/") !== 0) return;
+          // data URL is ~4/3 of the raw bytes; gate before encoding.
+          if (blob.size > SITE_MEDIA_IMAGE_CACHE_ENTRY_MAX_CHARS * 0.74) return;
+          const dataUrl = await new Promise((resolve) => {
+            try {
+              const reader = new FileReader();
+              reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+              reader.onerror = () => resolve("");
+              reader.readAsDataURL(blob);
+            } catch { resolve(""); }
+          });
+          if (!dataUrl || dataUrl.indexOf("data:image/") !== 0) return;
+          if (dataUrl.length > SITE_MEDIA_IMAGE_CACHE_ENTRY_MAX_CHARS) return;
+          if (siteMediaImageCacheTotalChars() + dataUrl.length > SITE_MEDIA_IMAGE_CACHE_TOTAL_MAX_CHARS) return;
+          try { localStorage.setItem(siteMediaImageCacheKey(src), dataUrl); cached = true; } catch {}
+        } finally {
+          // Any outcome other than a successful cache write = give up on this URL
+          // for the rest of the session, so it is never re-fetched (no retries,
+          // whatever the error). One <img>/preload attempt still renders it.
+          if (!cached) __siteMediaImagePersistFailed.add(src);
+        }
+      }).catch(() => { __siteMediaImagePersistFailed.add(src); }).finally(() => {
         __siteMediaImagePersistInFlight.delete(src);
       });
     }

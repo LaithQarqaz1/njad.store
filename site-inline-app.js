@@ -3548,12 +3548,12 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       "    depositAuth = firebase.auth ? firebase.auth() : null;",
       "    depositDb = firebase.firestore ? firebase.firestore() : null;",
       "  } else if (typeof firebase !== 'undefined' && firebase) {",
-      "    console.info('Firebase is still loading; the page will keep retrying in the background.');",
+      "    void 0;",
       "  } else {",
-      "    console.info('Firebase is still loading; the page will keep retrying in the background.');",
+      "    void 0;",
       "  }",
       "} catch (firebaseInitError) {",
-      "  console.info('Deposit Firebase init is not ready yet; continuing with worker-only flow.', firebaseInitError && (firebaseInitError.code || firebaseInitError.message) ? (firebaseInitError.code || firebaseInitError.message) : firebaseInitError);",
+      "  void 0;",
       "  depositAuth = null;",
       "  depositDb = null;",
       "}"
@@ -22169,7 +22169,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
         firebaseAvailable = !!auth && !!db;
         return firebaseAvailable;
       } catch (e) {
-        console.info('Firebase init is not ready yet; continuing and retrying in the background.', e && (e.code || e.message) ? (e.code || e.message) : e);
+        void 0;
         auth = null;
         db = null;
         firebaseAvailable = false;
@@ -22388,14 +22388,14 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
         bootFirebaseInline();
         loadFirebaseCompat().then((ok) => {
           if (!ok) {
-            console.info('مكتبة Firebase لم تجهز بعد، سيتم متابعة العرض ثم تحديث البيانات عند توفرها.');
+            void 0;
             return;
           }
           if (initFirebaseOnce()) {
             try { window.__SKIP_FIREBASE__ = false; } catch(_){}
             bindFirebaseHandlers();
           } else if (!window.__getSiteFirebaseConfig || window.__getSiteFirebaseConfig()) {
-            console.info('Firebase is still loading; the page will keep retrying in the background.');
+            void 0;
           }
         });
       }
@@ -33644,8 +33644,11 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
             try { window.__CATALOG_TIMINGS__ = summary; } catch(_){}
             try { window.__CATALOG_TIMELINE__ = rows; } catch(_){}
             try {
-              if (window.console) {
-                if (console.groupCollapsed) console.groupCollapsed("📊 Catalog load timeline (" + (c.reason || "load") + ")");
+              // Console output OFF by default (set window.__CATALOG_TIMINGS_LOG__ = true
+              // to print) so browsing catalog sections never spams the console on every
+              // load; the data stays on window.__CATALOG_TIMINGS__ / __CATALOG_TIMELINE__.
+              if (window.__CATALOG_TIMINGS_LOG__ === true && window.console) {
+                if (console.groupCollapsed) console.groupCollapsed("Catalog load timeline (" + (c.reason || "load") + ")");
                 if (console.table) console.table(rows);
                 console.log("catalogFetchCount:", c.fetchCount, c.fetches);
                 console.log("server timings:", c.server);
