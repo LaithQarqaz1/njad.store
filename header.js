@@ -10856,7 +10856,7 @@ function wirePageBalanceBox(){
       pollTimer: 0,
       badgePollTimer: 0,
       markReadTimer: 0,
-      pollDelayMs: 15000,
+      pollDelayMs: 3000,
       badgePollDelayMs: 30000,
       realtimeUnsubscribe: null,
       realtimeStarting: false,
@@ -12356,7 +12356,7 @@ function wirePageBalanceBox(){
       if (!isSupportChatActive() || supportChatState.markReadInFlight) return;
       var thread = supportChatState.thread || {};
       if (!(Number(thread.unreadUser || 0) > 0)) return;
-      var minThreadFetchMs = Math.max(15000, Number(supportChatState.pollDelayMs || 0) || 15000);
+      var minThreadFetchMs = Math.max(3000, Number(supportChatState.pollDelayMs || 0) || 3000);
       var nowMs = Date.now();
       var remainingMs = supportChatState.lastThreadFetchAt
         ? minThreadFetchMs - (nowMs - supportChatState.lastThreadFetchAt)
@@ -12410,7 +12410,7 @@ function wirePageBalanceBox(){
       if (!isSupportChatActive() || !supportShouldPollFallback()) return;
       var delay = Number(delayMs);
       if (!Number.isFinite(delay) || delay < 0) delay = Number(supportChatState.pollDelayMs || 0);
-      delay = Math.max(15000, delay || 15000);
+      delay = Math.max(3000, delay || 3000);
       supportChatState.pollTimer = setTimeout(function(){
         supportRunPollingCycle();
       }, delay);
@@ -12449,6 +12449,11 @@ function wirePageBalanceBox(){
     }
 
     async function startSupportRealtime(){
+      // Firebase realtime is removed for support: storage is server-side D1, and the
+      // client polls the D1-backed GET endpoint (for open human tickets) instead of
+      // opening a Firestore onSnapshot channel. The customer's own messages + AI
+      // replies already arrive synchronously in the send response.
+      supportChatState.realtimeDisabled = true;
       if (!isSupportChatActive()) {
         stopSupportRealtime();
         return false;
@@ -12521,7 +12526,7 @@ function wirePageBalanceBox(){
         return { success: true, ok: true, skipped: true, inactive: true };
       }
       if (supportChatState.loading) return;
-      var minThreadFetchMs = Math.max(15000, Number(supportChatState.pollDelayMs || 0) || 15000);
+      var minThreadFetchMs = Math.max(3000, Number(supportChatState.pollDelayMs || 0) || 3000);
       var nowMs = Date.now();
       if (silent && supportChatState.lastThreadFetchAt && (nowMs - supportChatState.lastThreadFetchAt) < minThreadFetchMs) {
         return { success: true, ok: true, skipped: true, throttled: true };

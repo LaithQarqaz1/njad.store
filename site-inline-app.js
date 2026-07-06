@@ -6035,6 +6035,8 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       setInlineRechargeOptionsHidden(false);
     } catch (_) {}
   }
+  window.closeInlineRechargeRedeemPage = closeInlineRechargeRedeemPage;
+  window.addEventListener('hashchange', closeInlineRechargeRedeemPage);
   // Recharge redeem is shown as an inline page (like the deposit method forms),
   // not a popup overlay: hide the options grid and render a full-width panel.
   function openInlineRechargeRedeemModal(){
@@ -42065,6 +42067,9 @@ function normalizeCategory(value){
             } catch(_){ }
           }
           try {
+            if (window.closeInlineRechargeRedeemPage) {
+              window.closeInlineRechargeRedeemPage();
+            }
             loadInline(routeKey, { routeValue: routeValue, routeParts: routeParts, __forceReload: true });
           } finally {
             try { window.__INLINE_FORCE_ROUTE__ = null; }catch(_){ }
