@@ -1,4 +1,4 @@
-﻿// Deobfuscated and cleaned header logic
+// Deobfuscated and cleaned header logic
 
 // Runtime config, router base, and Firebase bootstrap now come from site-bundle.js.
 // Realtime Firestore toggle (to reduce "channel?VER=8" requests)
@@ -10856,8 +10856,8 @@ function wirePageBalanceBox(){
       pollTimer: 0,
       badgePollTimer: 0,
       markReadTimer: 0,
-      pollDelayMs: 3000,
-      badgePollDelayMs: 30000,
+      pollDelayMs: 60000,
+      badgePollDelayMs: 60000,
       realtimeUnsubscribe: null,
       realtimeStarting: false,
       realtimeReady: false,
@@ -12356,7 +12356,7 @@ function wirePageBalanceBox(){
       if (!isSupportChatActive() || supportChatState.markReadInFlight) return;
       var thread = supportChatState.thread || {};
       if (!(Number(thread.unreadUser || 0) > 0)) return;
-      var minThreadFetchMs = Math.max(3000, Number(supportChatState.pollDelayMs || 0) || 3000);
+      var minThreadFetchMs = Math.max(60000, Number(supportChatState.pollDelayMs || 0) || 60000);
       var nowMs = Date.now();
       var remainingMs = supportChatState.lastThreadFetchAt
         ? minThreadFetchMs - (nowMs - supportChatState.lastThreadFetchAt)
@@ -12410,7 +12410,7 @@ function wirePageBalanceBox(){
       if (!isSupportChatActive() || !supportShouldPollFallback()) return;
       var delay = Number(delayMs);
       if (!Number.isFinite(delay) || delay < 0) delay = Number(supportChatState.pollDelayMs || 0);
-      delay = Math.max(3000, delay || 3000);
+      delay = Math.max(60000, delay || 60000);
       supportChatState.pollTimer = setTimeout(function(){
         supportRunPollingCycle();
       }, delay);
@@ -12526,7 +12526,7 @@ function wirePageBalanceBox(){
         return { success: true, ok: true, skipped: true, inactive: true };
       }
       if (supportChatState.loading) return;
-      var minThreadFetchMs = Math.max(3000, Number(supportChatState.pollDelayMs || 0) || 3000);
+      var minThreadFetchMs = Math.max(60000, Number(supportChatState.pollDelayMs || 0) || 60000);
       var nowMs = Date.now();
       if (silent && supportChatState.lastThreadFetchAt && (nowMs - supportChatState.lastThreadFetchAt) < minThreadFetchMs) {
         return { success: true, ok: true, skipped: true, throttled: true };
@@ -12858,11 +12858,7 @@ function wirePageBalanceBox(){
         } else {
           renderSupportThread(payload.thread || null, { notify: false });
         }
-        if (payload && payload.realtime === false) {
-          setSupportChatStatus('تم الإرسال، لكن التحديث الفوري غير جاهز للطرف الآخر.');
-        } else {
-          setSupportChatStatus('');
-        }
+        setSupportChatStatus('');
       } catch (err) {
         setSupportChatStatus(err && err.message ? err.message : 'تعذر إرسال الرسالة.');
       } finally {
