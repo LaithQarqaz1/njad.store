@@ -19554,7 +19554,18 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
           String(src.copyOnClick ?? src.copy_on_click ?? src.copyLink ?? src.copy_link ?? src.copy ?? "").trim().toLowerCase() === "true"
         )
       );
-      return { id, image, href, order, enabled: !!enabled, copyOnClick, copySource };
+      const shareOnClick = !!(
+        src &&
+        (
+          src.shareOnClick === true ||
+          src.share_on_click === true ||
+          src.shareLink === true ||
+          src.share_link === true ||
+          src.share === true ||
+          String(src.shareOnClick ?? src.share_on_click ?? src.shareLink ?? src.share_link ?? src.share ?? "").trim().toLowerCase() === "true"
+        )
+      );
+      return { id, image, href, order, enabled: !!enabled, copyOnClick, shareOnClick, copySource };
     }
 
     function normalizeSiteMediaBanners(list){
@@ -19583,6 +19594,7 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
           order: item.order,
           enabled: item.enabled,
           copyOnClick: !!item.copyOnClick,
+          shareOnClick: !!item.shareOnClick,
           copySource: item.copySource || "custom"
         }));
     }
