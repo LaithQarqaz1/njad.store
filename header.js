@@ -12926,6 +12926,56 @@ function wirePageBalanceBox(){
       return false;
     }
 
+    // Resolve the owning-section slug (game key) for a product id from any cached
+    // catalog so the support "buy" card can open the product's real section even when
+    // the AI card carries no gameSlug. Mirrors resolveFavoriteCatalogSlugByItemId /
+    // resolveCatalogGameKeyByItemId, but self-contained so it also works in header.js.
+    function resolveSupportCatalogSlugByItemId(itemId, fallback){
+      var lookup = String(itemId == null ? '' : itemId).trim().toLowerCase();
+      var resolved = String(fallback || '').trim();
+      if (!lookup) return resolved;
+      var catalogs = [];
+      try {
+        if (window.__CATALOG_CATALOG_CACHE__ && window.__CATALOG_CATALOG_CACHE__.items) {
+          catalogs.push(window.__CATALOG_CATALOG_CACHE__);
+        }
+      } catch (_) {}
+      try {
+        for (var li = 0; li < localStorage.length; li += 1) {
+          var storeKey = String(localStorage.key(li) || '');
+          if (storeKey.indexOf('catalog:cache:v9:') !== 0) continue;
+          var raw = localStorage.getItem(storeKey);
+          if (!raw) continue;
+          var parsedCache = JSON.parse(raw);
+          if (parsedCache && parsedCache.catalog && parsedCache.catalog.items) {
+            catalogs.push(parsedCache.catalog);
+          }
+        }
+      } catch (_) {}
+      for (var c = 0; c < catalogs.length; c += 1) {
+        var items = catalogs[c] && catalogs[c].items;
+        if (!items || typeof items !== 'object') continue;
+        var gameKeys = Object.keys(items);
+        for (var g = 0; g < gameKeys.length; g += 1) {
+          var gameKey = gameKeys[g];
+          var bucket = items[gameKey];
+          if (!bucket || typeof bucket !== 'object') continue;
+          var itemKeys = Object.keys(bucket);
+          for (var i = 0; i < itemKeys.length; i += 1) {
+            var itemKey = itemKeys[i];
+            var meta = bucket[itemKey] && typeof bucket[itemKey] === 'object' ? bucket[itemKey] : {};
+            var candidates = [itemKey, meta.id, meta.itemId, meta.item_id, meta.catalogItemId, meta.providerItemId, meta.provider_item_id, meta.itemKey, meta.item_key, meta.key];
+            for (var k = 0; k < candidates.length; k += 1) {
+              if (String(candidates[k] == null ? '' : candidates[k]).trim().toLowerCase() === lookup) {
+                return String(gameKey || resolved || '').trim();
+              }
+            }
+          }
+        }
+      }
+      return resolved;
+    }
+
     function openSupportProductCard(button){
       var productId = String(button && (button.getAttribute('data-product-id') || button.getAttribute('data-card-id')) || '').trim();
       var gameSlug = String(button && button.getAttribute('data-game-slug') || '').trim();
@@ -12933,27 +12983,31 @@ function wirePageBalanceBox(){
         setSupportChatStatus('تعذر فتح المنتج من الكرت.');
         return;
       }
+      var resolvedSlug = gameSlug;
+      if (productId) {
+        try { resolvedSlug = resolveSupportCatalogSlugByItemId(productId, gameSlug) || gameSlug; } catch (_) { resolvedSlug = gameSlug; }
+      }
       try { if (button && typeof button.blur === 'function') button.blur(); } catch (_) {}
       try { setSupportChatOpen(false); } catch (_) {}
       try {
         window.__CATALOG_INLINE_ITEM_ID__ = productId || '';
-        window.__CATALOG_INLINE_ITEM_SLUG__ = gameSlug || productId || '';
+        window.__CATALOG_INLINE_ITEM_SLUG__ = resolvedSlug || productId || '';
         window.__CATALOG_INLINE_FORCE_MODAL__ = productId ? '1' : '';
         window.__CATALOG_INLINE_MODAL_ONLY__ = '';
         window.__CATALOG_INLINE_MODAL_ONLY_SOURCE__ = 'support';
         window.__CATALOG_INLINE_KEEP_PAGE_FOR_FORCE_MODAL__ = productId ? '1' : '';
         window.__CATALOG_SUPPRESS_CATEGORY_FETCH_UNTIL__ = Date.now() + 8000;
         window.__CATALOG_PRODUCT_CLICK_LOCK_UNTIL__ = Date.now() + 8000;
-        window.__CATALOG_PRODUCT_CLICK_LOCK_SLUG__ = gameSlug || productId || '';
+        window.__CATALOG_PRODUCT_CLICK_LOCK_SLUG__ = resolvedSlug || productId || '';
       } catch (_) {}
       try {
-        if (gameSlug && typeof window.__openCatalogInline === 'function') {
-          window.__openCatalogInline(gameSlug, 'games');
+        if (resolvedSlug && typeof window.__openCatalogInline === 'function') {
+          window.__openCatalogInline(resolvedSlug, 'games');
           return;
         }
       } catch (_) {}
-      if (gameSlug) {
-        navigateSupportRoute('games', '#/games/' + encodeURIComponent(gameSlug));
+      if (resolvedSlug) {
+        navigateSupportRoute('games', '#/games/' + encodeURIComponent(resolvedSlug));
       } else {
         navigateSupportRoute('games', '#/games');
       }
