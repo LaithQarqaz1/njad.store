@@ -12,7 +12,7 @@
         "measurementId": "G-T2J947YL3L"
     },
     "workers": {
-        "routerBase": "",
+        "routerBase": "https://api.njad.store",
         "routerBaseStorageKey": "MANWAL_ROUTER_BASE",
         "legacyWorkerStorageKey": "edaa:worker",
         "routerHostAliases": [],
