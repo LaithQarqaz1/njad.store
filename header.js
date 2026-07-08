@@ -13066,30 +13066,45 @@ function wirePageBalanceBox(){
       try { d1 = window.__catalogD1; } catch (_) { d1 = null; }
       var canLazy = !!(productId && d1 && typeof d1.isEnabled === 'function' && d1.isEnabled() && typeof d1.hydrateSection === 'function');
       if (!canLazy) { openInlineNow(resolvedSlug); return; }
-      var candidates = [];
-      [sectionId, resolvedSlug, gameSlug].forEach(function(id){
-        // Try the bare (manual-branch-stripped) id first — that is the id D1 actually
-        // stores; the raw __manual_branch__ wrapper 404s on load-section.
-        var raw = String(id || '').trim();
-        if (!raw) return;
-        [stripSupportManualBranchId(raw), raw].forEach(function(v){
-          if (v && candidates.indexOf(v) < 0) candidates.push(v);
+      function buildSectionCandidates(locatedId){
+        var out = [];
+        // locatedId (authoritative D1 node id) first, then whatever the card carried.
+        [locatedId, sectionId, resolvedSlug, gameSlug].forEach(function(id){
+          var raw = String(id || '').trim();
+          if (!raw) return;
+          // Try the bare (manual-branch-stripped) id too; the raw __manual_branch__
+          // wrapper 404s on load-section.
+          [stripSupportManualBranchId(raw), raw].forEach(function(v){
+            if (v && out.indexOf(v) < 0) out.push(v);
+          });
         });
-      });
-      if (!candidates.length) { openInlineNow(resolvedSlug); return; }
-      var index = 0;
-      function tryNextSection(){
-        if (index >= candidates.length) { openInlineNow(resolvedSlug || candidates[0]); return; }
-        var sid = candidates[index++];
-        Promise.resolve(d1.hydrateSection(sid, { pathParts: [sid], silentRender: true }))
-          .then(function(){
-            var found = '';
-            try { found = resolveSupportCatalogSlugByItemId(productId, ''); } catch (_) { found = ''; }
-            if (found) { openInlineNow(found); return; }
-            tryNextSection();
-          }, function(){ tryNextSection(); });
+        return out;
       }
-      tryNextSection();
+      function hydrateThenOpen(candidates){
+        if (!candidates.length) { openInlineNow(resolvedSlug); return; }
+        var index = 0;
+        (function tryNextSection(){
+          if (index >= candidates.length) { openInlineNow(resolvedSlug || candidates[0]); return; }
+          var sid = candidates[index++];
+          Promise.resolve(d1.hydrateSection(sid, { pathParts: [sid], silentRender: true }))
+            .then(function(){
+              var found = '';
+              try { found = resolveSupportCatalogSlugByItemId(productId, ''); } catch (_) { found = ''; }
+              if (found) { openInlineNow(found); return; }
+              tryNextSection();
+            }, function(){ tryNextSection(); });
+        })();
+      }
+      // Ask D1 for the product's REAL owning section id first (catalog_products.node_id).
+      // The section id is not derivable from the product's game/wrapper key, so this
+      // authoritative lookup is the reliable path; the card-carried ids are fallbacks.
+      if (productId && typeof d1.locateProductSection === 'function') {
+        Promise.resolve(d1.locateProductSection(productId)).then(function(locatedId){
+          hydrateThenOpen(buildSectionCandidates(locatedId));
+        }, function(){ hydrateThenOpen(buildSectionCandidates('')); });
+      } else {
+        hydrateThenOpen(buildSectionCandidates(''));
+      }
     }
 
     function tryOpenSupportDepositMethod(methodId, country, attempt){
