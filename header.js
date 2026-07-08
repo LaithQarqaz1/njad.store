@@ -13057,53 +13057,45 @@ function wirePageBalanceBox(){
         }
       }
 
-      // Fetch ONLY the product's own section (load-section&id=...) through the D1
-      // lazy engine before opening, so clicking "buy" never triggers the whole
-      // catalog load-categories request. Try the section id first (the owning
-      // category = the D1 node id), then any resolved game slug. Stop as soon as the
-      // product shows up in the local cache so the modal opens on the right section.
+      // Hydrate ONLY the product's real owning section (load-section&id=…) through the
+      // D1 lazy engine before opening, so clicking "buy" never triggers the whole
+      // catalog load-categories request — and never a burst of wrong-section loads.
       var d1 = null;
       try { d1 = window.__catalogD1; } catch (_) { d1 = null; }
       var canLazy = !!(productId && d1 && typeof d1.isEnabled === 'function' && d1.isEnabled() && typeof d1.hydrateSection === 'function');
       if (!canLazy) { openInlineNow(resolvedSlug); return; }
-      function buildSectionCandidates(locatedId){
-        var out = [];
-        // locatedId (authoritative D1 node id) first, then whatever the card carried.
-        [locatedId, sectionId, resolvedSlug, gameSlug].forEach(function(id){
-          var raw = String(id || '').trim();
-          if (!raw) return;
-          // Try the bare (manual-branch-stripped) id too; the raw __manual_branch__
-          // wrapper 404s on load-section.
-          [stripSupportManualBranchId(raw), raw].forEach(function(v){
-            if (v && out.indexOf(v) < 0) out.push(v);
-          });
-        });
-        return out;
+      // Hydrate exactly ONE section id, then open the product modal on the game-bucket
+      // key the product now lives under (falling back to the section id itself). The
+      // raw __manual_branch__ wrapper is stripped to the bare id load-section knows.
+      function hydrateSectionThenOpen(rawSectionId){
+        var target = stripSupportManualBranchId(rawSectionId);
+        if (!target) { openInlineNow(resolvedSlug); return; }
+        Promise.resolve(d1.hydrateSection(target, { pathParts: [target], silentRender: true }))
+          .then(function(){
+            var found = '';
+            try { found = resolveSupportCatalogSlugByItemId(productId, ''); } catch (_) { found = ''; }
+            openInlineNow(found || resolvedSlug || target);
+          }, function(){ openInlineNow(resolvedSlug || target); });
       }
-      function hydrateThenOpen(candidates){
-        if (!candidates.length) { openInlineNow(resolvedSlug); return; }
-        var index = 0;
-        (function tryNextSection(){
-          if (index >= candidates.length) { openInlineNow(resolvedSlug || candidates[0]); return; }
-          var sid = candidates[index++];
-          Promise.resolve(d1.hydrateSection(sid, { pathParts: [sid], silentRender: true }))
-            .then(function(){
-              var found = '';
-              try { found = resolveSupportCatalogSlugByItemId(productId, ''); } catch (_) { found = ''; }
-              if (found) { openInlineNow(found); return; }
-              tryNextSection();
-            }, function(){ tryNextSection(); });
-        })();
+      // The product's REAL owning section id (catalog_products.node_id) is the only
+      // reliable source: the card-carried sectionId can be a stale/synthetic wrapper
+      // (e.g. __manual_branch__…) that points at the WRONG section, so trusting it and
+      // iterating the card's ids fired extra load-section requests for sections the
+      // product isn't even in. Ask D1 for the authoritative id and hydrate ONLY that.
+      // The card ids stay as a fallback for the rare case locate-product yields nothing.
+      function openViaCardFallback(){
+        var fallbackId = stripSupportManualBranchId(sectionId) || resolvedSlug || gameSlug;
+        if (fallbackId) { hydrateSectionThenOpen(fallbackId); return; }
+        openInlineNow(resolvedSlug);
       }
-      // Ask D1 for the product's REAL owning section id first (catalog_products.node_id).
-      // The section id is not derivable from the product's game/wrapper key, so this
-      // authoritative lookup is the reliable path; the card-carried ids are fallbacks.
-      if (productId && typeof d1.locateProductSection === 'function') {
+      if (typeof d1.locateProductSection === 'function') {
         Promise.resolve(d1.locateProductSection(productId)).then(function(locatedId){
-          hydrateThenOpen(buildSectionCandidates(locatedId));
-        }, function(){ hydrateThenOpen(buildSectionCandidates('')); });
+          var authoritative = String(locatedId || '').trim();
+          if (authoritative) { hydrateSectionThenOpen(authoritative); return; }
+          openViaCardFallback();
+        }, function(){ openViaCardFallback(); });
       } else {
-        hydrateThenOpen(buildSectionCandidates(''));
+        openViaCardFallback();
       }
     }
 
