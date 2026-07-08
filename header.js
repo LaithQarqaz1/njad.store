@@ -12953,6 +12953,17 @@ function wirePageBalanceBox(){
       return false;
     }
 
+    // `__manual_branch__<realId>` are synthetic wrapper keys the catalog tree builder
+    // flattens away (products get re-homed under the real category), so the D1
+    // load-section endpoint only knows the bare id. Strip the prefix so section
+    // lookups target the real section instead of a 404-ing wrapper key.
+    function stripSupportManualBranchId(id){
+      var v = String(id == null ? '' : id).trim();
+      if (!v) return '';
+      var m = v.match(/^__manual_branch__(?:__|[_-])?(.+)$/i);
+      return (m && m[1]) ? m[1].trim() : v;
+    }
+
     // Resolve the owning-section slug (game key) for a product id from any cached
     // catalog so the support "buy" card can open the product's real section even when
     // the AI card carries no gameSlug. Mirrors resolveFavoriteCatalogSlugByItemId /
@@ -13057,8 +13068,13 @@ function wirePageBalanceBox(){
       if (!canLazy) { openInlineNow(resolvedSlug); return; }
       var candidates = [];
       [sectionId, resolvedSlug, gameSlug].forEach(function(id){
-        var v = String(id || '').trim();
-        if (v && candidates.indexOf(v) < 0) candidates.push(v);
+        // Try the bare (manual-branch-stripped) id first — that is the id D1 actually
+        // stores; the raw __manual_branch__ wrapper 404s on load-section.
+        var raw = String(id || '').trim();
+        if (!raw) return;
+        [stripSupportManualBranchId(raw), raw].forEach(function(v){
+          if (v && candidates.indexOf(v) < 0) candidates.push(v);
+        });
       });
       if (!candidates.length) { openInlineNow(resolvedSlug); return; }
       var index = 0;
