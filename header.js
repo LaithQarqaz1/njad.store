@@ -8796,6 +8796,31 @@ try {
       // keep whatever the cached profile/balance already rendered — never Firebase,
       // never a false logout.
       let headerLoadedFromServer = false;
+      // Seed the header immediately from the login payload. The ?action=auth response
+      // already carried balance + profile, but right after login the session key may
+      // not be persisted server-side yet, so the account-info retries below can all
+      // miss. Without this seed the header shows "تعذر التحميل" until a manual reload
+      // even though we already hold the data. The server retries still run and refine
+      // this with the authoritative value when ready.
+      try {
+        const seedPayload = readPostLoginPayload();
+        const seedUid = String(
+          (seedPayload && (seedPayload.uid || (seedPayload.account && seedPayload.account.uid))) || ''
+        ).trim();
+        const seedBalanceRaw = seedPayload && (
+          seedPayload.balance != null
+            ? seedPayload.balance
+            : (seedPayload.account ? seedPayload.account.balance : null)
+        );
+        if (
+          seedPayload &&
+          (!seedUid || seedUid === user.uid) &&
+          seedBalanceRaw != null &&
+          Number.isFinite(Number(seedBalanceRaw))
+        ) {
+          handleBalanceSnap({ exists: true, data: () => mapServerInfoToHeaderData(seedPayload, user) });
+        }
+      } catch {}
       for (let attempt = 0; attempt < 4 && !headerLoadedFromServer; attempt++) {
         const headerServerInfo = await fetchHeaderAccountFromServer(user).catch(() => null);
         if (headerServerInfo && headerServerInfo.banned) {
@@ -11578,6 +11603,7 @@ function wirePageBalanceBox(){
         imageUrl: sanitizeSupportImageUrl(source.imageUrl || source.image_url || source.image || ''),
         productId: String(source.productId || source.product_id || '').trim(),
         gameSlug: String(source.gameSlug || source.game_slug || source.catalogSlug || source.slug || '').trim(),
+        sectionId: String(source.sectionId || source.section_id || source.categoryId || source.category_id || '').trim(),
         methodId: String(source.methodId || source.method_id || '').trim(),
         country: String(source.country || source.countryName || '').trim(),
         orderCode: String(source.orderCode || source.order_code || '').trim(),
@@ -11627,6 +11653,7 @@ function wirePageBalanceBox(){
           'data-card-id="' + escapeSupport(card.id) + '"',
           'data-product-id="' + escapeSupport(card.productId || card.id) + '"',
           'data-game-slug="' + escapeSupport(card.gameSlug) + '"',
+          'data-section-id="' + escapeSupport(card.sectionId) + '"',
           'data-method-id="' + escapeSupport(card.methodId || card.id) + '"',
           'data-country="' + escapeSupport(card.country) + '"',
           'data-order-code="' + escapeSupport(card.orderCode || card.id) + '"'
@@ -12979,7 +13006,8 @@ function wirePageBalanceBox(){
     function openSupportProductCard(button){
       var productId = String(button && (button.getAttribute('data-product-id') || button.getAttribute('data-card-id')) || '').trim();
       var gameSlug = String(button && button.getAttribute('data-game-slug') || '').trim();
-      if (!productId && !gameSlug) {
+      var sectionId = String(button && button.getAttribute('data-section-id') || '').trim();
+      if (!productId && !gameSlug && !sectionId) {
         setSupportChatStatus('تعذر فتح المنتج من الكرت.');
         return;
       }
@@ -12989,28 +13017,63 @@ function wirePageBalanceBox(){
       }
       try { if (button && typeof button.blur === 'function') button.blur(); } catch (_) {}
       try { setSupportChatOpen(false); } catch (_) {}
-      try {
-        window.__CATALOG_INLINE_ITEM_ID__ = productId || '';
-        window.__CATALOG_INLINE_ITEM_SLUG__ = resolvedSlug || productId || '';
-        window.__CATALOG_INLINE_FORCE_MODAL__ = productId ? '1' : '';
-        window.__CATALOG_INLINE_MODAL_ONLY__ = '';
-        window.__CATALOG_INLINE_MODAL_ONLY_SOURCE__ = 'support';
-        window.__CATALOG_INLINE_KEEP_PAGE_FOR_FORCE_MODAL__ = productId ? '1' : '';
-        window.__CATALOG_SUPPRESS_CATEGORY_FETCH_UNTIL__ = Date.now() + 8000;
-        window.__CATALOG_PRODUCT_CLICK_LOCK_UNTIL__ = Date.now() + 8000;
-        window.__CATALOG_PRODUCT_CLICK_LOCK_SLUG__ = resolvedSlug || productId || '';
-      } catch (_) {}
-      try {
-        if (resolvedSlug && typeof window.__openCatalogInline === 'function') {
-          window.__openCatalogInline(resolvedSlug, 'games');
-          return;
-        }
-      } catch (_) {}
-      if (resolvedSlug) {
-        navigateSupportRoute('games', '#/games/' + encodeURIComponent(resolvedSlug));
-      } else {
-        navigateSupportRoute('games', '#/games');
+
+      function applyPendingState(slug){
+        try {
+          window.__CATALOG_INLINE_ITEM_ID__ = productId || '';
+          window.__CATALOG_INLINE_ITEM_SLUG__ = slug || productId || '';
+          window.__CATALOG_INLINE_FORCE_MODAL__ = productId ? '1' : '';
+          window.__CATALOG_INLINE_MODAL_ONLY__ = '';
+          window.__CATALOG_INLINE_MODAL_ONLY_SOURCE__ = 'support';
+          window.__CATALOG_INLINE_KEEP_PAGE_FOR_FORCE_MODAL__ = productId ? '1' : '';
+          window.__CATALOG_SUPPRESS_CATEGORY_FETCH_UNTIL__ = Date.now() + 8000;
+          window.__CATALOG_PRODUCT_CLICK_LOCK_UNTIL__ = Date.now() + 8000;
+          window.__CATALOG_PRODUCT_CLICK_LOCK_SLUG__ = slug || productId || '';
+        } catch (_) {}
       }
+      function openInlineNow(slug){
+        applyPendingState(slug);
+        try {
+          if (slug && typeof window.__openCatalogInline === 'function') {
+            window.__openCatalogInline(slug, 'games');
+            return;
+          }
+        } catch (_) {}
+        if (slug) {
+          navigateSupportRoute('games', '#/games/' + encodeURIComponent(slug));
+        } else {
+          navigateSupportRoute('games', '#/games');
+        }
+      }
+
+      // Fetch ONLY the product's own section (load-section&id=...) through the D1
+      // lazy engine before opening, so clicking "buy" never triggers the whole
+      // catalog load-categories request. Try the section id first (the owning
+      // category = the D1 node id), then any resolved game slug. Stop as soon as the
+      // product shows up in the local cache so the modal opens on the right section.
+      var d1 = null;
+      try { d1 = window.__catalogD1; } catch (_) { d1 = null; }
+      var canLazy = !!(productId && d1 && typeof d1.isEnabled === 'function' && d1.isEnabled() && typeof d1.hydrateSection === 'function');
+      if (!canLazy) { openInlineNow(resolvedSlug); return; }
+      var candidates = [];
+      [sectionId, resolvedSlug, gameSlug].forEach(function(id){
+        var v = String(id || '').trim();
+        if (v && candidates.indexOf(v) < 0) candidates.push(v);
+      });
+      if (!candidates.length) { openInlineNow(resolvedSlug); return; }
+      var index = 0;
+      function tryNextSection(){
+        if (index >= candidates.length) { openInlineNow(resolvedSlug || candidates[0]); return; }
+        var sid = candidates[index++];
+        Promise.resolve(d1.hydrateSection(sid, { pathParts: [sid], silentRender: true }))
+          .then(function(){
+            var found = '';
+            try { found = resolveSupportCatalogSlugByItemId(productId, ''); } catch (_) { found = ''; }
+            if (found) { openInlineNow(found); return; }
+            tryNextSection();
+          }, function(){ tryNextSection(); });
+      }
+      tryNextSection();
     }
 
     function tryOpenSupportDepositMethod(methodId, country, attempt){
