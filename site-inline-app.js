@@ -5470,6 +5470,18 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
     const hasTaggedEntries = raw.some(function(entry){
       return entry && (entry.__rootType === 'country' || entry.__rootType === 'method');
     });
+    // Admin drag-reorder assigns one shared order sequence across countries AND
+    // root methods, so the landing grid interleaves them by it. Entries without a
+    // positive order keep the legacy placement (countries first) via a stable sort.
+    const sortRootEntriesByDisplayOrder = function(entries){
+      return entries.slice().sort(function(a, b){
+        const ao = Number(a && a.data && a.data.order);
+        const bo = Number(b && b.data && b.data.order);
+        const av = (isFinite(ao) && ao > 0) ? ao : Number.MAX_SAFE_INTEGER;
+        const bv = (isFinite(bo) && bo > 0) ? bo : Number.MAX_SAFE_INTEGER;
+        return av - bv;
+      });
+    };
     const normalizedCountries = raw.filter(function(entry){
       const entryFlow = normalizeInlineFlow(entry && entry.data && entry.data.flow || flowKey);
       return entryFlow === flowKey;
@@ -5482,15 +5494,15 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
     }).map(function(entry){
       return Object.assign({}, entry, { __rootType: 'method' });
     });
-    if (!hasTaggedEntries) return normalizedCountries.concat(normalizedMethods);
+    if (!hasTaggedEntries) return sortRootEntriesByDisplayOrder(normalizedCountries.concat(normalizedMethods));
     const taggedCountries = raw.filter(function(entry){
       return entry && entry.__rootType === 'country';
     });
     const taggedMethods = raw.filter(function(entry){
       return entry && entry.__rootType === 'method';
     });
-    if (taggedMethods.length) return taggedCountries.concat(taggedMethods);
-    return taggedCountries.concat(normalizedMethods);
+    if (taggedMethods.length) return sortRootEntriesByDisplayOrder(taggedCountries.concat(taggedMethods));
+    return sortRootEntriesByDisplayOrder(taggedCountries.concat(normalizedMethods));
   }
 
   function getRootEntryMeta(entry){
@@ -34725,6 +34737,33 @@ function normalizeCategory(value){
           if (!node) return "";
           return String(node.id || node.slug || node.key || node.name || "").trim();
         }
+        // Interleave sub-sections and products by a shared display order — but
+        // ONLY when every child carries a DISTINCT finite order (the signature of
+        // the admin's unified "reorder_mixed"). Legacy catalogs number sections
+        // and products from 1 independently, so order 1 collides → NOT unified →
+        // keep the original sections-then-products grouping. This lets a section
+        // sit between two products (and vice-versa) exactly as the admin arranged.
+        function sortMixedChildrenByUnifiedOrder(list){
+          if (!Array.isArray(list) || list.length < 2) return list;
+          var vals = [];
+          for (var i = 0; i < list.length; i++){
+            var n = list[i];
+            var v = (n && n.order != null) ? Number(n.order)
+                  : ((n && n.sortOrder != null) ? Number(n.sortOrder)
+                  : ((n && n.sort_order != null) ? Number(n.sort_order) : NaN));
+            if (!isFinite(v)) return list;   // a child lacks an order → not unified
+            vals.push(v);
+          }
+          var seen = {};
+          for (var j = 0; j < vals.length; j++){
+            if (seen[vals[j]]) return list;  // duplicate order → legacy split
+            seen[vals[j]] = 1;
+          }
+          return list
+            .map(function(n, k){ return { n: n, k: k, o: vals[k] }; })
+            .sort(function(a, b){ return (a.o - b.o) || (a.k - b.k); })
+            .map(function(x){ return x.n; });
+        }
         function treeNodeChildren(node, includeProducts){
           if (!node || typeof node !== "object") return [];
           var out = [];
@@ -34747,7 +34786,7 @@ function normalizeCategory(value){
               }
             });
           }
-          return out;
+          return sortMixedChildrenByUnifiedOrder(out);
         }
         function treeNodeHasBranches(node){
           return treeNodeChildren(node, true).length > 0;
