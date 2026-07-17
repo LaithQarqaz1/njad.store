@@ -33237,9 +33237,13 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
         }
         try { window.__catalogClearPersistentCache = catalogClearPersistentCache; } catch(_){}
         // كاش الكاتلوج المستمر قصير العمر (إصلاح لاغ العودة على آيفون): لا
-        // مسح عند التحميل ولا عند pagehide — يُقدَّم فوراً ثم يُعاد التحقق
-        // بالخلفية، والقراءة تفرض CATALOG_PERSIST_TTL_MS. يظل المسح إلزامياً
-        // عند تسجيل الخروج وعند تغيّر uid حتى لا يرث حساب لقطة حساب آخر.
+        // مسح عند التحميل ولا عند pagehide — تُقدَّم الشجرة فوراً ثم يُعاد
+        // التحقق بالخلفية، والقراءة تفرض CATALOG_PERSIST_TTL_MS. يظل المسح
+        // إلزامياً عند تسجيل الخروج وعند تغيّر uid حتى لا يرث حساب لقطة حساب
+        // آخر. أما محتوى الأقسام (catalog:section:) فمحصور بالزيارة الواحدة
+        // (CATALOG_VISIT_ID) فتتجدّد عند كل إعادة تحميل/عودة — مسار القسم بلا
+        // إعادة تحقق خلفية فكان يُخدَم قديماً بلا طلب شبكة. اللقطة تبقى محفوظة
+        // كاحتياطي عند فشل الشبكة.
         try { window.addEventListener("auth:logout", function(){ catalogClearPersistentCache(); }); } catch(_){}
         try {
           var __catalogLastSessionUid = "";
@@ -33322,6 +33326,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           try {
             localStorage.setItem(catalogD1SectionKey(uid, id), JSON.stringify({
               version: String(version || ""),
+              visitId: CATALOG_VISIT_ID,
               savedAt: Date.now(),
               payload: payload
             }));
@@ -33379,7 +33384,14 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           var force = !!(opts && opts.force === true);
           var currentVersion = (opts && opts.version) ? String(opts.version) : catalogD1ReadCurrentVersion(uid);
           var cached = catalogD1ReadSection(uid, id);
-          if (!force && cached && cached.payload && currentVersion && cached.version === currentVersion) {
+          // نطاق الزيارة: تُقدَّم اللقطة بلا شبكة داخل زيارة واحدة فقط — إعادة
+          // التحميل أو الدخول الجديد يولّد CATALOG_VISIT_ID جديداً فتُجلب طازجة.
+          // ضروري لأن currentVersion نفسها تُقرأ من localStorage: بلا هذا الشرط
+          // تصير المقارنة localStorage ضد localStorage فتتطابق مع نفسها وتخدم
+          // قديماً للأبد إن دخل الزبون قسماً قبل وصول إصدار load-sections الشبكي.
+          // واللقطة لا تُحذف عمداً: الـcatch أدناه يقدّمها احتياطياً عند فشل الشبكة.
+          var cachedIsSameVisit = !!(cached && String(cached.visitId || "") === CATALOG_VISIT_ID);
+          if (!force && cached && cached.payload && cachedIsSameVisit && currentVersion && cached.version === currentVersion) {
             return Promise.resolve({ payload: cached.payload, version: cached.version, fromCache: true });
           }
           var requestUrl = catalogD1Url("load-section", id);
