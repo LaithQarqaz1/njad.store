@@ -1,0 +1,3335 @@
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>الإيداع</title>
+<link rel="icon" href="emp.png" type="image/png">
+  <link rel="apple-touch-icon" href="emp.png" sizes="180x180">
+  <meta property="og:image" content="emp.png">
+  <meta name="twitter:image" content="emp.png">
+
+  <!-- تهيئة الثيم مبكرًا (منع اللمعة عند التحميل) -->
+  <script>
+    (function(){
+      var theme = 'dark';
+      try{
+        var t = localStorage.getItem('theme');
+        if(!t){ t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light'; }
+        theme = (t==='light') ? 'light' : 'dark';
+      }catch(e){ theme='dark'; }
+      document.documentElement.setAttribute('data-theme', theme);
+      try{
+        var metaCS=document.querySelector('meta[name="color-scheme"]'); if(!metaCS){ metaCS=document.createElement('meta'); metaCS.name='color-scheme'; document.head.appendChild(metaCS);} metaCS.setAttribute('content', theme==='dark'?'dark light':'light dark');
+        var metaTC=document.querySelector('meta[name="theme-color"]'); if(!metaTC){ metaTC=document.createElement('meta'); metaTC.name='theme-color'; document.head.appendChild(metaTC);} metaTC.setAttribute('content', theme==='dark'?'#05050b':'#f9f9f9');
+      }catch(e){}
+      var s=document.createElement('style'); s.id='critical-theme'; s.textContent='html{background:'+(theme==='dark'?'#05050b':'#f9f9f9')+';color:'+(theme==='dark'?'#f0f1ff':'#333')+'} body{background:inherit;color:inherit;margin:0}'; document.head.appendChild(s);
+    })();
+  </script>
+  <meta name="color-scheme" content="dark light">
+
+  <!-- حارس مبكر: منع فتح الصفحة مباشرةً أو إن كانت البطاقة مغلقة -->
+  <script>
+    (function(){
+      try{
+        var base = (location.pathname.split('/').pop() || '');
+        var page = base.replace(/\.html$/,'');
+        var redirectTo = 'index.html';
+
+        // 1) افحص كاش حالات البطاقات (مملوء من الصفحة الرئيسية)
+        try{
+          var raw = localStorage.getItem('statesCache');
+          if (raw){
+            var obj = JSON.parse(raw);
+            var map = obj && obj.map ? obj.map : null;
+            if (map && page && map[page] === 'off'){
+              try{ sessionStorage.setItem('nav:reason','closed:'+page); }catch(_){ }
+              return window.location.replace(redirectTo);
+            }
+          }
+        }catch(_){/* ignore */}
+
+        // 2) امنع الدخول المباشر (ليس من داخل الموقع)
+        var nav = (performance.getEntriesByType && performance.getEntriesByType('navigation')) || [];
+        var type = nav[0] ? nav[0].type : (performance.navigation ? (performance.navigation.type === 1 ? 'reload' : (performance.navigation.type === 2 ? 'back_forward' : '')) : '');
+        var isReload = type === 'reload';
+        var isBF = type === 'back_forward';
+        var fromHome = false; try{ fromHome = sessionStorage.getItem('nav:fromHome') === '1'; }catch(_){ }
+        var refOk = false; try{ var rr=document.referrer; if(rr){ var uu=new URL(rr); refOk=(uu.origin===location.origin);} }catch(_){ }
+        var paramsAllow = false; try{ paramsAllow=(new URLSearchParams(location.search)).has('allow'); }catch(_){ }
+        var guardOff = false; try{ guardOff=localStorage.getItem('nav:guardOff')==='1'; }catch(_){ }
+
+        if (!fromHome && !isReload && !isBF && !refOk && !paramsAllow && !guardOff){
+          try{ sessionStorage.setItem('nav:redirectedFrom', base); }catch(_){ }
+          return window.location.replace(redirectTo);
+        }
+        if (fromHome){ try{ sessionStorage.removeItem('nav:fromHome'); }catch(_){} }
+      }catch(e){ window.location.replace('index.html'); }
+    })();
+  </script>
+
+  <!-- خطوط وأيقونات -->
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet"/>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet"/>
+
+  <!-- Firebase (Compat) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    
+    <script>
+  (function(){
+    function applyCardState(card, state){
+      var finalState = (state == null) ? 'on' : state;
+      var titleEl = card.querySelector ? card.querySelector('h2') : null;
+      var img = card.querySelector ? card.querySelector('img') : null;
+      try{ card.classList.remove('loading'); }catch(_){ }
+      if (finalState === 'off'){
+        if (img){ try{ img.setAttribute('loading','eager'); img.setAttribute('decoding','sync'); img.setAttribute('fetchpriority','high'); }catch(_){ } }
+        try{ card.classList.add('maintenance'); card.classList.remove('pending-state'); }catch(_){ }
+        try{ card.removeAttribute('href'); }catch(_){ }
+        if (titleEl){ try{ titleEl.textContent = '🚧 مغلق للصيانة'; }catch(_){ } }
+      } else {
+        try{
+          if (card.dataset && card.dataset.originalHref){ card.setAttribute('href', card.dataset.originalHref); }
+          card.classList.remove('maintenance','pending-state');
+          if (titleEl && card.dataset && card.dataset.originalTitle){ titleEl.textContent = card.dataset.originalTitle; }
+        }catch(_){ }
+      }
+    }
+    function prepCard(card){
+      try{
+        if (!card.dataset.originalHref){ var href = card.getAttribute('href'); if (href) card.dataset.originalHref = href; }
+        var t = card.querySelector && card.querySelector('h2');
+        if (t && !card.dataset.originalTitle){ card.dataset.originalTitle = t.textContent || ''; }
+      }catch(_){ }
+    }
+    function getPageNameFromCard(card){
+      try{
+        var href = (card.dataset && card.dataset.originalHref) || card.getAttribute('href') || '';
+        href = href.split('?')[0].split('#')[0];
+        return href.replace(/\.html$/,'');
+      }catch(_){ return ''; }
+    }
+    var STATES_TTL_MS = 5*60*1000;
+    var STATES_CACHE_KEY = 'statesCache';
+    function saveStatesCache(map){ try{ localStorage.setItem(STATES_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), map: map||{} })); }catch(_){ } }
+    function readStatesCache(ignoreTTL){
+      try{
+        var raw = localStorage.getItem(STATES_CACHE_KEY);
+        if(!raw) return null;
+        var obj; try{ obj = JSON.parse(raw); }catch(_){ obj=null; }
+        if (obj && typeof obj === 'object'){
+          if(!ignoreTTL){ var now = Date.now(); if(obj.savedAt && (now-obj.savedAt)>STATES_TTL_MS){ /* expired */ } }
+          if (obj.map && typeof obj.map === 'object') return obj.map;
+          if (typeof obj.stateJson === 'string'){ try{ var m=JSON.parse(obj.stateJson); if(m && typeof m==='object') return m; }catch(_){ } }
+          var vals = Object.values(obj); if (vals.length && vals.every(function(v){return v==='on'||v==='off';})) return obj;
+        }
+        try{ var m2 = JSON.parse(raw); if (m2 && typeof m2==='object') return m2; }catch(_){ }
+        return null;
+      }catch(_){ return null; }
+    }
+    function parseStatesDoc(data){
+      var map = {};
+      try{
+        if (typeof data.stateJson === 'string') { map = JSON.parse(data.stateJson)||{}; }
+        else if (data.map && typeof data.map==='object'){ map = data.map; }
+        else { map = data||{}; }
+      }catch(_){ map = {}; }
+      return map;
+    }
+    async function loadStatesMap(){
+      try{
+        if (typeof firebase==='undefined' || !firebase.firestore) return null;
+        var ref = firebase.firestore().collection('config').doc('states');
+        var snap = await ref.get({ source:'server' }).catch(function(){ return ref.get(); });
+        if (!snap || !snap.exists) return null;
+        var map = parseStatesDoc(snap.data()||{});
+        saveStatesCache(map);
+        return map;
+      }catch(_){ return null; }
+    }
+    function applyStatesToPage(){
+      try{
+        var cards = Array.prototype.slice.call(document.querySelectorAll('a.card, .card[href]'));
+        if (!cards.length) return;
+        cards.forEach(prepCard);
+        if (window.__SKIP_FIREBASE__){ try{ cards.forEach(function(card){ try{ card.removeAttribute('href'); card.classList.add('pending-state'); }catch(_){ } }); }catch(_){ } var cached = readStatesCache(true);
+          if (cached){ cards.forEach(function(card){ var name=getPageNameFromCard(card); var s=(name && cached.hasOwnProperty(name))? cached[name] : 'on'; applyCardState(card,s); }); }
+          return;
+        }
+        loadStatesMap().then(function(map){ if(!map){ map = readStatesCache(false)||{}; } cards.forEach(function(card){ var name=getPageNameFromCard(card); var s=(name && map && map.hasOwnProperty(name))? map[name] : 'on'; applyCardState(card,s); }); });
+      }catch(_){ }
+    }
+    if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', applyStatesToPage); else try{ applyStatesToPage(); }catch(_){ }
+  })();
+  </script>
+  <!-- ملفات الهيدر لديك (اختياري) -->
+  <link rel="stylesheet" href="header.css"/>
+  <script src="header.js" defer></script>
+  <!-- Loader assets -->
+  <link rel="stylesheet" href="loader.css">
+  <script src="loader.js" defer></script>
+
+  <!-- Theme tokens + dark overrides -->
+  <style>
+    :root {
+      --bg:#f8f9fa; --text:#111827; --muted:#6f72a6;
+      --card-bg:#f9f9ff; --card-text:var(--text); --card-border:#d9dbff;
+      --card-gradient:linear-gradient(160deg, rgba(122,124,208,.16) 0%, rgba(249,250,255,.96) 100%);
+      --card-border-strong:rgba(122,124,208,.32);
+      --card-border-hover:rgba(122,124,208,.45);
+      --card-shadow:0 12px 28px rgba(32,34,79,.14);
+      --card-shadow-hover:0 16px 36px rgba(32,34,79,.2);
+      --input-bg:#ffffff; --input-text:var(--text);
+      --btn-bg:#7a7cd0; --btn-bg-hover:#5c5ebf; --btn-text:#ffffff;
+      --elev-shadow:0 2px 8px rgba(0,0,0,.08);
+      --skeleton:#eceeff;
+    }
+    html[data-theme="dark"] {
+      --bg:#05050b; --text:#f0f1ff; --muted:#9ea0d9;
+      --card-bg:#101223; --card-text:var(--text); --card-border:#2b2d52;
+      --card-gradient:linear-gradient(160deg, rgba(122,124,208,.14) 0%, rgba(16,18,35,.9) 100%);
+      --card-border-strong:rgba(156,158,222,.32);
+      --card-border-hover:rgba(156,158,222,.5);
+      --card-shadow:0 10px 28px rgba(5,6,18,.6);
+      --card-shadow-hover:0 14px 36px rgba(5,6,18,.68);
+      --input-bg:#05050b; --input-text:var(--text);
+      --btn-bg:#5c5ebf; --btn-bg-hover:#7a7cd0; --btn-text:#ffffff;
+      --elev-shadow:0 12px 36px rgba(0,0,0,.45);
+      --skeleton:#0d0e1d;
+    }
+    /* Base */
+    html[data-theme="dark"] body{ background:var(--bg) !important; color:var(--text) !important; }
+    /* Search */
+    html[data-theme="dark"] .search-container input[type="text"]{ background:var(--input-bg) !important; color:var(--input-text) !important; border-color:var(--card-border) !important; }
+    html[data-theme="dark"] .search-container input[type="text"]:focus{ box-shadow:0 0 6px rgba(56,189,248,.35) !important; border-color:#b9bbef !important; }
+    html[data-theme="dark"] .search-container button{ background:var(--btn-bg) !important; color:var(--btn-text) !important; }
+    html[data-theme="dark"] .search-container button:hover{ background:var(--btn-bg-hover) !important; }
+    /* Cards */
+    html[data-theme="dark"] .card{
+      background: var(--card-gradient);
+      color: var(--card-text);
+      border: 1px solid var(--card-border-strong);
+      box-shadow: var(--card-shadow);
+    }
+    html[data-theme="dark"] .card img{ background-color:var(--skeleton); }
+    /* Misc */
+    html[data-theme="dark"] .no-results{ color:var(--muted) !important; }
+    html[data-theme="dark"] .where{ color:#9c9ede !important; }
+  </style>
+
+  <style>
+/* ========== Modal ========== */
+.modal {
+  position: fixed;
+  top: 0; right: 0; bottom: 0; left: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: none;               /* ← مخفية افتراضيًا */
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 16px;
+}
+.modal.open {                  /* ← أضِف/احذف .open من JS */
+  display: flex;
+}
+
+.modal-content {
+  background-color: #fff;
+  padding: 30px;
+  border-radius: 10px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+  text-align: center;
+}
+
+/* ========== Base ========== */
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Cairo', sans-serif;
+  margin: 0;
+  background: #f9f9f9;
+  color: #333;
+  direction: rtl;
+}
+main {
+  max-width: 1200px;
+  margin: 20px auto;
+  padding: 0 15px;
+}
+
+/* شريط الأدوات أعلى القائمة (مبسّط ومركزي) */
+.toolbar{display:flex;justify-content:center;align-items:center;gap:10px;max-width:1000px;margin:0 auto 12px;padding:0}
+.toolbar::after{content:none}
+/* إخفاء زر الرجوع والنود الفارغة للموازنة */
+.back-btn{display:none !important}
+.toolbar > div:last-child{display:none}
+.toolbar > div[style*="width:120px"]{display:none}
+/* العنوان بشكل بسيط ومحاذاة وسط */
+.where{font-weight:800;color:#5c5ebf;text-align:center}
+
+/* ========== Search ========== */
+.search-container {
+  margin: 20px auto;
+  max-width: 1000px;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding: 0;
+}
+.search-container input[type="text"] {
+  flex: 1;
+  padding: 12px 15px;
+  border: 2px solid #5c5ebf;
+  border-radius: 25px;
+  font-size: 1rem;
+  outline: none;
+  transition: 0.3s;
+  background:#fff;
+}
+.search-container input[type="text"]:focus {
+  box-shadow: 0 0 5px rgba(0, 119, 204, 0.5);
+  border-color: #414391;
+}
+.search-container button {
+  background-color: #5c5ebf;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 25px;
+  color: white;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: 0.3s;
+}
+.search-container button:hover { background-color: #414391; }
+
+/* ========== Grid (Responsive Cards) ========== */
+.categories {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, max-content));
+  gap: 20px;
+  justify-content: start;
+  max-width: 1000px;
+  margin: auto;
+}
+
+/* ========== Card ========== */
+.card{
+  position:relative;
+  background:var(--card-gradient);
+  color:var(--card-text);
+  border:1px solid var(--card-border-strong);
+  border-radius:14px;
+  box-shadow:var(--card-shadow);
+  text-align:center;
+  padding:16px;
+  text-decoration:none;
+  transition:transform .3s ease, box-shadow .3s ease, border-color .3s ease;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  overflow:hidden;
+}
+.card::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:radial-gradient(circle at top right, rgba(255,255,255,.32), rgba(255,255,255,0) 60%);
+  opacity:.6;
+}
+.card:hover{
+  transform:translateY(-5px);
+  box-shadow:var(--card-shadow-hover);
+  border-color:var(--card-border-hover);
+}
+html[data-theme="dark"] .card::after{
+  background:radial-gradient(circle at top right, rgba(156,158,222,.18), rgba(0,0,0,0) 65%);
+  opacity:.45;
+}
+
+/* صورة مربعة دائمًا */
+.card img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  height: auto;
+  object-fit: cover; object-position: center;
+  border-radius: 8px;
+  user-select: none;
+  background-color: var(--skeleton);
+  display: block;
+  margin: 0 auto;
+}
+.card h2 {
+  font-weight: 700;
+  font-size: 1rem;
+  margin: 0;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.no-results {
+  text-align: center;
+  font-size: 1.2rem;
+  color: #888;
+  margin-top: 30px;
+}
+
+/* ========== Maintenance / Loading ========== */
+.card.maintenance{ background:var(--card-bg)!important; color:var(--muted)!important; border-color:var(--card-border); box-shadow:none; pointer-events:none; opacity:.7; }
+.card.maintenance::after{ display:none; }
+.card.maintenance h2{ color:#a00; }
+.card.maintenance img{ filter:grayscale(100%); }
+
+
+.card.loading { position: relative; background: var(--skeleton); overflow: hidden; pointer-events: none; }
+.card.loading img,.card.loading h2 { visibility: hidden; }
+.card.loading::after {
+  content: '';
+  position: absolute; top: 0; right: -150px; width: 100px; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+  animation: shimmer 1.2s infinite;
+}
+@keyframes shimmer { 0%{ right:-150px } 100%{ right:100% } }
+
+/* ========== Grid overrides (ثابتة) ========== */
+.categories { grid-template-columns: repeat(5, minmax(0, 1fr)) !important; gap: 20px; justify-content: center; }
+@media (max-width: 992px) {
+  .categories { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+}
+@media (max-width: 768px) {
+  .categories { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 12px; }
+  .card { padding: 12px !important; }
+  .card h2 { font-size: .9rem !important; }
+}
+@media (max-width: 480px) {
+  .categories { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 12px; }
+  .card { padding: 10px !important; }
+  .card h2 { font-size: .9rem !important; }
+  .search-container { flex-direction: column; }
+  .search-container input, .search-container button { width: 100%; }
+  .modal-content { padding: 20px; max-width: 340px; }
+}
+
+/* ===== Dark Mode ===== */
+body.dark-mode { background:#05050b; color:#f0f1ff; }
+body.dark-mode .search-container input[type="text"]{ background:#05050b; color:#f0f1ff; border-color:#2b2d52; }
+body.dark-mode .search-container input[type="text"]:focus{ border-color:#b9bbef; box-shadow:0 0 6px rgba(56,189,248,.35); }
+body.dark-mode .search-container button{ background:#3b3e8c; }
+body.dark-mode .search-container button:hover{ background:#7a7cd0; }
+body.dark-mode .card{
+  background: var(--card-gradient);
+  color: var(--card-text);
+  border: 1px solid var(--card-border-strong);
+  box-shadow: var(--card-shadow);
+}
+body.dark-mode .card h2{ color:#f0f1ff; }
+body.dark-mode .card.loading{ background:var(--skeleton); }
+body.dark-mode .card.loading::after{ background: linear-gradient(90deg,transparent,rgba(255,255,255,.15),transparent); }
+body.dark-mode .no-results{ color:#9ea0d9; }
+body.dark-mode .modal-content{ background:#111827; color:#f0f1ff; box-shadow:0 10px 30px rgba(0,0,0,.5); }
+
+/* ==== Modal (نافذة التقديم) محسّن ==== */
+.modal {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0,0,0,0.5);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 16px;
+}
+.modal.open { display: flex; }
+
+.modal-content {
+  background: #fff;
+  padding: 24px;
+  border-radius: 14px;
+  max-width: 500px;
+  width: 100%;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: relative;
+}
+
+/* الهيدر */
+.modal-header { display:flex; align-items:center; justify-content:space-between; }
+.modal-title { font-size:1.2rem; font-weight:800; color:#5c5ebf; }
+.modal .close { background:transparent; border:none; font-size:1.5rem; cursor:pointer; color:#444; }
+.modal .close:hover { color:#cc0000; }
+
+/* البادجات */
+.badge {
+  display:inline-flex; align-items:center; gap:6px;
+  background:#eef0ff; color:#414391; border:1px solid #eceeff;
+  padding:6px 10px; border-radius:9999px; font-size:.85rem;
+}
+
+/* الحقول والمعلومات */
+.info-list { display:grid; gap:10px; }
+.info-item { background:#f8fafc; border:1px solid #e6eef7; border-radius:10px; padding:10px; font-size:.95rem; }
+.hint { color:#667085; font-size:.9rem; }
+
+      /* الحاسبة */
+      .calc { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.calc .field { background:#f9fafb; border:1px solid #e5e7eb; border-radius:12px; padding:10px; }
+.calc label { display:block; font-size:.85rem; font-weight:600; color:#475467; margin-bottom:4px; }
+.calc input { width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px; font-size:1rem; outline:none; }
+.calc input:focus { border-color:#5c5ebf; box-shadow:0 0 0 4px rgba(65,67,145,.25); }
+
+/* سعر الصرف */
+.rate-line { display:flex; flex-wrap:wrap; align-items:center; gap:10px; font-size:.95rem; }
+.rate-line .chip { background:#eceeff; border:1px solid #e2e8f0; border-radius:9999px; padding:6px 10px; }
+
+      /* أزرار الإجراء */
+      .actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:8px; }
+      .btn { border:none; border-radius:10px; padding:10px 14px; cursor:pointer; font-weight:700; font-size:.95rem; }
+      .btn-primary { background:#5c5ebf; color:#fff; }
+      .btn-primary:hover { background:#414391; }
+      .btn-outline { background:#fff; border:1px solid #cbd5e1; }
+      .btn-outline:hover { background:#f9fafb; }
+      .btn[disabled] { opacity:.6; cursor:not-allowed; }
+
+      /* حالة نجاح لزر إثبات الدفع */
+      #proofTrigger.success { background:#16a34a; color:#fff; border-color:#15803d; }
+      body.dark-mode #proofTrigger.success { background:#16a34a; color:#fff; border-color:#166534; }
+
+      /* السماح بالنسخ داخل نافذة الإيداع للجوال عند تحديد النص */
+      .modal, .modal * { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
+
+/* المعاينة */
+.preview { font-size:.9rem; color:#5c5ebf; word-break:break-all; }
+
+/* Responsive */
+@media (max-width: 480px) {
+  .modal-content { padding:18px; max-width:340px; }
+  .calc { grid-template-columns:1fr; }
+  .actions { flex-direction:column; }
+  .btn, .btn-primary, .btn-outline { width:100%; }
+}
+
+/* Dark Mode */
+body.dark-mode .modal-content { background:#111827; color:#f0f1ff; }
+body.dark-mode .modal-title { color:#9c9ede; }
+body.dark-mode .info-item { background:#0f1024; border-color:#2b2d52; }
+body.dark-mode .calc .field { background:#0f1024; border-color:#2b2d52; }
+body.dark-mode .calc label { color:#cbd5e1; }
+body.dark-mode .calc input { background:#05050b; color:#f0f1ff; border-color:#2b2d52; }
+body.dark-mode .calc input:focus { border-color:#b9bbef; box-shadow:0 0 0 4px rgba(56,189,248,.35); }
+body.dark-mode .rate-line .chip { background:#0f1024; border-color:#2b2d52; color:#f0f1ff; }
+body.dark-mode .btn-outline { background:#05050b; color:#f0f1ff; border-color:#2b2d52; }
+body.dark-mode .btn-primary { background:linear-gradient(135deg,#7a7cd0,#3b3e8c); }
+
+
+/* ===== تصغير نافذة التقديم على الهواتف ===== */
+@media (max-width: 480px) {
+  .modal { 
+    padding: 8px;
+    /* دعم نوتش iOS */
+    padding-top: max(8px, env(safe-area-inset-top));
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+
+  .modal-content {
+    width: 100%;
+    max-width: 92vw;           /* أصغر من عرض الشاشة قليلاً */
+    padding: 12px 14px;        /* تقليل الحشو */
+    border-radius: 10px;
+    box-shadow: 0 6px 20px rgba(0,0,0,.25);
+
+    max-height: calc(100vh - 24px); /* لا تتجاوز ارتفاع الشاشة */
+    overflow-y: auto;               /* تمرير داخلي عند الطول الكبير */
+    -webkit-overflow-scrolling: touch;
+    gap: 10px;                      /* فجوات أصغر بين العناصر */
+  }
+
+  /* هيدر المودال أكثر إحكامًا */
+  .modal-header {
+    position: sticky; top: 0; z-index: 1;
+    background: inherit;            /* يطابق خلفية المودال */
+    margin: -12px -14px 8px;        /* تمديد الخلفية للحواف */
+    padding: 10px 14px 8px;
+    border-bottom: 1px solid rgba(0,0,0,.06);
+  }
+  .modal-title { font-size: 1rem; }
+  .badge { padding: 4px 8px; font-size: .8rem; }
+
+  /* الحاسبة عمود واحد وأحجام أصغر */
+  .calc { grid-template-columns: 1fr; gap: 8px; }
+  .calc .field { padding: 8px; border-radius: 10px; }
+  .calc label { font-size: .8rem; margin-bottom: 3px; }
+  .calc input {
+    padding: 8px 10px;
+    font-size: 16px;   /* يمنع تكبير iOS التلقائي */
+  }
+
+  /* سطر السعر */
+  .rate-line { gap: 6px; font-size: .85rem; }
+  .rate-line .chip { padding: 4px 8px; }
+
+  /* صناديق المعلومات */
+  .info-item { padding: 8px; font-size: .9rem; }
+
+  /* الأزرار بعرض كامل */
+  .actions { flex-direction: column; gap: 8px; margin-top: 6px; }
+  .btn, .btn-primary, .btn-outline { width: 100%; padding: 10px 12px; font-size: .95rem; }
+
+  /* عرض اسم الملف الطويل بدون كسر التصميم */
+  .preview { font-size: .85rem; overflow-wrap: anywhere; }
+}
+
+/* تباين مناسب للوضع الداكن عند التثبيت */
+@media (max-width: 480px) {
+  body.dark-mode .modal-header {
+    border-bottom: 1px solid rgba(255,255,255,.08);
+  }
+}
+/* ===== تحسينات نافذة التقديم على الكمبيوتر ===== */
+@media (min-width: 1024px) {
+  .modal { 
+    padding: 24px; 
+  }
+
+  .modal-content {
+    width: 100%;
+    max-width: 620px;            /* عرض مريح على الديسكتوب */
+    padding: 20px 22px;
+    border-radius: 12px;
+    box-shadow: 0 10px 36px rgba(0,0,0,.25);
+
+    /* لا تتجاوز 88% من ارتفاع الشاشة مع تمرير داخلي */
+    max-height: min(88vh, 860px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 12px;
+  }
+
+  /* هيدر مثبت داخل المودال */
+  .modal-header {
+    position: sticky; top: 0; z-index: 1;
+    background: inherit;
+    margin: -20px -22px 12px;   /* تمديد الهيدر للحواف */
+    padding: 14px 22px 12px;
+    border-bottom: 1px solid rgba(0,0,0,.06);
+  }
+
+  .modal-title { font-size: 1.25rem; }
+  .badge { padding: 6px 10px; font-size: .85rem; }
+
+  /* الحاسبة صفّان على الديسكتوب */
+  .calc { grid-template-columns: 1fr 1fr; gap: 12px; }
+  .calc .field { padding: 10px; }
+  .calc label { font-size: .9rem; }
+  .calc input { font-size: 1rem; padding: 10px 12px; }
+
+  /* معلومات أوضح قليلاً */
+  .info-item { padding: 12px; font-size: 1rem; }
+  .rate-line { font-size: .95rem; gap: 10px; }
+  .rate-line .chip { padding: 6px 10px; }
+
+  /* أزرار أفقية */
+  .actions {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 10px;
+    margin-top: 10px;
+  }
+  .btn { min-width: 180px; }
+  .preview { font-size: .9rem; }
+}
+
+/* شاشات كبيرة جداً */
+@media (min-width: 1440px) {
+  .modal-content { max-width: 700px; }
+}
+
+/* تباين مناسب للوضع الداكن على الديسكتوب */
+@media (min-width: 1024px) {
+  body.dark-mode .modal-header {
+    border-bottom: 1px solid rgba(255,255,255,.08);
+  }
+}
+
+  /* === OM-style modal tweaks === */
+.modal-content { 
+  border-radius: 18px; 
+  background: linear-gradient(180deg, rgba(2,6,23,.92), rgba(2,6,23,.86));
+  border: 1px solid #2b2d52;
+  color: #f0f1ff;
+  backdrop-filter: blur(6px);
+}
+.modal-header { display:flex; align-items:center; justify-content:space-between; }
+.modal-title { font-weight:800; font-size:1.35rem; letter-spacing:.3px; text-align:center; width:100%; }
+.calc { display:flex; flex-direction:column; gap:12px; margin-top:10px; }
+.calc .field { display:flex; flex-direction:column; gap:6px; }
+.calc .field input { border:1px solid #2b2d52; background:#05050b; color:#f0f1ff; border-radius:16px; padding:14px 56px; direction:ltr; text-align:end; font-variant-numeric:tabular-nums; box-shadow:0 1px 0 rgba(255,255,255,.03) inset; }
+.rate-line { margin-top:6px; color:#9ea0d9; display:flex; align-items:center; gap:8px; justify-content:center; }
+.rate-line .mini{opacity:.9}
+.rate-line .chip{ background:rgba(148,163,184,.12); color:#cbd5e1; border:1px solid #2b2d52; border-radius:999px; padding:6px 10px; font-weight:700 }
+#methodInfo { margin:16px 0 0; color:inherit; border:none; background:transparent; padding:0; text-align:right; direction:rtl; }
+#methodInfo .info-item{ background:transparent; border:none; padding:0; }
+.actions { display:flex; flex-direction:column; gap:8px; margin-top:12px; }
+.btn { border-radius:999px; min-height:42px; padding:9px 14px; font-weight:800; font-size:.92rem; cursor:pointer; border:1px solid transparent; }
+.btn-outline { background:#05050b; color:#f0f1ff; border-color:#2b2d52; display:inline-flex; align-items:center; gap:8px; justify-content:center }
+.btn-outline.loading{ opacity:.85; cursor:wait; }
+.btn-outline .spinner{ width:16px; height:16px; border:2px solid rgba(255,255,255,.35); border-top-color:#fff; border-radius:999px; animation:proofSpin .8s linear infinite; }
+@keyframes proofSpin{ to { transform:rotate(360deg); } }
+.btn-outline:hover{ border-color:#475569 }
+.btn-primary { background:#7a7cd0; color:#fff; }
+.btn-primary:hover { filter:brightness(.95); }
+.hint { margin-top:8px; font-size:.9rem; color:#22c55e; font-weight:700; }
+.preview { margin-top:6px; font-size:.9rem; }
+
+/* Light mode adjustments */
+body:not(.dark-mode) .calc .field input { background:#f3f4f6; color:#111827; border-color:#e5e7eb; }
+body:not(.dark-mode) #methodInfo { background:transparent; color:inherit; border-color:transparent; }
+body:not(.dark-mode) .btn-outline { background:#f3f4f6; color:#111827; border-color:#e5e7eb; }
+/* utility: generic hidden class to support JS toggling */
+.hidden { display:none !important; }
+/* تأكيد إخفاء شارة العملة القديمة */
+#fxBadge{ display:none !important; }
+/* remove number input spinners inside deposit modal */
+.calc input[type="number"]::-webkit-outer-spin-button,
+.calc input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.calc input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+.calc .field{ position:relative; margin:10px 0; }
+.calc .field > label{ position:absolute; inset-inline-end:18px; top:50%; transform:translateY(-50%); pointer-events:none; font-weight:800; color:#cbd5e1; }
+.calc .field::before{ content: attr(data-cur); position:absolute; inset-inline-start:18px; top:50%; transform:translateY(-50%); font-style:italic; color:#d1d5db; opacity:.95; }
+.calc .field.green input{ background:#06381f; border-color:#14532d; color:#e6fffb; }
+.calc .field.green > label{ color:#bbf7d0; }
+.calc .field.green::before{ color:#a7f3d0; }</style>
+  <style>
+    /* تحسينات نافذة الإيداع: تمرير، ثيم فاتح/داكن، حقول عصرية */
+    .modal { backdrop-filter: blur(2px); }
+    .modal.open .modal-content { animation: modalSlideUp .22s ease-out both; }
+    @keyframes modalSlideUp { from { transform: translateY(14px); opacity:.0; } to { transform: translateY(0); opacity:1; } }
+
+    /* محتوى المودال: تمرير داخلي على كل المقاسات */
+    #methodModal .modal-content { position: relative; overflow: hidden; max-height: calc(100dvh - 24px); overflow-y: auto; overscroll-behavior: contain; scroll-behavior: smooth; direction:rtl; text-align:right; border-radius:22px; padding:18px 16px 16px; }
+    #methodModal .modal-content::before { content:""; position:absolute; inset-inline:0; inset-block-start:0; height:4px; background:linear-gradient(90deg,#9c9ede,#7a7cd0,#22c55e); opacity:.9; }
+
+    /* زر إغلاق عائم */
+    .modal-x { position:absolute; inset-inline-end:10px; inset-block-start:10px; width:36px; height:36px; display:inline-flex; align-items:center; justify-content:center; border-radius:12px; cursor:pointer; border:1px solid transparent; background:transparent; }
+    html[data-theme="dark"] .modal-x { border-color:#2b2d52; background:rgba(2,6,23,.45); color:#cbd5e1; }
+    html[data-theme="dark"] .modal-x:hover { background:rgba(2,6,23,.7); }
+    html[data-theme="light"] .modal-x { border-color:#e5e7eb; background:#ffffff; color:#2b2d52; }
+    html[data-theme="light"] .modal-x:hover { background:#f8fafc; }
+
+    /* ثيم المودال */
+    html[data-theme="dark"] #methodModal .modal-content { background: linear-gradient(180deg, rgba(2,6,23,.92), rgba(2,6,23,.86)); border: 1px solid #2b2d52; color: #f0f1ff; box-shadow:0 12px 36px rgba(0,0,0,.45); }
+    html[data-theme="light"] #methodModal .modal-content { background:#ffffff; border:1px solid #e5e7eb; color:#111827; box-shadow:0 18px 40px rgba(0,0,0,.12); }
+
+    /* عنوان */
+    #methodModal .modal-title { display:block; width:100%; box-sizing:border-box; text-align:center; margin:6px 0 0; padding-inline:44px; font-size:1.3rem; font-weight:900; letter-spacing:0; color:#dbe2ff; background:none; }
+    html[data-theme="light"] #methodModal .modal-title { color:#4f58c9; }
+
+    /* السعر — مخفي بناءً على طلبك */
+    .rate-line { display:none !important; }
+
+    /* تفاصيل الطريقة */
+    #methodInfo.info-list { margin:14px 0 8px; padding:0; display:flex; flex-direction:column; gap:10px; }
+    #methodInfo .info-item { display:flex; flex-direction:column; align-items:stretch; justify-content:flex-start; gap:6px; padding:11px 13px; border-radius:14px; border:1px solid #2b2d52; background:rgba(2,6,23,.45); box-shadow:0 1px 0 rgba(255,255,255,.03) inset; text-align:right; }
+    html[data-theme="dark"] #methodInfo .info-item { border-color:#2b2d52; background:rgba(2,6,23,.45); }
+    html[data-theme="light"] #methodInfo .info-item { border-color:#e5e7eb; background:#ffffff; box-shadow:0 1px 0 rgba(255,255,255,.4) inset; }
+    #methodInfo .info-item strong { font-size:.82rem; font-weight:800; color:#cbd5e1; letter-spacing:0; flex:0 0 auto; opacity:.9; }
+    html[data-theme="light"] #methodInfo .info-item strong { color:#475569; }
+    #methodInfo .info-value { display:block; font-size:.95rem; font-weight:800; direction:rtl; text-align:right; flex:1 1 auto; min-width:0; unicode-bidi:plaintext; }
+    #methodInfo .info-value.copyable-row { display:flex; align-items:center; gap:8px; }
+    #methodInfo .info-value span.value-text { display:block; max-width:100%; overflow-wrap:anywhere; word-break:break-word; text-align:inherit; direction:inherit; white-space:pre-line; font-variant-numeric:tabular-nums; }
+    #methodInfo .info-value.copyable-row span.value-text { flex:1 1 auto; min-width:0; }
+    #methodInfo .info-value span.value-text.copyable-value { cursor:pointer; border:1px dashed #33407b; border-radius:12px; padding:8px 10px; background:rgba(8,11,34,.45); transition:border-color .16s ease, box-shadow .16s ease, background-color .16s ease; }
+    #methodInfo .info-value span.value-text.copyable-value:hover,
+    #methodInfo .info-value span.value-text.copyable-value:focus { border-color:#7f95ff; box-shadow:0 0 0 2px rgba(127,149,255,.18); outline:none; }
+    #methodInfo .info-value span.value-text.copyable-value.copied { border-color:#22c55e; box-shadow:0 0 0 2px rgba(34,197,94,.18); background:rgba(22,101,52,.25); }
+    html[data-theme="light"] #methodInfo .info-value span.value-text.copyable-value { border-color:#d6defa; background:#f8faff; }
+    html[data-theme="light"] #methodInfo .info-value span.value-text.copyable-value:hover,
+    html[data-theme="light"] #methodInfo .info-value span.value-text.copyable-value:focus { border-color:#7f95ff; box-shadow:0 0 0 2px rgba(127,149,255,.14); }
+    html[data-theme="light"] #methodInfo .info-value span.value-text.copyable-value.copied { border-color:#16a34a; background:#ecfdf3; }
+    #methodInfo .copy {
+      box-sizing: border-box;
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(135deg,#7a7cd0,#5c5ebf);
+      color: #f8f9ff;
+      border: 1px solid rgba(185,187,239,.45);
+      box-shadow: 0 8px 18px rgba(92,94,191,.32);
+      cursor: pointer;
+      position: relative;
+      outline: none;
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform .16s ease, box-shadow .16s ease, filter .16s ease, background .16s ease;
+    }
+    #methodInfo .copy .tooltip {
+      display: none !important; /* remove hover message */
+      opacity: 0 !important;
+      visibility: hidden !important;
+    }
+    #methodInfo .copy .copy-icons svg {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+    }
+    #methodInfo .copy .checkmark { display: none; }
+    #methodInfo .copy.copied .clipboard { display: none; }
+    #methodInfo .copy.copied .checkmark { display: block; }
+    #methodInfo .copy:hover,
+    #methodInfo .copy:focus {
+      background: linear-gradient(135deg,#8a8ce0,#6a6dd0);
+      box-shadow: 0 10px 22px rgba(92,94,191,.4);
+      transform: translateY(-1px);
+    }
+    #methodInfo .copy:active {
+      transform: translateY(0);
+      box-shadow: 0 6px 14px rgba(92,94,191,.28);
+    }
+    #methodInfo .copy.copied {
+      background: linear-gradient(135deg,#22c55e,#16a34a);
+      border-color: rgba(74,222,128,.7);
+      box-shadow: 0 10px 22px rgba(22,163,74,.35);
+    }
+    #methodInfo .copy:hover svg,
+    #methodInfo .copy:focus svg {
+      color: #ffffff;
+    }
+    #methodInfo .copy-btn { display:none !important; }
+    #methodModal .calc { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px; margin-top:12px; align-items:start; }
+    #methodModal .calc .field { position:relative; margin:0; border:none !important; background:transparent !important; box-shadow:none !important; border-radius:0; padding:10px 0 0; min-height:auto; display:block; }
+    #methodModal .calc .field:focus-within { box-shadow:none !important; border-color:transparent !important; }
+
+    #methodModal .calc .field input { width:100%; height:46px; border-radius:999px; padding:0 16px; font-weight:900; font-size:1.02rem; direction:ltr; text-align:center; font-variant-numeric:tabular-nums; outline:none; border:1px solid #2b2d52; letter-spacing:.2px; }
+    html[data-theme="dark"] #methodModal .calc .field input { background:rgba(5,7,28,.88); color:#eaf0ff; border-color:#2b2d52; }
+    html[data-theme="light"] #methodModal .calc .field input { background:#ffffff; color:#29315f; border-color:#e5e7eb; }
+    #methodModal .calc .field input::placeholder { opacity:.45; }
+    #methodModal .calc .field input:focus { border-color:#8aa0ff; box-shadow:0 0 0 2px rgba(110,128,232,.16); }
+    #methodModal .calc .field.filled input { border-color:#7b86d6; box-shadow:none; }
+
+    /* شارة العملة داخل الحقل ككبسولة على اليمين */
+    #methodModal .calc .field::before { content:none !important; }
+
+    /* لاصق التسمية على حدود الحقل من اليمين */
+    #methodModal .calc .field > label { position:absolute; inset-inline-end:12px; top:10px; transform:translateY(-50%); margin:0; text-align:center; padding:0 8px; border-radius:999px; font-size:.8rem; font-weight:800; line-height:1.45; letter-spacing:0; border:1px solid transparent; pointer-events:none; }
+    html[data-theme="dark"] #methodModal .calc .field > label { color:#c8d2fb; background:#0c1233; border-color:#2b2d52; }
+    html[data-theme="light"] #methodModal .calc .field > label { color:#5d6ba8; background:#ffffff; border-color:#e5e7eb; }
+
+    /* أزرار */
+    #methodModal .modal-content { width:min(580px,calc(100vw - 24px)); padding:22px 20px 18px; border-radius:26px; }
+    #methodModal .modal-title { margin-top:8px; font-size:1.42rem; letter-spacing:.01em; }
+    #methodModal .actions {
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+      margin-top:14px;
+      align-items:stretch;
+    }
+    #methodModal .actions > input[type="file"] { display:none !important; }
+    #methodModal #proofTrigger,
+    #methodModal #submitDepositBtn,
+    #methodModal #closeModal {
+      width:100%;
+      min-width:0;
+    }
+    #methodModal #closeModal { grid-column:1 / -1; }
+    #methodModal .btn {
+      min-height:44px;
+      height:44px;
+      font-size:.9rem;
+      padding:0 14px;
+      line-height:1.15;
+      border-radius:16px;
+      box-shadow:none;
+    }
+    .btn-primary { background:linear-gradient(135deg,#747ad5,#5058c9); border:0; box-shadow:none; }
+    .btn-primary:hover { filter:brightness(.98); box-shadow:none; }
+    .btn-outline { border-radius:999px; box-shadow:none; }
+    #methodModal .hint {
+      margin-top:4px;
+      padding:13px 15px;
+      border-radius:18px;
+      border:1px solid rgba(34,197,94,.18);
+      background:rgba(34,197,94,.08);
+      line-height:1.85;
+      font-size:.92rem;
+      font-weight:800;
+      white-space:pre-wrap;
+    }
+    #methodModal .preview {
+      margin-top:6px;
+      padding:0 4px;
+      line-height:1.8;
+    }
+    .dynamic-extra-fields[hidden] { display:none !important; }
+    .dynamic-extra-fields {
+      margin-top:14px;
+      padding:18px;
+      border-radius:26px;
+      border:1px solid rgba(110,128,232,.22);
+      background:linear-gradient(180deg,rgba(12,18,40,.94),rgba(8,13,30,.92));
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.04);
+      display:grid;
+      gap:14px;
+    }
+    html[data-theme="light"] .dynamic-extra-fields {
+      background:linear-gradient(180deg,#f8fbff,#eef4ff);
+      border-color:#dbe4ff;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.75);
+    }
+    .dynamic-extra-head {
+      display:grid;
+      gap:6px;
+    }
+    .dynamic-extra-head strong {
+      font-size:1rem;
+      font-weight:900;
+      color:#eef4ff;
+    }
+    .dynamic-extra-head span {
+      font-size:.83rem;
+      line-height:1.8;
+      color:#9fb4d9;
+    }
+    html[data-theme="light"] .dynamic-extra-head strong { color:#22315f; }
+    html[data-theme="light"] .dynamic-extra-head span { color:#5f7199; }
+    .dynamic-extra-grid {
+      display:grid;
+      grid-template-columns:1fr;
+      gap:12px;
+    }
+    .dynamic-extra-field {
+      display:grid;
+      gap:9px;
+      min-width:0;
+      padding:14px 14px 12px;
+      border-radius:24px;
+      border:1px solid rgba(110,128,232,.16);
+      background:rgba(7,12,30,.46);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.03);
+    }
+    .dynamic-extra-field.full { grid-column:1 / -1; }
+    .dynamic-extra-label {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin:0;
+      font-size:.82rem;
+      font-weight:800;
+      color:#dce7ff;
+    }
+    html[data-theme="light"] .dynamic-extra-label { color:#31457a; }
+    .dynamic-extra-badge {
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:24px;
+      padding:0 10px;
+      border-radius:999px;
+      font-style:normal;
+      font-size:.7rem;
+      font-weight:900;
+      white-space:nowrap;
+      background:rgba(239,68,68,.14);
+      border:1px solid rgba(239,68,68,.22);
+      color:#fecaca;
+    }
+    .dynamic-extra-badge.dynamic-extra-badge-optional {
+      background:rgba(148,163,184,.14);
+      border-color:rgba(148,163,184,.24);
+      color:#cbd5e1;
+    }
+    html[data-theme="light"] .dynamic-extra-badge {
+      color:#991b1b;
+      background:#fee2e2;
+      border-color:#fecaca;
+    }
+    html[data-theme="light"] .dynamic-extra-badge.dynamic-extra-badge-optional {
+      color:#475569;
+      background:#e2e8f0;
+      border-color:#cbd5e1;
+    }
+    .dynamic-extra-control {
+      width:100%;
+      min-height:56px;
+      border-radius:999px;
+      border:1px solid rgba(110,128,232,.22);
+      background:rgba(5,9,24,.9);
+      color:#eef4ff;
+      padding:0 18px;
+      outline:none;
+      box-shadow:none;
+      font-size:.98rem;
+      font-family:inherit;
+      transition:border-color .16s ease, box-shadow .16s ease, background-color .16s ease;
+    }
+    .dynamic-extra-control::placeholder { color:#8fa5cf; opacity:.95; }
+    .dynamic-extra-control:focus {
+      border-color:#8aa0ff;
+      box-shadow:0 0 0 3px rgba(110,128,232,.18);
+    }
+    .dynamic-extra-control.is-invalid,
+    .dynamic-extra-field.is-invalid .dynamic-extra-control {
+      border-color:#ef4444;
+      box-shadow:0 0 0 3px rgba(239,68,68,.12);
+    }
+    .dynamic-extra-control[type="number"],
+    .dynamic-extra-control[type="tel"],
+    .dynamic-extra-control[type="email"] {
+      direction:ltr;
+      text-align:left;
+      unicode-bidi:plaintext;
+    }
+    .dynamic-extra-control[type="number"]::-webkit-outer-spin-button,
+    .dynamic-extra-control[type="number"]::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+    .dynamic-extra-control[type="number"] { -moz-appearance:textfield; appearance:textfield; }
+    textarea.dynamic-extra-control {
+      min-height:120px;
+      padding:14px 18px;
+      resize:vertical;
+      border-radius:24px;
+      line-height:1.8;
+    }
+    select.dynamic-extra-control {
+      appearance:none;
+      -webkit-appearance:none;
+      -moz-appearance:none;
+      padding-inline-end:40px;
+      background-image:linear-gradient(45deg,transparent 50%,#9fb4d9 50%),linear-gradient(135deg,#9fb4d9 50%,transparent 50%);
+      background-position:calc(14px) calc(50% - 3px),calc(20px) calc(50% - 3px);
+      background-size:6px 6px,6px 6px;
+      background-repeat:no-repeat;
+    }
+    html[data-theme="light"] .dynamic-extra-control {
+      background:#ffffff;
+      color:#1f2d54;
+      border-color:#dbe4ff;
+    }
+    html[data-theme="light"] .dynamic-extra-control::placeholder { color:#8a9abc; }
+    html[data-theme="light"] .dynamic-extra-field {
+      background:rgba(255,255,255,.86);
+      border-color:#dbe4ff;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.78);
+    }
+    .dynamic-extra-hint {
+      font-size:.76rem;
+      line-height:1.65;
+      color:#8fa5cf;
+    }
+    html[data-theme="light"] .dynamic-extra-hint { color:#6b7da6; }
+    .dynamic-extra-status[hidden] { display:none !important; }
+    .dynamic-extra-status {
+      padding:10px 12px;
+      border-radius:14px;
+      border:1px solid rgba(239,68,68,.22);
+      background:rgba(127,29,29,.16);
+      color:#fecaca;
+      font-size:.82rem;
+      line-height:1.75;
+      font-weight:800;
+    }
+    .dynamic-extra-status.is-ok {
+      border-color:rgba(34,197,94,.22);
+      background:rgba(20,83,45,.18);
+      color:#bbf7d0;
+    }
+    html[data-theme="light"] .dynamic-extra-status {
+      border-color:#fecaca;
+      background:#fef2f2;
+      color:#b91c1c;
+    }
+    html[data-theme="light"] .dynamic-extra-status.is-ok {
+      border-color:#bbf7d0;
+      background:#f0fdf4;
+      color:#15803d;
+    }
+
+    @media (max-width:480px){
+      #methodModal .modal-content { width:min(100vw - 16px, 100vw); padding:18px 14px 16px; border-radius:22px; }
+      #methodModal .calc { gap:10px; }
+      #methodModal .calc .field { min-height:auto; padding:10px 0 0; }
+      #methodModal .calc .field input { padding:0 14px; height:42px; font-size:.95rem; }
+      #methodModal .calc .field > label { inset-inline-end:10px; top:10px; font-size:.76rem; }
+      .modal-x { width:40px; height:40px; inset-inline-end:8px; inset-block-start:8px; }
+      #methodModal .modal-title { font-size:1.2rem; margin-top:2px; padding-inline:42px; }
+      #methodModal .actions { grid-template-columns:1fr; }
+      .dynamic-extra-grid { grid-template-columns:1fr; }
+    }
+    /* ضمان بقاء أكواد التحويل الطويلة داخل نافذة التأكيد */
+    .zconfirm-modal {
+      max-width: min(480px, calc(100% - 20px));
+    }
+    .zconfirm-body .zrow {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+    .zconfirm-body .zlabel {
+      flex: 0 0 auto;
+    }
+    .zconfirm-body .zvalue {
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      direction: ltr;
+      text-align: start;
+    }
+    .zconfirm-body .zvalue.zmono {
+      font-variant-numeric: tabular-nums;
+    }
+    .zconfirm-footer {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+    .zconfirm-footer .zbtn {
+      flex: 1 1 140px;
+      min-width: 140px;
+    }
+    /* عنوان أعلى الصفحة — رجوع للتصميم البسيط ومركز */
+    .toolbar .where{ background:none !important; -webkit-background-clip:initial; background-clip:initial; font-size:1.05rem; padding:0; border-radius:0; text-align:center; }
+    html[data-theme="light"] .toolbar .where{ color:#5c5ebf !important; }
+    html[data-theme="dark"]  .toolbar .where{ color:#9c9ede !important; }
+    @media (max-width:480px){ .toolbar .where{ font-size:1rem; } }
+    /* تكبير كروت الدول + تحسين النقر */
+    #grid.categories{
+      grid-template-columns:repeat(4,minmax(0,1fr)) !important;
+      gap:16px !important;
+      max-width:1120px;
+      position:relative;
+      z-index:2;
+    }
+    #grid.categories .card{
+      min-height:170px;
+      padding:14px !important;
+      cursor:pointer;
+      touch-action:manipulation;
+      -webkit-tap-highlight-color:transparent;
+      pointer-events:auto !important;
+      position:relative;
+      z-index:3;
+    }
+    #grid.categories .card::after{ pointer-events:none; }
+    #grid.categories .card img{
+      max-width:72px;
+      margin:0 auto;
+      border-radius:14px;
+    }
+    #grid.categories .card h2{
+      font-size:1.04rem !important;
+      line-height:1.35;
+      min-height:2.8em;
+    }
+    @media (max-width:992px){
+      #grid.categories{ grid-template-columns:repeat(3,minmax(0,1fr)) !important; }
+    }
+    @media (max-width:600px){
+      #grid.categories{ grid-template-columns:repeat(2,minmax(0,1fr)) !important; gap:14px !important; }
+      #grid.categories .card{ min-height:160px; padding:13px !important; }
+      #grid.categories .card h2{ font-size:1rem !important; }
+      #grid.categories .card img{ max-width:64px; }
+    }
+    .countries-retry-wrap{display:flex;justify-content:center;margin-top:12px}
+    #countriesRetryBtn{display:none;min-width:220px}
+  </style>
+</head>
+<body>
+  <!-- Page preloader overlay -->
+  <div id="preloader"><div class="loader"></div></div>
+
+  <div id="headerContainer"></div>
+  <div id="sidebarContainer"></div>
+
+  <main>
+    <div class="toolbar">
+      <button id="backBtn" class="back-btn"><i class="fa fa-arrow-right"></i> رجوع</button>
+      <div class="where" id="whereText">الدول المتاحة للإيداع</div>
+      <div style="width:120px"></div>
+    </div>
+
+    <div class="search-container">
+      <label for="depositSearchInput" class="sr-only">بحث داخل القائمة الحالية</label>
+      <input type="text" id="depositSearchInput" name="depositSearchInput" placeholder="ابحث داخل القائمة الحالية." aria-label="بحث"/>
+    </div>
+
+    <section class="categories" id="grid"></section>
+    <p class="no-results" id="noResults">لا توجد نتائج مطابقة.</p>
+    <div class="countries-retry-wrap">
+      <button id="countriesRetryBtn" class="btn btn-primary" type="button">إعادة جلب الدول</button>
+    </div>
+  </main>
+
+  <!-- مودال تفاصيل طريقة الدفع -->
+  <div class="modal" id="methodModal" role="dialog" aria-modal="true">
+    <div class="modal-content" role="document">
+      <!-- زر إغلاق عائم بدون ترويسة -->
+      <button type="button" class="modal-x" aria-label="إغلاق" onclick="try{ closeModalFn(); }catch(_){}">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <div class="modal-title" id="modalTitle">تفاصيل التحويل</div>
+      <div class="rate-line">
+        <div class="mini"><i class="fa-regular fa-circle-question"></i> السعر الحالي:</div>
+        <div class="chip" id="rateLine">—</div>
+      </div>
+      <div id="fxBadge" class="badge hidden"><i class="fa-solid fa-coins"></i><span id="fxText"></span></div>
+
+      <!-- الحاسبة أعلى المودال -->
+      <div class="calc">
+        <div class="field" id="fieldPay">
+          <label for="sendJOD">سيدفع (—)</label> <!-- سنضبط العملة لاحقًا -->
+          <input type="number" id="sendJOD" min="0" step="0.01" placeholder="0.00"/>
+        </div>
+        <div class="field" id="fieldRecv">
+          <label for="recvCUR">سيُضاف (دولار أمريكي USD)</label>
+          <input type="number" id="recvCUR" min="0" step="0.01" placeholder="0.00" />
+        </div>
+      </div>
+
+      <div id="methodInfo" class="info-list"></div>
+      <section id="dynamicExtraFields" class="dynamic-extra-fields" hidden>
+        <div class="dynamic-extra-head">
+          <strong>بيانات العميل</strong>
+          <span>أدخل البيانات المطلوبة ليتم تجهيز طلب الإيداع بشكل صحيح، وسيظهر الحقل الإلزامي بوضوح.</span>
+        </div>
+        <div id="dynamicExtraFieldsGrid" class="dynamic-extra-grid"></div>
+        <div id="dynamicExtraStatus" class="dynamic-extra-status" hidden></div>
+      </section>
+
+            <div class="actions">
+        <input type="file" id="proofFile" accept="image/*" style="display:none" />
+        <label for="proofFile" class="btn btn-outline" id="proofTrigger">اثبات الدفع <i class="fa-solid fa-paperclip"></i></label>
+        <button id="submitDepositBtn" class="btn btn-primary" disabled>طلب</button>
+        <button id="closeModal" class="btn btn-outline">اغلاق</button>
+      </div>
+
+      <div id="methodHint" class="hint">مراجعة الطلبات يدوية وقد تستغرق من دقيقة إلى ساعتين في أوقات العمل.</div>
+      <div id="proofPreview" class="preview"></div>
+    </div>
+  </div>
+
+  <script>
+    // ===== Simple preloader controls for this page =====
+    function showPreloader(){
+      const pre = document.getElementById('preloader');
+      if(!pre) return; pre.classList.remove('hidden'); pre.style.display='flex'; pre.style.opacity='1';
+    }
+    function hidePreloader(){
+      const pre = document.getElementById('preloader');
+      if(!pre) return; pre.classList.add('hidden'); setTimeout(()=>{ pre.style.display='none'; }, 450);
+    }
+
+    async function copyToClipboard(text){
+      const value = (text==null) ? '' : String(text);
+      if (!value.trim()) return false;
+      try{
+        if (navigator.clipboard && navigator.clipboard.writeText){
+          await navigator.clipboard.writeText(value);
+          return true;
+        }
+      }catch(_){}
+      let textarea = null;
+      try{
+        textarea = document.createElement('textarea');
+        textarea.value = value;
+        textarea.setAttribute('readonly','');
+        textarea.style.position='fixed';
+        textarea.style.opacity='0';
+        textarea.style.pointerEvents='none';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        const ok = document.execCommand && document.execCommand('copy');
+        return !!ok;
+      }catch(_){
+        return false;
+      }finally{
+        if (textarea && textarea.parentNode){
+          textarea.parentNode.removeChild(textarea);
+        }
+      }
+    }
+    /* ========================= إعداد عام ========================= */
+  const WORKER_DEFAULT = "https://z3em-manwal.laithqarqaz1.workers.dev";
+  function normalizeWorkerBase(value){
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    if (/^https?:\/\//i.test(raw)) return raw.replace(/\/+$/, '');
+    return (`https://${raw}`).replace(/\/+$/, '');
+  }
+  const WORKER_BASE = (function(){
+    try{
+      const custom = normalizeWorkerBase(localStorage.getItem('edaa:worker'));
+      if (custom) return custom;
+    }catch(_){ }
+    return WORKER_DEFAULT;
+  })();
+  const WORKER = normalizeWorkerBase(WORKER_BASE) || WORKER_DEFAULT;
+  function generateGuardToken(prefix){
+    var tag = prefix || 'guard';
+    try{
+      var cryptoSource = null;
+      if (typeof window !== 'undefined' && window.crypto && typeof window.crypto.getRandomValues === 'function'){
+        cryptoSource = window.crypto;
+      } else if (typeof self !== 'undefined' && self.crypto && typeof self.crypto.getRandomValues === 'function'){
+        cryptoSource = self.crypto;
+      }
+      if (cryptoSource){
+        var buf = new Uint32Array(2);
+        cryptoSource.getRandomValues(buf);
+        var hex = Array.from(buf).map(function(n){ return n.toString(16).padStart(8,'0'); }).join('');
+        return tag + '-' + Date.now().toString(36) + '-' + hex;
+      }
+    }catch(_){}
+    return tag + '-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
+  }
+
+    // Firebase (كما هو)
+    const depositFirebaseConfig = {
+          apiKey:"AIzaSyBRVEViuKnCUZqBoD0liuA-P0DVN7mTePA",
+          authDomain:"z3em-d9b11.firebaseapp.com",
+          projectId:"z3em-d9b11",
+          storageBucket:"z3em-d9b11.firebasestorage.app",
+          messagingSenderId:"236716520945",
+          appId:"1:236716520945:web:a0c336db7dc7079c190050",
+          measurementId:"G-1GG6DE12K6"
+        };
+    let depositAuth = null;
+    let depositDb = null;
+    try {
+      if (typeof firebase !== 'undefined' && firebase) {
+        if (!firebase.apps || !firebase.apps.length) {
+          firebase.initializeApp(depositFirebaseConfig);
+        } else {
+          firebase.app();
+        }
+        depositAuth = firebase.auth();
+        depositDb = firebase.firestore();
+      } else {
+        console.warn('Firebase SDK is not available; continuing with worker-only deposit flow.');
+      }
+    } catch (firebaseInitError) {
+      console.warn('Deposit Firebase init failed; continuing with worker-only flow.', firebaseInitError);
+      depositAuth = null;
+      depositDb = null;
+    }
+
+    /* ========================= حارس داخلي (Guard Token) ========================= */
+
+    /* ========================= عناصر DOM ========================= */
+    const grid = document.getElementById('grid');
+    const searchInput = document.getElementById('depositSearchInput') || document.getElementById('searchInput');
+    const noResults = document.getElementById('noResults');
+    const countriesRetryBtn = document.getElementById('countriesRetryBtn');
+    const backBtn = document.getElementById('backBtn');
+    const whereText = document.getElementById('whereText');
+
+    const methodModal = document.getElementById('methodModal');
+    const closeModal = document.getElementById('closeModal');
+    const modalTitle = document.getElementById('modalTitle');
+    const methodInfo = document.getElementById('methodInfo');
+    const dynamicExtraFields = document.getElementById('dynamicExtraFields');
+    const dynamicExtraFieldsGrid = document.getElementById('dynamicExtraFieldsGrid');
+    const dynamicExtraStatus = document.getElementById('dynamicExtraStatus');
+
+    const proofTrigger = document.getElementById('proofTrigger');
+    const submitDepositBtn = document.getElementById('submitDepositBtn');
+    const proofPreview = document.getElementById('proofPreview');
+    const methodHint = document.getElementById('methodHint');
+    let currentExtraFieldValues = Object.create(null);
+    const DEFAULT_DEPOSIT_HINT_TEXT = 'مراجعة الطلبات يدوية وقد تستغرق من دقيقة إلى ساعتين في أوقات العمل.';
+    let cachedDepositHintText = DEFAULT_DEPOSIT_HINT_TEXT;
+    let depositHintLoaded = false;
+    const DEPOSIT_COUNTRIES_DEBUG_PREFIX = '[deposit][countries]';
+    const countriesLoadDebugState = {
+      requestStarted: false,
+      lastRequestUrl: '',
+      lastError: '',
+      lastSource: ''
+    };
+    function debugCountriesLog(level, message, payload){
+      try{
+        const logger = (console && typeof console[level] === 'function') ? console[level] : console.log;
+        if (payload !== undefined) logger(DEPOSIT_COUNTRIES_DEBUG_PREFIX + ' ' + message, payload);
+        else logger(DEPOSIT_COUNTRIES_DEBUG_PREFIX + ' ' + message);
+      }catch(_){ }
+    }
+    function setCountriesRetryButtonVisible(show, reason){
+      if (!countriesRetryBtn) return;
+      countriesRetryBtn.style.display = show ? 'inline-flex' : 'none';
+      countriesRetryBtn.disabled = false;
+      countriesRetryBtn.dataset.reason = show ? String(reason || '') : '';
+      if (show) {
+        countriesRetryBtn.title = reason ? ('سبب الفشل: ' + reason) : 'فشل جلب الدول. اضغط للمحاولة.';
+      } else {
+        countriesRetryBtn.removeAttribute('title');
+      }
+    }
+    if (countriesRetryBtn && countriesRetryBtn.dataset.boundRetry !== '1'){
+      countriesRetryBtn.dataset.boundRetry = '1';
+      countriesRetryBtn.addEventListener('click', async function(){
+        countriesRetryBtn.disabled = true;
+        debugCountriesLog('info', 'Manual retry button clicked', {
+          reason: countriesRetryBtn.dataset.reason || '',
+          lastError: countriesLoadDebugState.lastError || '',
+          lastRequestUrl: countriesLoadDebugState.lastRequestUrl || ''
+        });
+        try{
+          if (typeof window.__depositInlineRetryCountries === 'function') {
+            await window.__depositInlineRetryCountries();
+          } else if (typeof window.__depositInlineRefreshCountries === 'function') {
+            await window.__depositInlineRefreshCountries();
+          } else {
+            watchCountries();
+          }
+        } catch (err){
+          debugCountriesLog('error', 'Manual retry failed', { error: (err && err.message) ? err.message : String(err || '') });
+        } finally {
+          countriesRetryBtn.disabled = false;
+        }
+      });
+    }
+
+    function normalizeDepositHintText(raw){
+      const text = String(raw == null ? '' : raw).trim().slice(0, 4000);
+      return text || DEFAULT_DEPOSIT_HINT_TEXT;
+    }
+
+    function readDepositHintFromBrandCache(){
+      const sources = [];
+      try {
+        if (typeof window !== 'undefined' && window.__SITE_BRAND__ && typeof window.__SITE_BRAND__ === 'object') {
+          sources.push(window.__SITE_BRAND__);
+        }
+      } catch(_) {}
+      try {
+        if (typeof window !== 'undefined' && typeof window.__getSiteBrandConfig === 'function') {
+          const runtimeBrand = window.__getSiteBrandConfig();
+          if (runtimeBrand && typeof runtimeBrand === 'object') sources.push(runtimeBrand);
+        }
+      } catch(_) {}
+      try {
+        const raw = localStorage.getItem('site:brand:v1');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === 'object') sources.push(parsed);
+        }
+      } catch(_) {}
+      for (const src of sources) {
+        const text = String(
+          src?.depositHint ??
+          src?.deposit_hint ??
+          src?.depositDescription ??
+          src?.deposit_description ??
+          src?.depositModalHint ??
+          src?.deposit_modal_hint ??
+          ''
+        ).trim();
+        if (text) return text;
+      }
+      return '';
+    }
+
+    function applyMethodHintText(text){
+      cachedDepositHintText = normalizeDepositHintText(text);
+      if (methodHint) methodHint.textContent = cachedDepositHintText;
+      return cachedDepositHintText;
+    }
+
+    function setDynamicExtraStatus(message, tone){
+      if (!dynamicExtraStatus) return;
+      const text = String(message == null ? '' : message).trim();
+      dynamicExtraStatus.hidden = !text;
+      dynamicExtraStatus.textContent = text;
+      dynamicExtraStatus.classList.toggle('is-ok', String(tone || '').trim().toLowerCase() === 'ok');
+    }
+
+    async function loadDepositHintFromSiteState(){
+      const cachedBrandHint = readDepositHintFromBrandCache();
+      if (cachedBrandHint) {
+        applyMethodHintText(cachedBrandHint);
+      }
+      if (depositHintLoaded) {
+        return applyMethodHintText(cachedDepositHintText);
+      }
+      if (!depositDb || typeof depositDb.collection !== 'function') {
+        return applyMethodHintText(cachedDepositHintText);
+      }
+      try {
+        const snap = await depositDb.collection('config').doc('siteState').get();
+        if (snap && snap.exists) {
+          const data = snap.data() || {};
+          const brand = (data && typeof data.brand === 'object')
+            ? data.brand
+            : ((data && typeof data.siteBrand === 'object') ? data.siteBrand : {});
+          applyMethodHintText(
+            brand.depositHint ||
+            brand.deposit_hint ||
+            brand.depositDescription ||
+            brand.deposit_description ||
+            brand.depositModalHint ||
+            brand.deposit_modal_hint ||
+            data.depositHint ||
+            data.deposit_hint ||
+            data.depositDescription ||
+            data.deposit_description ||
+            data.depositModalHint ||
+            data.deposit_modal_hint ||
+            cachedDepositHintText
+          );
+        } else {
+          applyMethodHintText(cachedDepositHintText);
+        }
+        depositHintLoaded = true;
+      } catch (_) {
+        depositHintLoaded = false;
+        applyMethodHintText(cachedDepositHintText);
+      }
+      return cachedDepositHintText;
+    }
+
+    function setupInfoCopyButtons(){
+      try{
+        if (!methodInfo || methodInfo.dataset.copyBound === '1') return;
+        methodInfo.dataset.copyBound = '1';
+
+        const handleCopy = async (node) => {
+          if (!node) return;
+          const text = String(node.dataset.copyValue || node.textContent || '').trim();
+          if (!text) return;
+          const ok = await copyToClipboard(text);
+          if (!ok) return;
+
+          const row = (node.closest && node.closest('.copyable-row')) || null;
+          const valueNode = row && row.querySelector ? row.querySelector('.copyable-value') : null;
+          const buttonNode = row && row.querySelector ? row.querySelector('.copy') : null;
+
+          if (valueNode) valueNode.classList.add('copied');
+          if (buttonNode) buttonNode.classList.add('copied');
+          if (!valueNode && !buttonNode) node.classList.add('copied');
+
+          setTimeout(() => {
+            try {
+              if (valueNode) valueNode.classList.remove('copied');
+              if (buttonNode) buttonNode.classList.remove('copied');
+              if (!valueNode && !buttonNode) node.classList.remove('copied');
+            } catch(_){ }
+          }, 1200);
+        };
+
+        methodInfo.addEventListener('click', (e) => {
+          const node = e.target && e.target.closest ? e.target.closest('.copy, .copyable-value') : null;
+          if (!node || !methodInfo.contains(node)) return;
+          e.preventDefault();
+          handleCopy(node);
+        });
+
+        methodInfo.addEventListener('keydown', (e) => {
+          const node = e.target && e.target.closest ? e.target.closest('.copyable-value') : null;
+          if (!node || !methodInfo.contains(node)) return;
+          if (e.key !== 'Enter' && e.key !== ' ') return;
+          e.preventDefault();
+          handleCopy(node);
+        });
+      }catch(err){
+        console.error('copy binding error:', err);
+      }
+    }
+    setupInfoCopyButtons();
+
+    function getMethodData(method){
+      return (method && method.data && typeof method.data === 'object') ? method.data : {};
+    }
+
+    function getMethodExtraFields(method){
+      const data = getMethodData(method);
+      const candidates = [
+        data.extraFields,
+        data.clientFields,
+        data.formFields,
+        data.fields,
+        data.extraFieldDefs,
+        data.extraFieldsDef,
+        data.requiredFields
+      ];
+      for (const candidate of candidates) {
+        const normalized = normalizeExtraFields(candidate);
+        if (normalized.length) return normalized;
+      }
+      return [];
+    }
+
+    function getMethodNoteText(data){
+      const info = (data && typeof data.info === 'object') ? data.info : {};
+      return [
+        info.note,
+        info.notes,
+        data.note,
+        data.notes,
+        data.infoNote,
+        data.description,
+        data.desc,
+        data.details
+      ]
+        .map((value) => String(value || '').trim())
+        .find(Boolean) || '';
+    }
+
+    function buildMethodInfoEntries(method){
+      const data = getMethodData(method);
+      const info = (data && typeof data.info === 'object') ? data.info : {};
+      const fields = [];
+      const seen = new Set();
+      const pushField = (entry) => {
+        const label = String(entry?.label || '').trim();
+        const value = String(entry?.value == null ? '' : entry.value).trim();
+        if (!label || !value) return;
+        const uniqueKey = String(entry?.key || `${label}::${value}`).trim().toLowerCase();
+        if (uniqueKey && seen.has(uniqueKey)) return;
+        if (uniqueKey) seen.add(uniqueKey);
+        fields.push({
+          key: uniqueKey || `${label}::${fields.length}`,
+          label,
+          value,
+          copyable: entry?.copyable === true
+        });
+      };
+
+      const displayFields = normalizeDisplayFields(data.displayFields);
+      if (displayFields.length) {
+        displayFields.forEach((entry) => {
+          pushField({
+            key: entry.key,
+            label: entry.label,
+            value: entry.value,
+            copyable: entry.copyable !== false
+          });
+        });
+      } else {
+        if (info.bank) pushField({ key: 'bank', label: 'البنك', value: info.bank });
+        if (info.accountName) pushField({ key: 'account_name', label: 'اسم المستفيد', value: info.accountName });
+        if (info.accountNumber) pushField({ key: 'account_number', label: 'رقم الحساب', value: info.accountNumber, copyable: true });
+        if (info.iban) pushField({ key: 'iban', label: 'IBAN', value: info.iban, copyable: true });
+        normalizeTransferTargets(data.transferTargets).forEach((entry, index) => {
+          pushField({
+            key: entry.key || `transfer_target_${index + 1}`,
+            label: entry.label || 'الرقم',
+            value: entry.value,
+            copyable: true
+          });
+        });
+        const walletFallback = String(info.wallet || '').trim();
+        if (!fields.length && walletFallback) {
+          walletFallback
+            .split(/\r?\n|[,;]+/g)
+            .map((value) => String(value || '').trim())
+            .filter(Boolean)
+            .forEach((value, index) => {
+              pushField({
+                key: `wallet_${index + 1}`,
+                label: 'الرقم',
+                value,
+                copyable: true
+              });
+            });
+        }
+      }
+
+      const feeFixed = Number(data.feeFixed || 0);
+      if (Number.isFinite(feeFixed) && feeFixed > 0) {
+        pushField({ key: 'fee_fixed', label: 'العمولة الثابتة', value: String(feeFixed) });
+      }
+      const noteText = getMethodNoteText(data);
+      if (noteText) {
+        pushField({ key: 'note_text', label: 'ملاحظة', value: noteText });
+      }
+      return fields;
+    }
+
+    function renderMethodInfo(method){
+      if (!methodInfo) return;
+      const fields = buildMethodInfoEntries(method);
+      methodInfo.innerHTML = fields.length
+        ? fields.map((entry) => {
+            const label = String(entry?.label || '');
+            const rawValue = String(entry?.value == null ? '' : entry.value);
+            const htmlValue = zEscHtml(rawValue).replace(/\r?\n/g, '<br>');
+            const copyAttrs = entry?.copyable
+              ? ` role="button" tabindex="0" data-copy-value="${zEscHtml(rawValue)}"`
+              : '';
+            const copyClass = entry?.copyable ? ' copyable-value' : '';
+            const copyButton = entry?.copyable
+              ? `<button class="copy" type="button" aria-label="نسخ" data-copy-value="${zEscHtml(rawValue)}"><span class="copy-icons"><svg xml:space="preserve" style="enable-background:new 0 0 512 512" viewBox="0 0 6.35 6.35" y="0" x="0" height="20" width="20" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" xmlns="http://www.w3.org/2000/svg" class="clipboard"><g><path fill="currentColor" d="M2.43.265c-.3 0-.548.236-.573.53h-.328a.74.74 0 0 0-.735.734v3.822a.74.74 0 0 0 .735.734H4.82a.74.74 0 0 0 .735-.734V1.529a.74.74 0 0 0-.735-.735h-.328a.58.58 0 0 0-.573-.53zm0 .529h1.49c.032 0 .049.017.049.049v.431c0 .032-.017.049-.049.049H2.43c-.032 0-.05-.017-.05-.049V.843c0-.032.018-.05.05-.05zm-.901.53h.328c.026.292.274.528.573.528h1.49a.58.58 0 0 0 .573-.529h.328a.2.2 0 0 1 .206.206v3.822a.2.2 0 0 1-.206.205H1.53a.2.2 0 0 1-.206-.205V1.529a.2.2 0 0 1 .206-.206z"></path></g></svg><svg xml:space="preserve" style="enable-background:new 0 0 512 512" viewBox="0 0 24 24" y="0" x="0" height="18" width="18" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" xmlns="http://www.w3.org/2000/svg" class="checkmark"><g><path data-original="#000000" fill="currentColor" d="M9.707 19.121a.997.997 0 0 1-1.414 0l-5.646-5.647a1.5 1.5 0 0 1 0-2.121l.707-.707a1.5 1.5 0 0 1 2.121 0L9 14.171l9.525-9.525a1.5 1.5 0 0 1 2.121 0l.707.707a1.5 1.5 0 0 1 0 2.121z"></path></g></svg></span></button>`
+              : '';
+            return `<div class="info-item" data-label="${zEscHtml(label)}"><strong>${zEscHtml(label)}</strong><div class="info-value${entry?.copyable ? ' copyable-row' : ''}"><span class="value-text${copyClass}"${copyAttrs}>${htmlValue}</span>${copyButton}</div></div>`;
+          }).join('')
+        : '<div class="info-item">لا توجد تفاصيل متاحة لهذه الطريقة حالياً.</div>';
+    }
+
+    function isTextareaField(type){
+      return type === 'textarea' || type === 'multiline';
+    }
+
+    function isSelectField(type, def){
+      return (type === 'select' || type === 'dropdown') && Array.isArray(def?.options) && def.options.length > 0;
+    }
+
+    function resolveInputType(type){
+      const safe = String(type || 'text').trim().toLowerCase();
+      if (safe === 'number' || safe === 'tel' || safe === 'email') return safe;
+      return 'text';
+    }
+
+    function setDynamicFieldInvalid(control, invalid){
+      if (!control) return;
+      control.classList.toggle('is-invalid', !!invalid);
+      const wrap = control.closest ? control.closest('.dynamic-extra-field') : null;
+      if (wrap) wrap.classList.toggle('is-invalid', !!invalid);
+    }
+
+    function renderDynamicExtraFields(method){
+      if (!dynamicExtraFields || !dynamicExtraFieldsGrid) return;
+      const defs = getMethodExtraFields(method);
+      dynamicExtraFieldsGrid.innerHTML = '';
+      setDynamicExtraStatus('', '');
+      if (!defs.length) {
+        dynamicExtraFields.hidden = true;
+        return;
+      }
+      defs.forEach((def) => {
+        const wrap = document.createElement('div');
+        wrap.className = 'dynamic-extra-field';
+        const safeType = String(def.type || 'text').trim().toLowerCase();
+        if (isTextareaField(safeType) || isSelectField(safeType, def)) {
+          wrap.classList.add('full');
+        }
+
+        const fieldId = `dynamic_extra_${String(def.key || '').replace(/[^a-zA-Z0-9_-]+/g, '_') || 'field'}`;
+        const label = document.createElement('label');
+        label.className = 'dynamic-extra-label';
+        label.setAttribute('for', fieldId);
+        label.innerHTML = `<span>${zEscHtml(def.label)}</span><em class="dynamic-extra-badge${def.required ? '' : ' dynamic-extra-badge-optional'}">${def.required ? 'مطلوب' : 'اختياري'}</em>`;
+        wrap.appendChild(label);
+
+        let control;
+        if (isTextareaField(safeType)) {
+          control = document.createElement('textarea');
+        } else if (isSelectField(safeType, def)) {
+          control = document.createElement('select');
+          const placeholderOption = document.createElement('option');
+          placeholderOption.value = '';
+          placeholderOption.textContent = def.placeholder || `اختر ${def.label}`;
+          control.appendChild(placeholderOption);
+          def.options.forEach((option) => {
+            const optionEl = document.createElement('option');
+            optionEl.value = String(option.value || '').trim();
+            optionEl.textContent = String(option.label || option.value || '').trim();
+            control.appendChild(optionEl);
+          });
+        } else {
+          control = document.createElement('input');
+          control.type = resolveInputType(safeType);
+        }
+
+        control.id = fieldId;
+        control.className = 'dynamic-extra-control';
+        control.dataset.fieldKey = String(def.key || '').trim();
+        control.placeholder = def.placeholder || '';
+        if (def.required) control.required = true;
+
+        const initialValue = String(currentExtraFieldValues[def.key] == null ? '' : currentExtraFieldValues[def.key]);
+        if (initialValue) control.value = initialValue;
+
+        const syncValue = () => {
+          currentExtraFieldValues[def.key] = String(control.value == null ? '' : control.value);
+          if (String(control.value || '').trim()) setDynamicFieldInvalid(control, false);
+          if (dynamicExtraStatus && !dynamicExtraStatus.hidden) setDynamicExtraStatus('', '');
+          updateSubmitState();
+        };
+        control.addEventListener('input', syncValue);
+        control.addEventListener('change', syncValue);
+
+        wrap.appendChild(control);
+        if (def.placeholder) {
+          const hint = document.createElement('div');
+          hint.className = 'dynamic-extra-hint';
+          hint.textContent = def.placeholder;
+          wrap.appendChild(hint);
+        }
+        dynamicExtraFieldsGrid.appendChild(wrap);
+      });
+      dynamicExtraFields.hidden = false;
+    }
+
+    const fxBadge = document.getElementById('fxBadge');
+    const fxText  = document.getElementById('fxText');
+    const rateLine = document.getElementById('rateLine');
+    const sendJOD = document.getElementById('sendJOD'); // مبلغ الدفع بعملة الطريقة
+    const recvCUR = document.getElementById('recvCUR'); // ما سيُضاف بالدولار
+
+    /* ========================= حالة وتنقّل ========================= */
+    let currentCountry = null; // { id, data }
+    let countries = [];
+    let methods = [];
+    let currentMethod = null;
+    let currentProofFile = null;
+    let uploadedProofUrl = null;
+
+    // قيم FX القادمة من الخادم
+    let fxCurrency = null;      // عملة الطريقة (مثلاً USD)
+    let fxRatePerJOD = null;    // 1 JOD -> كم من عملة الطريقة (CUR)
+    let fxRatePerUSD = null;    // 1 USD -> كم من عملة الطريقة (CUR)
+    let usdPerJOD = null;       // 1 JOD -> كم USD (لاحتساب الإضافة بالدولار)
+    let fxFeeFixed = 0;         // عمولة ثابتة بعملة الطريقة
+    // تتبُّع حالة التفرّع عبر العنوان
+    let pendingRoute = null;     // يُستخدم لوضع المسار المطلوب حتى تكتمل قائمة الدول
+
+    // جلب قيمة 1 JOD بالدولار من إعداد عام (config/currency)
+    async function fetchUsdPerJODFromConfig(){
+      try{
+        const snap = await depositDb.collection('config').doc('currency').get();
+        if(!snap || !snap.exists) return null;
+        const d = snap.data() || {};
+        let rates = {};
+        try { rates = JSON.parse(d.ratesJson || '{}') || {}; } catch(_){ rates = {}; }
+        const getVal = (obj)=>{
+          if (obj && typeof obj === 'object'){
+            if (obj.rate!=null) return Number(obj.rate);
+            if (obj.RATE!=null) return Number(obj.RATE);
+            if (obj.value!=null) return Number(obj.value);
+          }
+          if (typeof obj === 'number') return Number(obj);
+          return NaN;
+        };
+        // نفترض أن ratesJson دائمًا يمثل: كم تساوي 1 USD من كل عملة
+        // أي إن كان JOD: 1.4085 → فهذا يعني 1 USD = 1.4085 JOD ⇒ 1 JOD = 1/1.4085 USD
+        const jodPerUSD = getVal(rates.JOD);
+        if (!Number.isFinite(jodPerUSD) || jodPerUSD<=0) return null;
+        return 1 / jodPerUSD;
+      }catch(_){ return null; }
+    }
+
+    /* ========================= أدوات UI ========================= */
+    function cardSkeleton(count=1){
+      if (!grid){
+        debugCountriesLog('error', 'Grid element not found while rendering skeleton');
+        setCountriesRetryButtonVisible(true, 'grid_missing');
+        return;
+      }
+      grid.innerHTML='';
+      showNoResults(false);
+      for(let i=0;i<count;i++){
+        const div=document.createElement('div');
+        div.className='card loading';
+        div.innerHTML='<img alt=""/><h2>—</h2>';
+        grid.appendChild(div);
+      }
+    }
+    function clearGrid(){ if (grid) grid.innerHTML=''; }
+    function showNoResults(show){ if (noResults) noResults.style.display = show ? 'block' : 'none'; }
+    function openModal(){ if (methodModal) methodModal.classList.add('open'); }
+    function closeModalFn(){
+      if (methodModal) methodModal.classList.remove('open');
+      currentMethod = null;
+      currentExtraFieldValues = Object.create(null);
+      setDynamicExtraStatus('', '');
+      sendJOD.value = '';
+      recvCUR.value = '';
+      fxCurrency = null;
+      fxRatePerJOD = null;
+      fxRatePerUSD = null;
+      usdPerJOD = null;
+      fxFeeFixed = 0;
+      fxBadge.classList.add('hidden');
+      fxText.textContent = '';
+      rateLine.textContent = '—';
+      currentProofFile = null;
+      uploadedProofUrl = null;
+      if (proofFileEl) proofFileEl.value = '';
+      proofPreview.textContent = '';
+      if (methodInfo) methodInfo.innerHTML = '';
+      if (dynamicExtraFieldsGrid) dynamicExtraFieldsGrid.innerHTML = '';
+      if (dynamicExtraFields) dynamicExtraFields.hidden = true;
+      updateSubmitState();
+      try { updateProofUI(); } catch(_){ }
+    }
+
+    /* ========================= رسم القوائم ========================= */
+    function renderCountries(list){
+      if (!grid){
+        debugCountriesLog('error', 'Grid element not found while rendering countries');
+        showNoResults(true);
+        setCountriesRetryButtonVisible(true, 'grid_missing');
+        return;
+      }
+      clearGrid();
+      list.forEach(c=>{
+        const a=document.createElement('a');
+        a.href=buildCountryHash(c.id);
+        a.className='card';
+        a.dataset.countryId = String(c.id || '');
+        a.dataset.title=c.data.name||'';
+        a.setAttribute('role','button');
+        a.setAttribute('tabindex','0');
+        a.innerHTML=`
+          <img src="${c.data.imageUrl||''}" alt="${c.data.name||''}">
+          <h2>${c.data.name||''}</h2>`;
+        a.addEventListener('click',(ev)=>{
+          try { ev.preventDefault(); ev.stopPropagation(); } catch(_){ }
+          navigateToCountry(c);
+        });
+        a.addEventListener('keydown',(ev)=>{
+          if (!ev) return;
+          if (ev.key !== 'Enter' && ev.key !== ' ') return;
+          try { ev.preventDefault(); ev.stopPropagation(); } catch(_){ }
+          navigateToCountry(c);
+        });
+        grid.appendChild(a);
+      });
+      showNoResults(list.length===0);
+      if (!currentCountry) setCountriesRetryButtonVisible(((countries || []).length === 0), 'countries_empty');
+    }
+
+    /* ========================= بحث ========================= */
+    function applySearch(){
+      const q=(((searchInput && searchInput.value) || '')+'').trim().toLowerCase();
+      const list=currentCountry?methods:countries;
+      const filtered=list.filter(x=>(x.data.name||'').toLowerCase().includes(q));
+      currentCountry?renderMethods(filtered):renderCountries(filtered);
+    }
+    if (searchInput) searchInput.addEventListener('input', applySearch);
+    if (grid && grid.dataset.boundCountryDelegate !== '1'){
+      grid.dataset.boundCountryDelegate = '1';
+      grid.addEventListener('click', (ev)=>{
+        if (!ev || currentCountry) return;
+        const card = ev.target && ev.target.closest ? ev.target.closest('.card[data-country-id]') : null;
+        if (!card) return;
+        const id = String(card.dataset.countryId || '').trim();
+        if (!id) return;
+        const country = (countries || []).find((x)=> String(x && x.id || '').trim() === id);
+        if (!country) return;
+        try { ev.preventDefault(); ev.stopPropagation(); } catch(_){ }
+        navigateToCountry(country);
+      }, true);
+    }
+
+    /* ========================= جلب الدول & الطرق ========================= */
+        function normalizeWorkerCountries(list){
+      return (Array.isArray(list) ? list : [])
+        .map((entry) => {
+          const id = String(entry?.id || '').trim();
+          const payload = (entry?.data && typeof entry.data === 'object') ? entry.data : {};
+          if (!id || payload.active === false) return null;
+          return { id, data: payload };
+        })
+        .filter(Boolean);
+    }
+
+    const DEPOSIT_COUNTRIES_CACHE_KEY = 'edaa:deposit:countries:v1';
+    const DEPOSIT_COUNTRIES_CACHE_META_KEY = 'edaa:deposit:countries:meta:v1';
+    const depositFxCache = new Map();
+    let countriesLoadedFromWorker = false;
+
+    function buildFxCacheKey(countryId, methodId){
+      const c = String(countryId || '').trim().toUpperCase();
+      const m = String(methodId || '').trim().toUpperCase();
+      if (!c || !m) return '';
+      return `${c}::${m}`;
+    }
+
+    function clearDepositCountriesCache(){
+      try { localStorage.removeItem(DEPOSIT_COUNTRIES_CACHE_KEY); } catch(_){ }
+      try { localStorage.removeItem(DEPOSIT_COUNTRIES_CACHE_META_KEY); } catch(_){ }
+    }
+
+    function readDepositCountriesCache(){
+      try {
+        const raw = localStorage.getItem(DEPOSIT_COUNTRIES_CACHE_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        const list = Array.isArray(parsed?.countries)
+          ? parsed.countries
+          : (Array.isArray(parsed) ? parsed : []);
+        return normalizeWorkerCountries(list);
+      } catch(_){
+        return [];
+      }
+    }
+
+    function normalizeTransferTargets(raw){
+      if (!Array.isArray(raw)) return [];
+      return raw.map((entry, index) => {
+        if (entry && typeof entry === 'object') {
+          const value = String(
+            entry.value ??
+            entry.number ??
+            entry.address ??
+            entry.target ??
+            entry.account ??
+            ''
+          ).trim();
+          const label = String(entry.label || entry.name || entry.title || '').trim();
+          if (!value) return null;
+          return {
+            key: String(entry.key || `transfer_target_${index + 1}`).trim() || `transfer_target_${index + 1}`,
+            label: label || 'الرقم',
+            value
+          };
+        }
+        const value = String(entry || '').trim();
+        if (!value) return null;
+        return {
+          key: `transfer_target_${index + 1}`,
+          label: 'الرقم',
+          value
+        };
+      }).filter(Boolean);
+    }
+
+    function normalizeExtraFieldOptions(raw){
+      const list = Array.isArray(raw)
+        ? raw
+        : (typeof raw === 'string' ? raw.split(/\r?\n|[,;]+/g) : []);
+      return list.map((entry, index) => {
+        if (entry && typeof entry === 'object') {
+          const value = String(entry.value ?? entry.id ?? entry.key ?? entry.label ?? '').trim();
+          const label = String(entry.label ?? entry.name ?? value).trim();
+          if (!value && !label) return null;
+          return { value: value || label, label: label || value || `الخيار ${index + 1}` };
+        }
+        const value = String(entry || '').trim();
+        if (!value) return null;
+        return { value, label: value };
+      }).filter(Boolean);
+    }
+
+    function normalizeExtraFields(raw){
+      if (!Array.isArray(raw)) return [];
+      return raw.map((entry, index) => {
+        if (!entry || typeof entry !== 'object') return null;
+        const key = String(entry.key || entry.id || `field_${index + 1}`).trim();
+        const label = String(entry.label || entry.name || key).trim();
+        if (!key || !label) return null;
+        const type = String(entry.type || entry.inputType || entry.kind || 'text').trim().toLowerCase();
+        const placeholder = String(entry.placeholder || entry.hint || entry.helpText || '').trim();
+        return {
+          key,
+          label,
+          type: type || 'text',
+          required: !!entry.required,
+          placeholder,
+          options: normalizeExtraFieldOptions(entry.options)
+        };
+      }).filter(Boolean);
+    }
+
+    function normalizeDisplayFields(raw){
+      if (!Array.isArray(raw)) return [];
+      return raw.map((entry, index) => {
+        if (entry && typeof entry === 'object') {
+          const value = String(
+            entry.value ??
+            entry.text ??
+            entry.content ??
+            entry.number ??
+            entry.address ??
+            ''
+          ).trim();
+          const label = String(entry.label || entry.name || entry.title || '').trim();
+          if (!value && !label) return null;
+          return {
+            key: String(entry.key || `display_field_${index + 1}`).trim() || `display_field_${index + 1}`,
+            label: label || 'تفاصيل التحويل',
+            value,
+            copyable: entry.copyable !== false
+          };
+        }
+        const value = String(entry || '').trim();
+        if (!value) return null;
+        return {
+          key: `display_field_${index + 1}`,
+          label: 'تفاصيل التحويل',
+          value,
+          copyable: true
+        };
+      }).filter(Boolean);
+    }
+
+    function sanitizeFxPayload(raw = {}){
+      const currencyCode = String(raw.currencyCode || raw.currency || '').trim().toUpperCase();
+      if (!currencyCode) return null;
+
+      let ratePerJOD = toPositiveOrNull(raw.ratePerJOD);
+      const rateToJOD = toPositiveOrNull(raw.rateToJOD);
+      if (!isPositiveNumber(ratePerJOD) && isPositiveNumber(rateToJOD)) {
+        ratePerJOD = 1 / rateToJOD;
+      }
+      if (currencyCode === 'JOD' && !isPositiveNumber(ratePerJOD)) {
+        ratePerJOD = 1;
+      }
+
+      let ratePerUSD = toPositiveOrNull(raw.ratePerUSD);
+      if (currencyCode === 'USD' && !isPositiveNumber(ratePerUSD)) {
+        ratePerUSD = 1;
+      }
+
+      let usdPerJOD = toPositiveOrNull(raw.usdPerJOD);
+      if (!isPositiveNumber(usdPerJOD) && isPositiveNumber(ratePerJOD) && isPositiveNumber(ratePerUSD)) {
+        usdPerJOD = ratePerJOD / ratePerUSD;
+      }
+      if (!isPositiveNumber(ratePerUSD) && isPositiveNumber(ratePerJOD) && isPositiveNumber(usdPerJOD)) {
+        ratePerUSD = ratePerJOD / usdPerJOD;
+      }
+      if (!isPositiveNumber(ratePerJOD) && isPositiveNumber(ratePerUSD) && isPositiveNumber(usdPerJOD)) {
+        ratePerJOD = ratePerUSD * usdPerJOD;
+      }
+
+      let transferTargets = normalizeTransferTargets(raw.transferTargets);
+      if (!transferTargets.length) {
+        const wallet = String(raw?.info?.wallet || raw.wallet || '').trim();
+        if (wallet) {
+          transferTargets = wallet
+            .split(/\r?\n|[,;]+/g)
+            .map((v) => String(v || '').trim())
+            .filter(Boolean);
+        }
+      }
+
+      const feeRaw = Number(raw.feeFixed);
+      return {
+        currencyCode,
+        ratePerJOD: Number(isPositiveNumber(ratePerJOD) ? ratePerJOD : 0),
+        ratePerUSD: Number(isPositiveNumber(ratePerUSD) ? ratePerUSD : 0),
+        usdPerJOD: Number(isPositiveNumber(usdPerJOD) ? usdPerJOD : 0),
+        feeFixed: Number.isFinite(feeRaw) ? feeRaw : 0,
+        transferTargets,
+        displayFields: normalizeDisplayFields(raw.displayFields),
+        extraFields: normalizeExtraFields(raw.extraFields)
+      };
+    }
+
+    function hasUsableFxPayload(fx){
+      if (!fx || typeof fx !== 'object') return false;
+      const currencyCode = String(fx.currencyCode || '').trim().toUpperCase();
+      if (!currencyCode) return false;
+      if (currencyCode === 'USD' || currencyCode === 'JOD') return true;
+      if (isPositiveNumber(Number(fx.ratePerUSD))) return true;
+      if (isPositiveNumber(Number(fx.ratePerJOD))) return true;
+      return false;
+    }
+
+    function hydrateFxCacheFromCountries(list){
+      (Array.isArray(list) ? list : []).forEach((country) => {
+        const countryId = String(country?.id || '').trim();
+        const methodsMap = (country?.data && typeof country.data.methodsMap === 'object')
+          ? country.data.methodsMap
+          : null;
+        if (!countryId || !methodsMap) return;
+        Object.entries(methodsMap).forEach(([methodId, methodData]) => {
+          const key = buildFxCacheKey(countryId, methodId);
+          if (!key) return;
+          const fx = sanitizeFxPayload(methodData || {});
+          if (fx) depositFxCache.set(key, fx);
+        });
+      });
+    }
+
+    function saveDepositCountriesCache(list, base = ''){
+      const normalized = normalizeWorkerCountries(list);
+      try {
+        localStorage.setItem(DEPOSIT_COUNTRIES_CACHE_KEY, JSON.stringify({
+          savedAt: Date.now(),
+          countries: normalized
+        }));
+        localStorage.setItem(DEPOSIT_COUNTRIES_CACHE_META_KEY, JSON.stringify({
+          savedAt: Date.now(),
+          base: normalizeWorkerBase(base) || ''
+        }));
+      } catch(_){ }
+      hydrateFxCacheFromCountries(normalized);
+      return normalized;
+    }
+
+    async function loadCountriesFromWorker(base = WORKER){
+      const workerBase = normalizeWorkerBase(base);
+      if (!workerBase) {
+        countriesLoadDebugState.lastError = 'worker_base_missing';
+        debugCountriesLog('error', 'Worker base is missing', { base });
+        throw new Error('worker_base_missing');
+      }
+      const url = `${workerBase}/deposit/countries`;
+      countriesLoadDebugState.requestStarted = true;
+      countriesLoadDebugState.lastRequestUrl = url;
+      debugCountriesLog('info', 'Sending countries request', { url });
+      let res;
+      let data = {};
+      try {
+        res = await fetch(url, { method: 'GET' });
+        data = await res.json().catch(() => ({}));
+      } catch (fetchErr){
+        countriesLoadDebugState.lastError = (fetchErr && fetchErr.message) ? fetchErr.message : String(fetchErr || 'network_error');
+        debugCountriesLog('error', 'Countries request network failed', { url, error: countriesLoadDebugState.lastError });
+        throw fetchErr;
+      }
+      if (!res.ok || data?.success !== true || !Array.isArray(data?.countries)) {
+        const apiError = (data && data.error) ? data.error : `worker_countries_failed_status_${res.status}`;
+        countriesLoadDebugState.lastError = apiError;
+        debugCountriesLog('error', 'Countries request responded with invalid payload', {
+          url,
+          status: res.status,
+          success: data && data.success,
+          error: apiError
+        });
+        throw new Error(apiError);
+      }
+      debugCountriesLog('info', 'Countries request succeeded', { url, count: Array.isArray(data.countries) ? data.countries.length : 0 });
+      return normalizeWorkerCountries(data.countries);
+    }
+
+    async function loadCountriesFromAvailableWorkers(opts = {}){
+      const forceRefresh = opts?.forceRefresh === true;
+      const preferCache = opts?.preferCache !== false;
+
+      if (!forceRefresh && preferCache) {
+        const cached = readDepositCountriesCache();
+        if (cached.length) {
+          debugCountriesLog('info', 'Using countries cache', { count: cached.length });
+          hydrateFxCacheFromCountries(cached);
+          return cached;
+        }
+      }
+
+      const tried = new Set();
+      const bases = [WORKER, WORKER_DEFAULT]
+        .map((base) => normalizeWorkerBase(base))
+        .filter((base) => {
+          if (!base || tried.has(base)) return false;
+          tried.add(base);
+          return true;
+        });
+      let lastErr = null;
+      debugCountriesLog('info', 'Trying worker bases for countries', { bases });
+      for (const base of bases) {
+        try {
+          debugCountriesLog('info', 'Attempting countries request from base', { base });
+          const list = await loadCountriesFromWorker(base);
+          if (Array.isArray(list) && list.length) {
+            debugCountriesLog('info', 'Loaded countries from worker base', { base, count: list.length });
+            return saveDepositCountriesCache(list, base);
+          }
+          lastErr = new Error(`worker_countries_empty:${base}`);
+          debugCountriesLog('warn', 'Worker returned empty countries list', { base });
+        } catch (err) {
+          lastErr = err;
+          debugCountriesLog('warn', 'Worker base failed while loading countries', {
+            base,
+            error: (err && err.message) ? err.message : String(err || 'unknown_error')
+          });
+        }
+      }
+
+      if (!forceRefresh && preferCache) {
+        const cached = readDepositCountriesCache();
+        if (cached.length) {
+          debugCountriesLog('warn', 'All worker bases failed, fallback to cached countries', { count: cached.length });
+          hydrateFxCacheFromCountries(cached);
+          return cached;
+        }
+      }
+      debugCountriesLog('error', 'All worker bases failed and cache unavailable', {
+        error: (lastErr && lastErr.message) ? lastErr.message : 'worker_countries_failed'
+      });
+      throw lastErr || new Error('worker_countries_failed');
+    }
+
+    function watchCountries(){
+      countriesLoadDebugState.requestStarted = false;
+      countriesLoadDebugState.lastRequestUrl = '';
+      countriesLoadDebugState.lastError = '';
+      countriesLoadDebugState.lastSource = '';
+      setCountriesRetryButtonVisible(false, '');
+      debugCountriesLog('info', 'watchCountries started');
+      if (!grid){
+        debugCountriesLog('error', 'Cannot start countries watch because #grid is missing');
+        setCountriesRetryButtonVisible(true, 'grid_missing');
+        return function(){};
+      }
+      cardSkeleton();
+      clearDepositCountriesCache();
+      depositFxCache.clear();
+      countriesLoadedFromWorker = false;
+      let unsub = null;
+      let cancelled = false;
+      const requestGuardTimer = setTimeout(() => {
+        if (cancelled) return;
+        if (!countriesLoadDebugState.requestStarted) {
+          countriesLoadDebugState.lastError = 'worker_request_not_started';
+          debugCountriesLog('error', 'Countries request did not start within timeout', {
+            reason: countriesLoadDebugState.lastError
+          });
+          setCountriesRetryButtonVisible(true, countriesLoadDebugState.lastError);
+        }
+      }, 5000);
+
+      const applyCountries = (list, source = '') => {
+        countries = Array.isArray(list) ? list : [];
+        countriesLoadedFromWorker = source === 'worker';
+        countriesLoadDebugState.lastSource = source || 'unknown';
+        hydrateFxCacheFromCountries(countries);
+        debugCountriesLog('info', 'Countries list applied', { source: countriesLoadDebugState.lastSource, count: countries.length });
+        if(!currentCountry){ renderCountries(countries); applySearch(); }
+        if (!currentCountry) setCountriesRetryButtonVisible(countries.length === 0, countries.length ? '' : ('countries_empty_' + countriesLoadDebugState.lastSource));
+        if (pendingRoute){ try { applyRoute(true); } catch(_){} pendingRoute=null; }
+      };
+
+      (async () => {
+        try {
+          const workerCountries = await loadCountriesFromAvailableWorkers({
+            forceRefresh: true,
+            preferCache: false
+          });
+          if (cancelled) return;
+          applyCountries(workerCountries, 'worker');
+          return;
+        } catch (err) {
+          countriesLoadDebugState.lastError = (err && err.message) ? err.message : String(err || 'worker_failed');
+          console.warn('countries worker fetch failed on all bases; fallback to firestore', err);
+          debugCountriesLog('warn', 'Worker failed, trying Firestore fallback', { error: countriesLoadDebugState.lastError });
+        }
+
+        try {
+          if (!depositDb || typeof depositDb.collection !== 'function') {
+            throw new Error('firestore_unavailable');
+          }
+          unsub = depositDb.collection('depositCountries')
+            .where('active','==', true)
+            .orderBy('order','asc')
+            .onSnapshot((snap)=>{
+              applyCountries(snap.docs.map((d)=>({id:d.id,data:d.data()})), 'firestore');
+            }, (err)=>{
+              countriesLoadDebugState.lastError = (err && err.message) ? err.message : String(err || 'firestore_onSnapshot_error');
+              debugCountriesLog('error', 'Firestore onSnapshot error while loading countries', { error: countriesLoadDebugState.lastError });
+              setCountriesRetryButtonVisible(true, countriesLoadDebugState.lastError);
+              console.error('countries onSnapshot error:', err);
+            });
+          debugCountriesLog('info', 'Firestore fallback listener attached');
+        } catch (err) {
+          countriesLoadDebugState.lastError = (err && err.message) ? err.message : String(err || 'firestore_fallback_init_error');
+          debugCountriesLog('error', 'Firestore fallback init failed', { error: countriesLoadDebugState.lastError });
+          console.error('countries fallback init error:', err);
+          if (!currentCountry) renderCountries([]);
+          setCountriesRetryButtonVisible(true, countriesLoadDebugState.lastError);
+        }
+      })();
+
+      return () => {
+        cancelled = true;
+        try { clearTimeout(requestGuardTimer); } catch(_){ }
+        if (typeof unsub === 'function') {
+          try { unsub(); } catch(_){ }
+        }
+      };
+    }
+    // أدوات التوجيه البسيطة (hash)
+    const DEPOSIT_HASH_ROUTE_KEYS = new Set([
+      'deposit','edaa','withdraw','sahb','games','social','software','freefireinbut','webdev',
+      'login','settings','security','orders','reviews','transfer','wallet'
+    ]);
+    function decodeHashPart(value){
+      try { return decodeURIComponent(String(value || '')); } catch(_) { return String(value || ''); }
+    }
+    function buildCountryHash(id){
+      const safeId = String(id || '').trim();
+      if (!safeId) return '#/deposit';
+      return '#/deposit/' + encodeURIComponent(safeId);
+    }
+    function parseHash(){
+      try{
+        const raw = String(location.hash || '').replace(/^#\/?/, '');
+        const parts = raw.split('/').filter(Boolean);
+        if (!parts.length) return { type:'root' };
+
+        const first = decodeHashPart(parts[0]).trim();
+        const firstLower = first.toLowerCase();
+
+        if (firstLower === 'deposit' || firstLower === 'edaa') {
+          const countryId = parts.length > 1 ? decodeHashPart(parts[1]).trim() : '';
+          if (countryId) return { type:'country', id: countryId };
+          return { type:'root' };
+        }
+
+        // توافق مؤقت مع الصيغة القديمة #/SYR، مع تحويلها فورًا إلى #/deposit/SYR
+        if (parts.length === 1) {
+          const legacyId = decodeHashPart(parts[0]).trim();
+          if (legacyId && !DEPOSIT_HASH_ROUTE_KEYS.has(legacyId.toLowerCase())) {
+            return { type:'country', id: legacyId, legacy: true };
+          }
+        }
+        return { type:'root' };
+      }catch(_){ return { type:'root' }; }
+    }
+    function setHashForCountry(id, replace){
+      const url = buildCountryHash(id);
+    // ====== تأكيد الإيداع: تحميل CSS من الباك-إند + عرض نافذة ======
+    let __CONFIRM_CSS_ADDED = false;
+    async function ensureConfirmCss(idToken){
+      if (__CONFIRM_CSS_ADDED) return true;
+      try{
+        const res = await fetch(`${WORKER}/ui/confirm.css`, { headers: { Authorization: 'Bearer '+idToken }});
+        if(!res.ok){ __CONFIRM_CSS_ADDED=false; return false; }
+        const css = await res.text();
+        const st = document.createElement('style'); st.id='zconfirm-style'; st.textContent = css;
+        document.head.appendChild(st); __CONFIRM_CSS_ADDED = true; return true;
+      }catch(e){ __CONFIRM_CSS_ADDED=false; return false; }
+    }
+
+    function zEscHtml(s){
+      try{ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }catch(_){ return String(s||''); }
+    }
+
+    function showDepositConfirm({ code, paid, addedUSD, fx, extra }){
+      try{ const old = document.getElementById('zconfirm'); if (old) old.remove(); }catch(_){ }
+      const overlay = document.createElement('div'); overlay.className='zconfirm-overlay'; overlay.id='zconfirm';
+      const copyable = (code !== undefined && code !== null && String(code).trim() !== '');
+      overlay.innerHTML = `
+        <div class="zconfirm-modal" role="dialog" aria-label="تأكيد الطلب">
+          <div class="zconfirm-header">
+            <span class="zbadge">✓</span>
+            <h3 class="zconfirm-title">تم تقديم طلب الإيداع بنجاح</h3>
+          </div>
+          <div class="zconfirm-body">
+            <div class="zrow"><div class="zlabel">الكود</div><div class="zvalue zmono">${zEscHtml(code||'—')}</div></div>
+            <div class="zrow"><div class="zlabel">سيدفع</div><div class="zvalue">${zEscHtml(paid||'—')}</div></div>
+            <div class="zrow"><div class="zlabel">سيُضاف (USD)</div><div class="zvalue">${zEscHtml(addedUSD||'—')}</div></div>
+            ${fx? `<div class="zfx">السعر من الخادم: ${zEscHtml(fx)}</div>`:''}
+            ${extra? `<div class="zfx">${zEscHtml(extra)}</div>`:''}
+          </div>
+          <div class="zconfirm-footer">
+            ${copyable? `<button class="zbtn zbtn-secondary" id="zconfirm-copy" type="button">نسخ الكود</button>`:''}
+            <button class="zbtn zbtn-primary" id="zconfirm-ok" type="button">حسنًا</button>
+          </div>
+        </div>`;
+      document.body.appendChild(overlay);
+      function close(){ try{ overlay.remove(); }catch(_){ } }
+      overlay.addEventListener('click', (e)=>{ if(e.target===overlay) close(); });
+      document.getElementById('zconfirm-ok').addEventListener('click', close);
+      const copyBtn = document.getElementById('zconfirm-copy');
+      if (copyBtn && copyable){
+        const originalText = copyBtn.textContent;
+        let resetTimer = null;
+        function markCopied(){
+          copyBtn.classList.add('copied');
+          copyBtn.textContent = 'تم النسخ';
+          if (resetTimer){ clearTimeout(resetTimer); }
+          resetTimer = setTimeout(()=>{
+            copyBtn.classList.remove('copied');
+            copyBtn.textContent = originalText;
+          }, 2000);
+        }
+        copyBtn.addEventListener('click', async ()=>{
+          const success = await copyToClipboard(code);
+          if(success){
+            copyBtn.blur();
+            markCopied();
+          }else{
+            alert('تعذر نسخ الكود تلقائيًا. انسخه يدويًا.');
+          }
+        });
+      }
+    }
+      try{ replace ? history.replaceState(null,'',url) : history.pushState(null,'',url); }
+      catch(_){ try{ location.hash = url; }catch(__){} }
+    }
+
+    // ====== تأكيد الإيداع: تحميل CSS من الباك-إند + عرض نافذة (نطاق عام) ======
+    let __CONFIRM_CSS_ADDED = false;
+    async function ensureConfirmCss(idToken){
+      if (__CONFIRM_CSS_ADDED) return true;
+      try{
+        const res = await fetch(`${WORKER}/ui/confirm.css`, { headers: { Authorization: 'Bearer '+idToken }});
+        if(!res.ok){ __CONFIRM_CSS_ADDED=false; return false; }
+        const css = await res.text();
+        const st = document.createElement('style'); st.id='zconfirm-style'; st.textContent = css;
+        document.head.appendChild(st); __CONFIRM_CSS_ADDED = true; return true;
+      }catch(e){ __CONFIRM_CSS_ADDED=false; return false; }
+    }
+
+    function zEscHtml(s){
+      try{ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }catch(_){ return String(s||''); }
+    }
+
+    function showDepositConfirm({ code, paid, addedUSD, fx, extra }){
+      try{ const old = document.getElementById('zconfirm'); if (old) old.remove(); }catch(_){ }
+      const overlay = document.createElement('div'); overlay.className='zconfirm-overlay'; overlay.id='zconfirm';
+      const copyable = (code !== undefined && code !== null && String(code).trim() !== '');
+      overlay.innerHTML = `
+        <div class="zconfirm-modal" role="dialog" aria-label="تأكيد الطلب">
+          <div class="zconfirm-header">
+            <span class="zbadge">✓</span>
+            <h3 class="zconfirm-title">تم تقديم طلب الإيداع بنجاح</h3>
+          </div>
+          <div class="zconfirm-body">
+            <div class="zrow"><div class="zlabel">الكود</div><div class="zvalue zmono">${zEscHtml(code||'—')}</div></div>
+            <div class="zrow"><div class="zlabel">سيدفع</div><div class="zvalue">${zEscHtml(paid||'—')}</div></div>
+            <div class="zrow"><div class="zlabel">سيُضاف (USD)</div><div class="zvalue">${zEscHtml(addedUSD||'—')}</div></div>
+            ${fx? `<div class="zfx">السعر من الخادم: ${zEscHtml(fx)}</div>`:''}
+            ${extra? `<div class="zfx">${zEscHtml(extra)}</div>`:''}
+          </div>
+          <div class="zconfirm-footer">
+            ${copyable? `<button class="zbtn zbtn-secondary" id="zconfirm-copy" type="button">نسخ الكود</button>`:''}
+            <button class="zbtn zbtn-primary" id="zconfirm-ok" type="button">حسنًا</button>
+          </div>
+        </div>`;
+      document.body.appendChild(overlay);
+      function close(){ try{ overlay.remove(); }catch(_){ } }
+      overlay.addEventListener('click', (e)=>{ if(e.target===overlay) close(); });
+      document.getElementById('zconfirm-ok').addEventListener('click', close);
+      const copyBtn = document.getElementById('zconfirm-copy');
+      if (copyBtn && copyable){
+        const originalText = copyBtn.textContent;
+        let resetTimer = null;
+        function markCopied(){
+          copyBtn.classList.add('copied');
+          copyBtn.textContent = 'تم النسخ';
+          if (resetTimer){ clearTimeout(resetTimer); }
+          resetTimer = setTimeout(()=>{
+            copyBtn.classList.remove('copied');
+            copyBtn.textContent = originalText;
+          }, 2000);
+        }
+        copyBtn.addEventListener('click', async ()=>{
+          const success = await copyToClipboard(code);
+          if(success){
+            copyBtn.blur();
+            markCopied();
+          }else{
+            alert('تعذر نسخ الكود تلقائيًا. انسخه يدويًا.');
+          }
+        });
+      }
+    }
+
+    async function enterCountry(c, fromHistory){
+      currentCountry=c;
+      if (whereText) whereText.textContent=`طرق الدفع — ${c.data.name}`;
+      if (backBtn) backBtn.style.display='inline-block';
+      if (!fromHistory){ setHashForCountry(c.id, false); }
+      cardSkeleton();
+
+            let map = (c && c.data && c.data.methodsMap && typeof c.data.methodsMap === 'object')
+        ? c.data.methodsMap
+        : null;
+      if ((!map || !Object.keys(map).length) && c?.id && countriesLoadedFromWorker) {
+        try {
+          const latestCountries = await loadCountriesFromAvailableWorkers({
+            forceRefresh: false,
+            preferCache: true
+          });
+          const latest = latestCountries.find((entry) =>
+            String(entry?.id || '').toLowerCase() === String(c.id || '').toLowerCase()
+          );
+          const latestMap = (latest?.data && typeof latest.data.methodsMap === 'object')
+            ? latest.data.methodsMap
+            : null;
+          if (latestMap && Object.keys(latestMap).length) {
+            map = latestMap;
+            c.data.methodsMap = latestMap;
+          }
+        } catch(_){ }
+      }
+      if (map && Object.keys(map).length){
+        methods = Object.entries(map)
+          .map(([id, data]) => ({ id, data: data || {} }))
+          .filter((x) => x && x.data && x.data.active !== false)
+          .sort((a,b)=>{
+            const ao = Number.isFinite(Number(a?.data?.order)) ? Number(a.data.order) : Number.MAX_SAFE_INTEGER;
+            const bo = Number.isFinite(Number(b?.data?.order)) ? Number(b.data.order) : Number.MAX_SAFE_INTEGER;
+            if (ao !== bo) return ao - bo;
+            return String(a?.data?.name || a?.id || '').localeCompare(String(b?.data?.name || b?.id || ''), 'ar');
+          });
+        renderMethods(methods);
+        return;
+      }
+
+      if (!depositDb || typeof depositDb.collection !== 'function') {
+        methods = [];
+        renderMethods(methods);
+        return;
+      }
+      const snap=await depositDb.collection('depositCountries').doc(c.id)
+                    .collection('methods')
+                    .where('active','==', true)
+                    .orderBy('name','asc')
+                    .get();
+
+      methods=snap.docs.map(d=>({id:d.id,data:d.data()}));
+      renderMethods(methods);
+    }
+
+    // إظهار الجذر (قائمة الدول)
+    function showRoot(){
+      currentCountry=null;
+      if (whereText) whereText.textContent='الدول المتاحة للإيداع';
+      if (backBtn) backBtn.style.display='none';
+      renderCountries(countries);
+    }
+    // زر الرجوع (إن فُعِّل) ينسّق مع سجلّ المتصفح
+    function goBack(){ try{ history.back(); }catch(_){ showRoot(); } }
+    if (backBtn) backBtn.addEventListener('click', goBack);
+
+    // الانتقال عند الضغط على بطاقة الدولة
+    function navigateToCountry(c){ enterCountry(c, false); }
+
+    // تطبيق المسار الحالي عند الرجوع/التقدّم أو عند التحميل
+    function applyRoute(fromPop){
+      const r = parseHash();
+      if (r.type === 'country'){
+        if (r.legacy) {
+          try { setHashForCountry(r.id, true); } catch(_){ }
+        }
+        const c = (countries||[]).find(x => (x.id||'').toLowerCase() === (r.id||'').toLowerCase());
+        if (c){ enterCountry(c, true); }
+        else { pendingRoute = r; }
+      } else {
+        showRoot();
+      }
+    }
+    window.addEventListener('popstate', function(){ try{ applyRoute(true); }catch(_){ } });
+    window.addEventListener('hashchange', function(){ try{ applyRoute(true); }catch(_){ } });
+
+    /* ========================= فتح المودال + FX (من الكاش أو الخادم) ========================= */
+    async function fetchFx(countryId, methodId, methodData = null){
+      const fxKey = buildFxCacheKey(countryId, methodId);
+      if (fxKey && depositFxCache.has(fxKey)) {
+        const cached = depositFxCache.get(fxKey);
+        if (hasUsableFxPayload(cached)) return cached;
+        depositFxCache.delete(fxKey);
+      }
+
+      const fromMethodData = sanitizeFxPayload(methodData || {});
+      if (hasUsableFxPayload(fromMethodData)) {
+        if (fxKey) depositFxCache.set(fxKey, fromMethodData);
+        return fromMethodData;
+      }
+
+      const cachedCountries = readDepositCountriesCache();
+      if (cachedCountries.length) {
+        const country = cachedCountries.find((entry) =>
+          String(entry?.id || '').toLowerCase() === String(countryId || '').toLowerCase()
+        );
+        const map = (country?.data && typeof country.data.methodsMap === 'object')
+          ? country.data.methodsMap
+          : null;
+        if (map && Object.prototype.hasOwnProperty.call(map, methodId)) {
+          const fromCachedMap = sanitizeFxPayload(map[methodId] || {});
+          if (hasUsableFxPayload(fromCachedMap)) {
+            if (fxKey) depositFxCache.set(fxKey, fromCachedMap);
+            return fromCachedMap;
+          }
+        }
+      }
+
+      const url = `${WORKER}/deposit/fx?countryId=${encodeURIComponent(countryId)}&methodId=${encodeURIComponent(methodId)}`;
+      const res = await fetch(url, { method:'GET' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.success !== true) throw new Error(data.error || 'تعذر جلب سعر الصرف');
+
+      const normalized = sanitizeFxPayload(data || {});
+      if (!hasUsableFxPayload(normalized)) throw new Error('تعذر قراءة بيانات سعر الصرف');
+      if (fxKey) depositFxCache.set(fxKey, normalized);
+      return normalized;
+    }
+
+    function format4(n){
+      const s=(Math.round(n*10000)/10000).toFixed(4);
+      return s.replace(/\.?0+$/,'');
+    }
+
+    function toPositiveOrNull(value){
+      const n = Number(value);
+      return Number.isFinite(n) && n > 0 ? n : null;
+    }
+
+    function isPositiveNumber(value){
+      return typeof value === 'number' && Number.isFinite(value) && value > 0;
+    }
+
+    function reconcileFxNumbers(){
+      const curCode = (fxCurrency || '').toUpperCase();
+      if (curCode === 'USD' && !isPositiveNumber(fxRatePerUSD)) {
+        fxRatePerUSD = 1;
+      }
+      if (curCode === 'JOD' && !isPositiveNumber(fxRatePerJOD)) {
+        fxRatePerJOD = 1;
+      }
+      if (!isPositiveNumber(usdPerJOD) && isPositiveNumber(fxRatePerJOD) && isPositiveNumber(fxRatePerUSD)) {
+        usdPerJOD = fxRatePerJOD / fxRatePerUSD;
+      }
+      if (!isPositiveNumber(fxRatePerUSD) && isPositiveNumber(fxRatePerJOD) && isPositiveNumber(usdPerJOD)) {
+        fxRatePerUSD = fxRatePerJOD / usdPerJOD;
+      }
+      if (!isPositiveNumber(fxRatePerJOD) && isPositiveNumber(fxRatePerUSD) && isPositiveNumber(usdPerJOD)) {
+        fxRatePerJOD = fxRatePerUSD * usdPerJOD;
+      }
+    }
+
+    function computeUsdFromCur(amount){
+      const v = Number(amount);
+      if (!Number.isFinite(v) || v <= 0) return null;
+      const fee = Number.isFinite(Number(fxFeeFixed)) && Number(fxFeeFixed) > 0 ? Number(fxFeeFixed) : 0;
+      const net = v - fee;
+      if (!Number.isFinite(net) || net <= 0) return null;
+      const curCode = (fxCurrency || '').toUpperCase();
+      if (!curCode) return null;
+      if (curCode === 'USD') return net;
+      if (curCode === 'JOD' && isPositiveNumber(usdPerJOD)) return net * usdPerJOD;
+      if (isPositiveNumber(fxRatePerUSD)) return net / fxRatePerUSD;
+      if (isPositiveNumber(fxRatePerJOD) && isPositiveNumber(usdPerJOD)) {
+        const jod = net / fxRatePerJOD;
+        return jod * usdPerJOD;
+      }
+      return null;
+    }
+
+    function computeCurFromUsd(amount){
+      const v = Number(amount);
+      if (!Number.isFinite(v) || v <= 0) return null;
+      const fee = Number.isFinite(Number(fxFeeFixed)) && Number(fxFeeFixed) > 0 ? Number(fxFeeFixed) : 0;
+      const curCode = (fxCurrency || '').toUpperCase();
+      if (!curCode) return null;
+      if (curCode === 'USD') return v + fee;
+      if (curCode === 'JOD' && isPositiveNumber(usdPerJOD)) return (v / usdPerJOD) + fee;
+      if (isPositiveNumber(fxRatePerUSD)) return (v * fxRatePerUSD) + fee;
+      if (isPositiveNumber(fxRatePerJOD) && isPositiveNumber(usdPerJOD)) {
+        const jod = v / usdPerJOD;
+        return (jod * fxRatePerJOD) + fee;
+      }
+      return null;
+    }
+
+    async function openMethod(m){
+      showPreloader();
+      currentMethod = m;
+      currentExtraFieldValues = Object.create(null);
+      modalTitle.textContent = (m.data.name||"" ).toUpperCase();
+      methodInfo.innerHTML='';
+
+      // جلب السعر من الكاش أولًا ثم الخادم عند الحاجة
+      let fetchedUsdPerJOD = null;
+      try{
+        const activeCountryId = String((currentCountry && currentCountry.id) || m?.data?.countryId || '').trim();
+        const fx = await fetchFx(activeCountryId, m.id, m?.data || {});
+        fxCurrency   = fx.currencyCode;
+        fxRatePerJOD = toPositiveOrNull(fx.ratePerJOD);   // 1 JOD -> CUR
+        fxRatePerUSD = toPositiveOrNull(fx.ratePerUSD);   // 1 USD -> CUR
+        fetchedUsdPerJOD = toPositiveOrNull(fx.usdPerJOD);
+        fxFeeFixed = Number.isFinite(Number(fx.feeFixed)) && Number(fx.feeFixed) > 0 ? Number(fx.feeFixed) : 0;
+        try {
+          if (Array.isArray(fx.transferTargets) && fx.transferTargets.length) m.data.transferTargets = fx.transferTargets;
+          if (Array.isArray(fx.displayFields) && fx.displayFields.length) m.data.displayFields = fx.displayFields;
+          if (Array.isArray(fx.extraFields)) m.data.extraFields = fx.extraFields;
+          if (Number.isFinite(Number(fx.feeFixed))) m.data.feeFixed = Number(fx.feeFixed);
+        } catch(_){ }
+        const curCode = (fxCurrency || '').toUpperCase();
+        if (curCode === 'JOD') {
+          fxRatePerJOD = 1;
+        }
+        if (curCode === 'USD') {
+          fxRatePerUSD = 1;
+        }
+      }catch(e){
+        fxCurrency = null; fxRatePerJOD = null; fxRatePerUSD = null; usdPerJOD = null; fxFeeFixed = 0;
+        rateLine.textContent = 'فشل جلب السعر من الخادم';
+        fxBadge.classList.add('hidden');
+        sendJOD.value = ''; recvCUR.value='';
+        renderMethodInfo(m);
+        renderDynamicExtraFields(m);
+        updateSubmitState();
+        openModal();
+        hidePreloader();
+        return;
+      }
+
+      // عناوين الحقول واتجاه العملية: يدفع بعملة الطريقة → يُضاف بالدولار
+      const payCurrency = String(fxCurrency || 'USD').toUpperCase();
+      document.querySelector('label[for="sendJOD"]').textContent = `سيدفع (${payCurrency})`;
+      document.querySelector('label[for="recvCUR"]').textContent = 'سيُضاف (USD)';
+
+      // تحديد قيمة USD لكل 1 JOD: إن كانت الطريقة USD نستخدم نفس السعر،
+      // وإلا نحاول البحث عن طريقة أخرى في نفس الدولة عملتها USD لاستخراج السعر منها.
+      try {
+        usdPerJOD = isPositiveNumber(fetchedUsdPerJOD) ? fetchedUsdPerJOD : null;
+        const curCode = (fxCurrency || '').toUpperCase();
+        if (!isPositiveNumber(usdPerJOD) && curCode === 'USD' && isPositiveNumber(fxRatePerJOD)) {
+          usdPerJOD = fxRatePerJOD;
+        }
+        if (!isPositiveNumber(usdPerJOD) && curCode === 'JOD' && isPositiveNumber(fxRatePerUSD)) {
+          usdPerJOD = 1 / fxRatePerUSD;
+        }
+        if (!isPositiveNumber(usdPerJOD)) {
+          const usdMethod = (methods || []).find(x => {
+            const c = (x && x.data && (x.data.currencyCode || x.data.currency || '')).toUpperCase();
+            return c === 'USD';
+          });
+          if (usdMethod && usdMethod.data) {
+            let r = toPositiveOrNull(usdMethod.data.usdPerJOD);
+            if (!isPositiveNumber(r)) {
+              r = toPositiveOrNull(usdMethod.data.ratePerJOD);
+            }
+            if (!isPositiveNumber(r)) {
+              const toJOD = toPositiveOrNull(usdMethod.data.rateToJOD);
+              if (isPositiveNumber(toJOD)) r = 1 / toJOD;
+            }
+            if (isPositiveNumber(r)) usdPerJOD = r;
+          }
+        }
+        // ملاذ أخير: من وثيقة config/currency العامة
+        if (!isPositiveNumber(usdPerJOD)){
+          const fromCfg = await fetchUsdPerJODFromConfig();
+          if (Number.isFinite(fromCfg) && fromCfg>0) usdPerJOD = fromCfg;
+        }
+      } catch(_){ }
+      reconcileFxNumbers();
+      // إن كان المستخدم كتب قيمة قبل اكتمال جلب usdPerJOD حدث الحقول الآن
+      try{ if (sendJOD.value) sendJOD.oninput(); }catch(_){ }
+      // تهيئة مبدئية: تركيز على خانة الدفع بالعملة الأساسية (دولار)
+      try { sendJOD.focus(); } catch(_){ }
+      let priceText = 'سعر الصرف غير متوفر';
+      try{
+        const CUR = (fxCurrency||'').toUpperCase();
+        if (!CUR) {
+          priceText = 'سعر الصرف غير متوفر';
+        } else if (CUR === 'USD') {
+          priceText = `1 USD = ${format4(1)} USD`;
+        } else if (CUR === 'JOD' && isPositiveNumber(usdPerJOD)) {
+          priceText = `1 JOD = ${format4(usdPerJOD)} USD`;
+        } else if (isPositiveNumber(fxRatePerUSD)) {
+          priceText = `1 ${CUR} = ${format4(1 / fxRatePerUSD)} USD`;
+        } else if (isPositiveNumber(fxRatePerJOD) && isPositiveNumber(usdPerJOD)) {
+          const usdPerCur = usdPerJOD / fxRatePerJOD;
+          priceText = `1 ${CUR} = ${format4(usdPerCur)} USD`;
+        } else if (isPositiveNumber(fxRatePerJOD)) {
+          priceText = `1 ${CUR} = ${format4(1 / fxRatePerJOD)} JOD`;
+        } else if (isPositiveNumber(usdPerJOD)) {
+          priceText = `1 JOD = ${format4(usdPerJOD)} USD`;
+        }
+      }catch(_){ }
+      if (Number.isFinite(Number(fxFeeFixed)) && Number(fxFeeFixed) > 0 && fxCurrency) {
+        priceText += ` • عمولة ثابتة: ${Number(fxFeeFixed).toFixed(2)} ${fxCurrency}`;
+      }
+      fxText.textContent  = priceText;
+      rateLine.textContent= priceText;
+      fxBadge.classList.remove('hidden');
+      renderMethodInfo(m);
+      renderDynamicExtraFields(m);
+      loadDepositHintFromSiteState().catch(()=>{});
+
+      // الحاسبة (عرض فقط) — نعرض المبلغ الذي سيُضاف بالدولار USD
+      sendJOD.oninput = ()=>{
+        const v = Number(sendJOD.value);
+        const usdAmount = computeUsdFromCur(v);
+        if (!isPositiveNumber(usdAmount)) {
+          recvCUR.value = '';
+        } else {
+          recvCUR.value = usdAmount.toFixed(2);
+        }
+        updateSubmitState();
+        try{
+          document.getElementById('fieldPay').classList.toggle('filled', isFinite(v) && v>0);
+          const rv = Number(recvCUR.value);
+          document.getElementById('fieldRecv').classList.toggle('filled', isFinite(rv) && rv>0);
+        }catch(_){ }
+      };
+      recvCUR.oninput = ()=>{
+        const v = Number(recvCUR.value);
+        const curAmount = computeCurFromUsd(v);
+        if (!isPositiveNumber(curAmount)) {
+          sendJOD.value = '';
+        } else {
+          sendJOD.value = curAmount.toFixed(2);
+        }
+        updateSubmitState();
+        try{
+          document.getElementById('fieldRecv').classList.toggle('filled', isFinite(v) && v>0);
+          const pv = Number(sendJOD.value);
+          document.getElementById('fieldPay').classList.toggle('filled', isFinite(pv) && pv>0);
+        }catch(_){ }
+      };
+
+      updateSubmitState();
+      openModal();
+      hidePreloader();
+    }
+
+    function amountsValid(){
+      const pay = Number(sendJOD.value);
+      const usd = computeUsdFromCur(pay);
+      return Number.isFinite(pay) && pay > 0 && isPositiveNumber(usd);
+    }
+
+    /* ========================= اختيار ملف + رفع تلقائي (بدون تسجيل) ========================= */
+    const proofFileEl = document.getElementById('proofFile');
+
+    let proofUploadPending = false;
+
+    function updateProofUI(){
+      try{
+        if (!proofTrigger) return;
+        if (proofUploadPending){
+          proofTrigger.classList.add('loading');
+          proofTrigger.classList.remove('success');
+          proofTrigger.innerHTML = '<span class="spinner" aria-hidden="true"></span><span>جاري الرفع...</span>';
+        } else if (uploadedProofUrl){
+          proofTrigger.classList.add('success');
+          proofTrigger.classList.remove('loading');
+          proofTrigger.innerHTML = '<i class="fa-solid fa-check"></i>';
+        } else {
+          proofTrigger.classList.remove('loading');
+          proofTrigger.classList.remove('success');
+          proofTrigger.innerHTML = 'اثبات الدفع <i class="fa-solid fa-paperclip"></i>';
+        }
+      }catch(_){ }
+    }
+
+    if (proofFileEl) proofFileEl.addEventListener('change', ()=>{
+      currentProofFile = proofFileEl.files && proofFileEl.files[0] ? proofFileEl.files[0] : null;
+      uploadedProofUrl = null;
+      if (!currentProofFile) {
+        proofPreview.textContent = '';
+        updateProofUI();
+        updateSubmitState();
+        return;
+      }
+      if (!String(currentProofFile.type || '').toLowerCase().startsWith('image/')) {
+        currentProofFile = null;
+        if (proofFileEl) proofFileEl.value = '';
+        proofPreview.textContent = 'اختر ملف صورة صالحًا فقط.';
+        updateProofUI();
+        updateSubmitState();
+        return;
+      }
+      if (Number(currentProofFile.size || 0) > 15 * 1024 * 1024) {
+        currentProofFile = null;
+        if (proofFileEl) proofFileEl.value = '';
+        proofPreview.textContent = 'الحجم الأقصى للصورة 15MB.';
+        updateProofUI();
+        updateSubmitState();
+        return;
+      }
+      if (!currentCountry || !currentMethod) {
+        proofPreview.textContent = 'اختر الدولة والطريقة قبل رفع الإثبات.';
+        updateProofUI();
+        updateSubmitState();
+        return;
+      }
+      const pickedProofFile = currentProofFile;
+      proofPreview.textContent = 'جاري تجهيز الصورة…';
+      updateProofUI();
+      updateSubmitState();
+      compressProofImage(pickedProofFile).then((prepared) => {
+        if (currentProofFile !== pickedProofFile) return;
+        currentProofFile = prepared;
+        if (!proofUploadPending) {
+          triggerProofUpload().catch(console.error);
+        }
+      }).catch((err) => {
+        if (currentProofFile !== pickedProofFile) return;
+        currentProofFile = null;
+        if (proofFileEl) proofFileEl.value = '';
+        proofPreview.textContent = (err && err.message) ? err.message : 'تعذر تجهيز الصورة.';
+        updateProofUI();
+        updateSubmitState();
+      });
+    });
+
+    // الهدف ≤2.5MB: يبقي base64 فحص الذكاء الاصطناعي تحت ~4MB وبعيدًا عن حد تيليجرام 10MB.
+    const PROOF_TARGET_BYTES = 2.5 * 1024 * 1024;
+    const PROOF_MAX_DIMENSION = 2560;
+
+    function canvasToBlob(canvas, type, quality){
+      return new Promise((resolve) => {
+        try { canvas.toBlob(resolve, type, quality); } catch (_) { resolve(null); }
+      });
+    }
+
+    async function decodeProofImage(file){
+      if (typeof createImageBitmap === 'function') {
+        try {
+          return await createImageBitmap(file, { imageOrientation: 'from-image' });
+        } catch (_) {}
+        try {
+          return await createImageBitmap(file);
+        } catch (_) {}
+      }
+      return await new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+        img.onerror = () => {
+          URL.revokeObjectURL(url);
+          reject(new Error('تعذر قراءة الصورة — أرسل لقطة شاشة أو صورة JPG/PNG.'));
+        };
+        img.src = url;
+      });
+    }
+
+    async function compressProofImage(file){
+      const type = String(file.type || '').toLowerCase();
+      if ((type === 'image/jpeg' || type === 'image/png') && Number(file.size || 0) <= PROOF_TARGET_BYTES) {
+        return file;
+      }
+      const probeCanvas = document.createElement('canvas');
+      if (typeof probeCanvas.toBlob !== 'function') {
+        if (Number(file.size || 0) <= 9 * 1024 * 1024) return file;
+        throw new Error('متصفحك لا يدعم ضغط الصور — اختر صورة أصغر من 9MB.');
+      }
+      const source = await decodeProofImage(file);
+      try {
+        const srcW = Number(source.width || source.naturalWidth || 0);
+        const srcH = Number(source.height || source.naturalHeight || 0);
+        if (!srcW || !srcH) throw new Error('تعذر قراءة الصورة — أرسل لقطة شاشة أو صورة JPG/PNG.');
+        let scale = Math.min(1, PROOF_MAX_DIMENSION / Math.max(srcW, srcH));
+        for (let round = 0; round < 3; round += 1) {
+          const w = Math.max(1, Math.round(srcW * scale));
+          const h = Math.max(1, Math.round(srcH * scale));
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) break;
+          ctx.drawImage(source, 0, 0, w, h);
+          const qualities = [0.85, 0.75, 0.65, 0.55];
+          for (let qi = 0; qi < qualities.length; qi += 1) {
+            const blob = await canvasToBlob(canvas, 'image/jpeg', qualities[qi]);
+            if (blob && blob.size > 0 && blob.size <= PROOF_TARGET_BYTES) {
+              try { return new File([blob], 'proof.jpg', { type: 'image/jpeg' }); }
+              catch (_) { return blob; }
+            }
+          }
+          scale *= 0.75;
+        }
+      } finally {
+        try { if (source && typeof source.close === 'function') source.close(); } catch (_) {}
+      }
+      throw new Error('تعذر ضغط الصورة — جرّب صورة أصغر أو لقطة شاشة.');
+    }
+
+    async function triggerProofUpload(){
+      if (!currentProofFile) return;
+      if (proofUploadPending) return;
+      proofUploadPending = true;
+      proofPreview.textContent = `جاري رفع: ${currentProofFile.name || 'proof.jpg'}`;
+      updateProofUI();
+      updateSubmitState();
+      try {
+        await autoUploadProof();
+      } catch (err) {
+        uploadedProofUrl = null;
+        proofPreview.textContent = (err && err.message) ? err.message : 'فشل رفع الإثبات.';
+        updateProofUI();
+        throw err;
+      } finally {
+        proofUploadPending = false;
+        updateProofUI();
+        updateSubmitState();
+      }
+    }
+
+    async function autoUploadProof(){
+      if(!currentProofFile) throw new Error('اختر صورة أولاً.');
+      if(!currentCountry || !currentCountry.id) throw new Error('اختر الدولة قبل رفع الإثبات.');
+      if(!currentMethod || !currentMethod.id) throw new Error('اختر الطريقة قبل رفع الإثبات.');
+      const idToken = await getIdTokenOrThrow();
+      const fd = new FormData();
+      fd.append('image', currentProofFile, currentProofFile.name || 'proof.jpg');
+      fd.append('countryId', currentCountry.id);
+      fd.append('countryName', currentCountry?.data?.name || '');
+      fd.append('methodId', currentMethod.id);
+      fd.append('methodName', currentMethod?.data?.name || '');
+      const guardToken = generateGuardToken('edaa-upload');
+      fd.append('guardToken', guardToken);
+      fd.append('turnstileToken', guardToken);
+      fd.append('cf-turnstile-response', guardToken);
+
+      const res = await fetch(`${WORKER}/deposit/upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + idToken
+        },
+        body: fd
+      });
+      let data = {};
+      try { data = await res.json(); } catch(_){ data = {}; }
+      if(!res.ok || !data?.success) throw new Error((data && (data.message || data.error)) || 'فشل رفع الإثبات');
+
+      uploadedProofUrl =
+        data.url ||
+        data.display_url ||
+        data.displayUrl ||
+        (data.data ? (data.data.url || data.data.display_url) : null) ||
+        null;
+      if(!uploadedProofUrl) throw new Error('الخادم لم يرجع رابطًا صالحًا للملف.');
+
+      proofPreview.innerHTML = `تم الرفع: <a href="${uploadedProofUrl}" target="_blank" rel="noopener">فتح الرابط</a>`;
+      updateProofUI();
+    }
+
+    function updateSubmitState(){
+      const okPay   = amountsValid();
+      const okProof = !!uploadedProofUrl;
+      const okMeta  = !!currentMethod && !!currentCountry;
+      const okFields = collectDynamicExtraFields(currentMethod, true).ok;
+      submitDepositBtn.disabled = !(okPay && okProof && okMeta && okFields);
+    }
+
+    /* ========================= تقديم طلب الإيداع — يتطلب تسجيل دخول ========================= */
+    async function getIdTokenOrThrow(){
+      const user = depositAuth && depositAuth.currentUser;
+      if(!user) throw new Error('يجب تسجيل الدخول أولاً.');
+      return await user.getIdToken(true);
+    }
+
+    function collectDynamicExtraFields(method, silent = false){
+      const defs = getMethodExtraFields(method);
+      if (!defs.length) {
+        setDynamicExtraStatus('', '');
+        return { ok: true, values: {} };
+      }
+      const out = {};
+      let firstMissingControl = null;
+      let firstMissingLabel = '';
+      const controls = dynamicExtraFieldsGrid
+        ? Array.from(dynamicExtraFieldsGrid.querySelectorAll('.dynamic-extra-control'))
+        : [];
+      defs.forEach((def, index) => {
+        const key = String(def.key || `field_${index + 1}`).trim();
+        const label = String(def.label || key).trim();
+        const control = controls.find((entry) => String(entry?.dataset?.fieldKey || '') === key) || null;
+        const value = String(
+          control
+            ? control.value
+            : (currentExtraFieldValues[key] == null ? '' : currentExtraFieldValues[key])
+        ).trim();
+        const required = !!def.required;
+        if (required && !value) {
+          if (control) setDynamicFieldInvalid(control, true);
+          if (!firstMissingControl) {
+            firstMissingControl = control;
+            firstMissingLabel = label;
+          }
+        } else if (control) {
+          setDynamicFieldInvalid(control, false);
+        }
+        if (value) out[key] = value;
+      });
+      if (firstMissingLabel && !silent) {
+        setDynamicExtraStatus(`أكمل الحقل المطلوب: ${firstMissingLabel}`);
+        try {
+          if (firstMissingControl) {
+            firstMissingControl.focus();
+            if (typeof firstMissingControl.scrollIntoView === 'function') {
+              firstMissingControl.scrollIntoView({ behavior:'smooth', block:'center' });
+            }
+          }
+        } catch(_){ }
+        return { ok: false, values: {} };
+      }
+      setDynamicExtraStatus('', '');
+      return { ok: !firstMissingLabel, values: out };
+    }
+
+    async function handleSubmitDeposit(country, method){
+      if(!amountsValid()) return alert('أدخل المبلغ أولاً.');
+      if(!uploadedProofUrl) return alert('من فضلك ارفع الإثبات أولاً.');
+      try{
+        const idToken = await getIdTokenOrThrow(); // الإرسال ما زال يتطلب تسجيل الدخول
+        const guardToken = generateGuardToken('edaa-submit');
+        const extraCollected = collectDynamicExtraFields(method);
+        if (!extraCollected.ok) return;
+
+        const payAmount = Number(sendJOD.value); // ما سيدفعه العميل بعملة الطريقة
+        const body = {
+          countryId: country?.id || "",
+          countryName: country?.data?.name || country?.name || "",
+          methodId: method?.id || "",
+          methodName: method?.data?.name || method?.name || "",
+          payAmount,                       // السيرفر يحسب الباقي
+          proofUrl: uploadedProofUrl,
+          extraFields: extraCollected.values,
+          guardToken,
+          turnstileToken: guardToken
+        };
+
+        const res = await fetch(`${WORKER}/deposit/submit`, {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + idToken,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        if(!res.ok || !data.success) throw new Error(data.error || 'فشل تقديم الطلب');
+        try {
+          window.dispatchEvent(new CustomEvent('njad:deposit-submitted', { detail: { depositCode: data.depositCode || '' } }));
+        } catch(_){ }
+
+        // احسب ما سيُضاف بالدولار
+        let usdAdded = null;
+        if (data && typeof data.amountUSD === 'number') {
+          usdAdded = Number(data.amountUSD);
+        } else {
+          try{
+            if (usdPerJOD && Number.isFinite(Number(usdPerJOD))) {
+              const calc = Number(data.amountJOD) * Number(usdPerJOD);
+              if (Number.isFinite(calc)) usdAdded = calc;
+            }
+          }catch(_){ usdAdded = null; }
+        }
+
+        const usdLine = (usdAdded!=null && Number.isFinite(usdAdded)) ? `سيُضاف (دولار): ${usdAdded.toFixed(2)} USD` : '';
+        const usdRateLine = (typeof data.usdPerJOD === 'number' && data.usdPerJOD>0)
+          ? `\n(1 JOD = ${Number(data.usdPerJOD).toFixed(4)} USD)`
+          : '';
+        const fxLine = (typeof data.ratePerUSD === 'number' && data.ratePerUSD>0)
+          ? `(السعر من الخادم: 1 USD = ${Number(data.ratePerUSD).toFixed(4)} ${data.currency})`
+          : ((typeof data.ratePerJOD === 'number' && data.ratePerJOD>0)
+              ? `(السعر من الخادم: 1 JOD = ${Number(data.ratePerJOD).toFixed(4)} ${data.currency})`
+              : '');
+
+        // عرض نافذة تأكيد عصرية — CSS يُجلب من الباك-إند المحمي
+        try { await ensureConfirmCss(idToken); } catch(_){ }
+        showDepositConfirm({
+          code: data.depositCode,
+          paid: `${data.amountCurrency} ${data.currency}`,
+          addedUSD: (usdAdded!=null && Number.isFinite(usdAdded)) ? usdAdded.toFixed(2)+ ' USD' : '—',
+          fx: (function(){
+            if (typeof data.ratePerUSD === 'number' && data.ratePerUSD>0) return `1 USD = ${Number(data.ratePerUSD).toFixed(4)} ${data.currency}`;
+            if (typeof data.ratePerJOD === 'number' && data.ratePerJOD>0) return `1 JOD = ${Number(data.ratePerJOD).toFixed(4)} ${data.currency}`;
+            return '';
+          })(),
+          extra: (typeof data.usdPerJOD === 'number' && data.usdPerJOD>0) ? `1 JOD = ${Number(data.usdPerJOD).toFixed(4)} USD` : ''
+        });
+        try { closeModalFn(); } catch(_){ }
+      }catch(err){
+        console.error(err);
+        alert(err.message || 'فشل تقديم الطلب');
+      }
+    }
+
+    /* ========================= تشغيل ========================= */
+    function openMethodBound(m){
+      submitDepositBtn.onclick = ()=>handleSubmitDeposit(currentCountry, m);
+      openMethod(m);
+    }
+
+    function renderMethods(list){
+      clearGrid();
+      list.forEach(m=>{
+        const a=document.createElement('a');
+        a.href='javascript:void(0)';
+        a.className='card';
+        a.dataset.title=m.data.name||'';
+        a.innerHTML=`
+          <img src="${m.data.logoUrl||''}" alt="${m.data.name||''}">
+          <h2>${m.data.name||''}</h2>`;
+        a.addEventListener('click',()=>openMethodBound(m));
+        grid.appendChild(a);
+      });
+      showNoResults(list.length===0);
+    }
+
+    if (closeModal) closeModal.addEventListener('click', closeModalFn);
+    if (methodModal) methodModal.addEventListener('click', (e)=>{ if(e.target===methodModal) closeModalFn(); });
+
+    // إعادة تحميل دول الإيداع عند العودة للمسار (طلب واحد جديد + كاش جديد)
+    window.__depositInlineRefreshCountries = async function(){
+      debugCountriesLog('info', 'Manual refresh requested');
+      setCountriesRetryButtonVisible(false, '');
+      try {
+        clearDepositCountriesCache();
+        depositFxCache.clear();
+        countriesLoadedFromWorker = false;
+        const freshCountries = await loadCountriesFromAvailableWorkers({
+          forceRefresh: true,
+          preferCache: false
+        });
+        countries = Array.isArray(freshCountries) ? freshCountries : [];
+        countriesLoadedFromWorker = true;
+        hydrateFxCacheFromCountries(countries);
+        debugCountriesLog('info', 'Manual refresh completed', { count: countries.length });
+        try { applyRoute(true); } catch(_){ }
+        try { applySearch(); } catch(_){ }
+        if (!currentCountry) setCountriesRetryButtonVisible(countries.length === 0, countries.length ? '' : 'manual_refresh_empty');
+        return countries.length > 0;
+      } catch (err) {
+        countriesLoadDebugState.lastError = (err && err.message) ? err.message : String(err || 'manual_refresh_failed');
+        debugCountriesLog('error', 'Manual refresh failed', { error: countriesLoadDebugState.lastError });
+        setCountriesRetryButtonVisible(true, countriesLoadDebugState.lastError);
+        console.warn('deposit refresh countries failed', err);
+        return false;
+      }
+    };
+    window.__depositInlineRetryCountries = async function(){
+      debugCountriesLog('info', 'Retry countries helper called');
+      return window.__depositInlineRefreshCountries();
+    };
+
+    // طبّق المسار الحالي (إن وُجد) ثم ابدأ مراقبة الدول
+    try { applyRoute(true); } catch(_){}
+    watchCountries();
+
+    (function(){
+      try {
+        if(localStorage.getItem('theme') === 'dark'){
+          document.body.classList.add('dark-mode');
+        }
+      }catch(e){}
+    })();
+  </script>
+  
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  

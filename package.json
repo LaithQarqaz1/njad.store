@@ -8,6 +8,9 @@
     "build": "npm run build:admin",
     "write:frontend-config": "node scripts/write-frontend-config.mjs",
     "build:admin": "npm --prefix src/admin-panel install --no-audit --no-fund && npm --prefix src/admin-panel run build",
-    "dev:admin": "npm --prefix src/admin-panel run dev"
+    "dev:admin": "npm --prefix src/admin-panel run dev",
+    "build:frontend": "node scripts/build-frontend.mjs",
+    "check:frontend": "node scripts/build-frontend.mjs --check",
+    "build:edaa": "node scripts/build-edaa.mjs && node scripts/build-frontend.mjs"
   }
 }
