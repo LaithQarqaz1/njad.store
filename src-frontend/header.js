@@ -5452,6 +5452,15 @@ function getHeaderSessionAuth(uid){
 async function fetchHeaderAccountFromServer(user){
   const uid = String(user && user.uid || '').trim();
   if (!uid) return null;
+  // محفزات الإقلاع (boot + visible/focus) كانت تطلق النداء نفسه مرتين خلال
+  // ثوانٍ؛ النداء الجاري/الحديث (≤4s) يُشارَك بدل تكراره. المحفزات الدورية
+  // (20s/60s) أبطأ من النافذة فلا تتأثر.
+  try {
+    const memo = fetchHeaderAccountFromServer.__memo;
+    if (memo && memo.uid === uid && memo.promise && (Date.now() - memo.at) < 4000) {
+      return memo.promise;
+    }
+  } catch {}
   const auth = getHeaderSessionAuth(uid);
   if (!auth.sessionKey) return null;
   let url;
@@ -5464,30 +5473,34 @@ async function fetchHeaderAccountFromServer(user){
     url.searchParams.set('useruid', auth.uid || uid);
     url.searchParams.set('sessionKey', auth.sessionKey);
   } catch { return null; }
-  try {
-    const res = await fetch(url.toString(), { method: 'GET', cache: 'no-store' });
-    const data = await res.json().catch(() => ({}));
-    if (data && (data.code === 'user_banned' || data.isBanned === true)) {
-      const details = (data.details && typeof data.details === 'object') ? data.details : data;
-      return {
-        ok: false, banned: true,
-        banReason: String(details.banReason || '').trim(),
-        webuid: String(details.webuid || '').trim()
-      };
-    }
-    if (!res.ok || data.ok === false) {
-      const code = String((data && data.code) || '').trim();
-      if (res.status === 401 || code === 'session_required' || code === 'session_invalid' ||
-          code === 'session_mismatch' || code === 'session_absent' || code === 'session_revoked') {
-        return { ok: false, unauthorized: true, code };
+  const work = (async () => {
+    try {
+      const res = await fetch(url.toString(), { method: 'GET', cache: 'no-store' });
+      const data = await res.json().catch(() => ({}));
+      if (data && (data.code === 'user_banned' || data.isBanned === true)) {
+        const details = (data.details && typeof data.details === 'object') ? data.details : data;
+        return {
+          ok: false, banned: true,
+          banReason: String(details.banReason || '').trim(),
+          webuid: String(details.webuid || '').trim()
+        };
       }
-      if (res.status === 503 || code === 'balance_unavailable') {
-        return { ok: false, unavailable: true, code };
+      if (!res.ok || data.ok === false) {
+        const code = String((data && data.code) || '').trim();
+        if (res.status === 401 || code === 'session_required' || code === 'session_invalid' ||
+            code === 'session_mismatch' || code === 'session_absent' || code === 'session_revoked') {
+          return { ok: false, unauthorized: true, code };
+        }
+        if (res.status === 503 || code === 'balance_unavailable') {
+          return { ok: false, unavailable: true, code };
+        }
+        return null;
       }
-      return null;
-    }
-    return { ok: true, info: data };
-  } catch { return null; }
+      return { ok: true, info: data };
+    } catch { return null; }
+  })();
+  try { fetchHeaderAccountFromServer.__memo = { uid, at: Date.now(), promise: work }; } catch {}
+  return work;
 }
 // Maps the server account-info payload into the same shape the Firebase users/{uid}
 // snapshot produced, so the existing render path is unchanged. displayName/photoURL/
@@ -8813,6 +8826,14 @@ try { window.__ensureAuthReady = async function(){ await initFirebaseApp(); retu
 
 function bootHeaderFirebaseWhenIdle(){
 try {
+  // زائر صرف: نطبّع واجهة الزائر ولا نحمّل Firebase — تسجيل الدخول يحمّلها
+  // عند الحاجة، وأي أثر جلسة يعيد هذا المسار في الإقلاع التالي.
+  if (typeof window.__isPureGuestVisitor === 'function' && window.__isPureGuestVisitor() === true) {
+    try { applyAuthUi(null); } catch {}
+    try { setApiSidebarVisibility(false); } catch {}
+    try { renderHeaderLevelBadge(null); } catch {}
+    return;
+  }
   (async ()=>{
     const ok = await initFirebaseApp();
     if (!ok || typeof firebase === 'undefined' || !firebase.auth) return;
@@ -10129,8 +10150,14 @@ function wirePageBalanceBox(){
     function refreshWaJoinSeparateLift(){
       try {
         const itemCount = floatingItems ? floatingItems.children.length : 0;
+        // offsetHeight لا يتأثر بتحويلات الأنيميشن (scale) — القياس عبر
+        // getBoundingClientRect لحظة الفتح كان يلتقط الارتفاع المصغّر
+        // فيبقى زر الشات فوق عناصر القائمة المفتوحة.
+        const itemsHeight = floatingItems
+          ? Math.max(Number(floatingItems.offsetHeight) || 0, Math.ceil(floatingItems.getBoundingClientRect().height || 0))
+          : 0;
         const dockLift = floatingOpen && itemCount && !floatingWidget.hidden && !floatingWidget.classList.contains('support-auth-hidden')
-          ? Math.max(0, Math.ceil(floatingItems.getBoundingClientRect().height || 0) + 12)
+          ? Math.max(0, itemsHeight + 12)
           : 0;
         const supportChatFab = document.getElementById('siteSupportChatFab');
         let supportChatStack = 0;
@@ -10172,6 +10199,12 @@ function wirePageBalanceBox(){
       } catch(_){}
       updateFloatingSupportTabState();
       refreshWaJoinSeparateLift();
+      // قياس ثانٍ بعد انتهاء حركة الفتح/الإغلاق (~300ms) يلتقط الارتفاع
+      // النهائي للقائمة مهما كانت الحالة الانتقالية وقت الضغطة.
+      try {
+        clearTimeout(setFloatingSupportOpen.__liftSettleTimer);
+        setFloatingSupportOpen.__liftSettleTimer = setTimeout(refreshWaJoinSeparateLift, 340);
+      } catch(_){}
     }
 
     function ensureWaJoinSeparateButton(){
@@ -11240,8 +11273,10 @@ function wirePageBalanceBox(){
       try { window.addEventListener(evt, loadSupportChunk, { once: true, passive: true }); } catch(_){}
     });
     try {
-      if (document.readyState === 'complete') setTimeout(loadSupportChunk, 3500);
-      else window.addEventListener('load', function(){ setTimeout(loadSupportChunk, 3500); }, { once: true });
+      // كانت المهلة 3500ms فيتأخر ظهور زر الشات ملحوظًا بعد فتح الصفحة؛
+      // 700ms بعد load تُبقي الجزء خارج مسار الإقلاع الحرج ويظهر الزر سريعًا.
+      if (document.readyState === 'complete') setTimeout(loadSupportChunk, 700);
+      else window.addEventListener('load', function(){ setTimeout(loadSupportChunk, 700); }, { once: true });
     } catch (_) {}
   } catch (_) {}
 })();
@@ -14288,6 +14323,7 @@ function wirePageBalanceBox(){
 
     function spawnEid(){
       clearSpecialEffects(); clearThemeParticles();
+      try { if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return; } catch (_) {}
       const host = getSpecialEffectsHost();
       if (!host) return;
       const grass=document.createElement("div");
@@ -14310,6 +14346,7 @@ function wirePageBalanceBox(){
     function spawnThemeParticles(kind,count){
       clearThemeParticles();
       clearSpecialEffects();
+      try { if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return; } catch (_) {}
       particleKind = kind;
       const max = (kind === "leaf") ? PARTICLE_MAX.leaf : PARTICLE_MAX.snow;
       const isNarrow = (() => {
@@ -16241,8 +16278,11 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
     // Entries are pruned automatically when the admin swaps the media set.
     // -----------------------------------------------------------------------
     const SITE_MEDIA_IMAGE_CACHE_PREFIX = "site:media:img:v1:";
-    const SITE_MEDIA_IMAGE_CACHE_ENTRY_MAX_CHARS = 950000;
-    const SITE_MEDIA_IMAGE_CACHE_TOTAL_MAX_CHARS = 3800000;
+    // قراءة localStorage متزامنة على الخيط الرئيسي: السقوف السابقة
+    // (950KB/مدخل، 3.8MB إجمالي) جعلت الإقلاع يقرأ ميغابايتات نصية.
+    // مع ضغط الرفع الجديد (WebP ≤1600px) المدخل النموذجي عشرات الكيلوبايتات.
+    const SITE_MEDIA_IMAGE_CACHE_ENTRY_MAX_CHARS = 220000;
+    const SITE_MEDIA_IMAGE_CACHE_TOTAL_MAX_CHARS = 1200000;
     const __siteMediaImagePersistInFlight = new Set();
     // URLs whose byte-cache fetch failed once (CORS refusal, non-image, oversized,
     // storage full, …). They are NEVER re-fetched this session — without this,
@@ -16260,7 +16300,15 @@ body.inline-view #inlinePage .categories[data-catalog-target="favorites"] > .car
       if (!src || src.indexOf("data:") === 0 || src.indexOf("blob:") === 0) return "";
       try {
         const value = localStorage.getItem(siteMediaImageCacheKey(src));
-        if (typeof value === "string" && value.indexOf("data:image/") === 0) return value;
+        if (typeof value === "string" && value.indexOf("data:image/") === 0) {
+          // تنظيف ذاتي: مدخلات من عهد السقف القديم تتجاوز الحد تُحذف —
+          // الصورة تُعرض من رابطها، وتُعاد كتابتها فقط إن صارت ضمن الحد.
+          if (value.length > SITE_MEDIA_IMAGE_CACHE_ENTRY_MAX_CHARS) {
+            try { localStorage.removeItem(siteMediaImageCacheKey(src)); } catch {}
+            return "";
+          }
+          return value;
+        }
       } catch {}
       return "";
     }

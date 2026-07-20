@@ -76,7 +76,7 @@
   <link rel="preconnect" href="https://cdn.qrcode-ai.com" crossorigin>
   <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" as="style" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'">
   <noscript><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" crossorigin="anonymous"></noscript>
-  <link rel="stylesheet" href="site-bundle.css?v=3869ac870f">
+  <link rel="stylesheet" href="site-bundle.css?v=7c76c9eb57">
 
   <!-- End unified startup assets -->
   
@@ -202,7 +202,7 @@
 
   <!-- شريط الإشعار: يبدأ من البداية، يخرج تمامًا، ثم يعاود من البداية -->
   <div class="notice-ticker" id="homeTicker" aria-label="إعلانات الموقع" hidden aria-hidden="true">
-    <div class="ticker-track" role="marquee" aria-live="polite">
+    <div class="ticker-track" aria-live="off">
       <div class="ticker-copy">
         <span data-runtime-ticker="1"></span>
       </div>
@@ -302,8 +302,9 @@
                 </div>
 
                 <div class="input-group">
-                  <input id="registerPassword" onkeyup="validatePassword()" placeholder="كلمة المرور" type="text"/>
+                  <input id="registerPassword" onkeyup="validatePassword()" placeholder="كلمة المرور" type="password" autocomplete="new-password"/>
                   <i class="fa-solid fa-lock"></i>
+                  <button type="button" class="pw-reveal" id="registerPasswordReveal" aria-label="إظهار كلمة المرور" aria-pressed="false"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
                 </div>
 
                 <div class="password-strength-bar"><div id="strengthIndicator"></div></div>
@@ -790,7 +791,7 @@
   }
   </script>
   <script src="site_settings.js?v=20260702-firebase-publish-01"></script>
-  <script src="site-bundle.js?v=986ffd3e4f"></script>
+  <script src="site-bundle.js?v=033411aadf"></script>
   <!-- End runtime scripts -->
 </body>
 </html>

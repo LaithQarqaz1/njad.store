@@ -1380,9 +1380,12 @@
         host.classList.toggle("is-hidden", viewportHeight <= 0 || trackHeight <= 0);
       }
 
-      window.addEventListener("scroll", syncNow, { passive: true });
-      document.addEventListener("scroll", syncNow, { passive: true, capture: true });
-      window.addEventListener("wheel", syncNow, { passive: true });
+      // rAF-جدولة بدل التنفيذ المتزامن: المستمعان (window + document capture)
+      // كانا يشغّلان update() بقراءات layout مرتين+ لكل حدث تمرير — تجمّع
+      // rAF يجعلها مرة واحدة قبل الرسم بنفس النتيجة البصرية.
+      window.addEventListener("scroll", scheduleUpdate, { passive: true });
+      document.addEventListener("scroll", scheduleUpdate, { passive: true, capture: true });
+      window.addEventListener("wheel", scheduleUpdate, { passive: true });
       window.addEventListener("pointermove", function(){
         if (!dragging) return;
         update();
@@ -1397,7 +1400,7 @@
       document.addEventListener("readystatechange", scheduleUpdate);
       if (window.visualViewport && typeof window.visualViewport.addEventListener === "function") {
         window.visualViewport.addEventListener("resize", scheduleUpdate, { passive: true });
-        window.visualViewport.addEventListener("scroll", syncNow, { passive: true });
+        window.visualViewport.addEventListener("scroll", scheduleUpdate, { passive: true });
       }
       if (desktopScrollbarMedia) {
         try {

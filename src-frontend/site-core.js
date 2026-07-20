@@ -1380,11 +1380,69 @@ async function initFirebaseApp(){
   } catch { return false; }
 }
 
+// زائر صرف: لا أثر جلسة محليًا ولا عودة من Google وليس على مسار دخول.
+// تستعمله بوابات تحميل Firebase عند الإقلاع (النواة + الهيدر) كي لا تُسحب
+// سكربتات compat الثلاثة (~250KB) لزائر لن يستعملها؛ مفاتيح الجلسة القديمة
+// هنا تُقرأ عبر طبقة التوحيد أعلاه (auth:session:bundle:v1).
+function isPureGuestVisitor(){
+  try {
+    if (document.documentElement.classList.contains("google-redirect-pending")) return false;
+    if (/^#\/(login|security|reset)/i.test(String(location.hash || ""))) return false;
+    if (localStorage.getItem("auth:lastLoggedIn") === "1") return false;
+    if (localStorage.getItem("postLoginPayload")) return false;
+    if (localStorage.getItem("sessionKeyInfo")) return false;
+    return true;
+  } catch { return false; }
+}
+
+// توحيد نداء ?action=auth {action:"sync"} عند الإقلاع: ثلاث وحدات (كاتلوج/
+// نواة/هيدر) كانت تطلق المزامنة نفسها خلال ثوانٍ فيتضاعف النداء (2×~2s).
+// النداء الجاري يُشارَك رده مع كل الطالبين، والرد الناجح يُعاد ضمن مهلة قصيرة.
+function dedupedAuthSyncPost(url, body, opts){
+  var options = opts && typeof opts === "object" ? opts : {};
+  var key = String(body && body.uid || "") || "boot";
+  var ttlMs = Number(options.ttlMs) || 45000;
+  var reg;
+  try { reg = window.__AUTH_SYNC_SHARED__ = window.__AUTH_SYNC_SHARED__ || {}; }
+  catch { reg = {}; }
+  var hit = reg[key];
+  var now = Date.now();
+  if (hit && hit.promise && (now - hit.at) < ttlMs) return hit.promise;
+  var controller = null, timer = null;
+  try {
+    controller = new AbortController();
+    timer = setTimeout(function(){ try { controller.abort(); } catch {} }, Number(options.timeoutMs) || 9000);
+  } catch {}
+  var promise = fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body || {}),
+    signal: controller ? controller.signal : undefined
+  }).then(function(res){
+    return res.json().catch(function(){ return {}; }).then(function(data){
+      return { ok: !!res.ok, status: res.status, data: data };
+    });
+  }).catch(function(err){
+    return { ok: false, status: 0, data: {}, error: String(err && err.message || err) };
+  }).then(function(result){
+    try { if (timer) clearTimeout(timer); } catch {}
+    // الفشل لا يُخزَّن بعد اكتماله (يبقى مشتركًا أثناء الطيران فقط) كي لا
+    // تؤجَّل إعادة المحاولة المشروعة.
+    var failed = !result.ok || (result.data && (result.data.success === false || result.data.ok === false));
+    if (failed) { try { delete reg[key]; } catch {} }
+    return result;
+  });
+  reg[key] = { at: now, promise: promise };
+  return promise;
+}
+
 try {
   window.navigateTo = navigateTo;
   window.navigateHomeHash = navigateHomeHash;
   window.ensureFirebaseCompat = ensureFirebaseCompat;
   window.initFirebaseApp = initFirebaseApp;
+  window.__isPureGuestVisitor = isPureGuestVisitor;
+  window.__dedupedAuthSyncPost = dedupedAuthSyncPost;
 } catch {}
 
 ;

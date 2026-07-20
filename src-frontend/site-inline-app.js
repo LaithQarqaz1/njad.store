@@ -3074,20 +3074,12 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
       }
       if (payload?.photoURL || cached.photoURL) body.photoURL = String(payload?.photoURL || cached.photoURL || "");
 
-      let controller, timer;
-      try {
-        controller = new AbortController();
-        timer = setTimeout(() => controller.abort(), 9000);
-      } catch (_) {}
-
-      const res = await fetch(buildAuthUrl(), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-        signal: controller ? controller.signal : undefined
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || data?.success === false || data?.ok === false) return null;
+      const sharedSync = window.__dedupedAuthSyncPost
+        ? await window.__dedupedAuthSyncPost(buildAuthUrl(), body, { timeoutMs: 9000 })
+        : null;
+      if (!sharedSync) return null;
+      const data = sharedSync.data || {};
+      if (!sharedSync.ok || data?.success === false || data?.ok === false) return null;
 
       const nextSessionKey = String(data.sessionKey || currentSessionKey || "").trim();
       const nextDeviceId = String(data.deviceId || deviceId || "").trim();
@@ -3189,26 +3181,19 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     const payload = {
       action: "sync",
       idToken,
+      uid,
       deviceId,
       deviceInfo: collectDeviceInfo()
     };
     if (currentSessionKey) payload.sessionKey = currentSessionKey;
 
-    let controller, timer;
     try {
-      controller = new AbortController();
-      timer = setTimeout(() => controller.abort(), 9000);
-    } catch (_) {}
-
-    try {
-      const res = await fetch(buildAuthUrl(), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        signal: controller ? controller.signal : undefined
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || data?.success === false || data?.ok === false) return fallback;
+      const sharedSync = window.__dedupedAuthSyncPost
+        ? await window.__dedupedAuthSyncPost(buildAuthUrl(), payload, { timeoutMs: 9000 })
+        : null;
+      if (!sharedSync) return fallback;
+      const data = sharedSync.data || {};
+      if (!sharedSync.ok || data?.success === false || data?.ok === false) return fallback;
 
       const nextSessionKey = String(data.sessionKey || currentSessionKey || "").trim();
       const nextDeviceId = String(data.deviceId || deviceId || "").trim();
@@ -5478,6 +5463,11 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     img.setAttribute("referrerpolicy", imageReferrerPolicy);
     img.decoding = String(opts.decoding || "async");
     try { img.referrerPolicy = imageReferrerPolicy; } catch (_) {}
+    // is-loaded يطفئ هيكل التحميل (shimmer) في CSS ويظهر الصورة بتلاشٍ —
+    // قبله كانت البطاقة تبدو «مكسورة» (فراغ أسود) طوال تنزيل الصور الكبيرة.
+    img.addEventListener("load", function () {
+      try { media.classList.add("is-loaded"); } catch (_) {}
+    }, { once: true });
 
     const ensureEmptyState = () => {
       try { host.classList.add("media-empty"); } catch (_) {}
@@ -5511,6 +5501,9 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
         }
       } catch (_) {}
       img.src = realImageUrl;
+      if (img.complete && img.naturalWidth) {
+        try { media.classList.add("is-loaded"); } catch (_) {}
+      }
     } else {
       img.dataset.placeholderApplied = "1";
       applyFallback();
@@ -6141,6 +6134,10 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     media.className = "catalog-card-media";
     media.setAttribute("aria-hidden", "true");
     media.setAttribute("data-media-label", label);
+    // شيمر التحميل opt-in عبر data-shimmer: يقتصر على البطاقات المبنية هنا
+    // (حيث نضيف is-loaded عند onload) — البطاقات المبنية كسلاسل HTML
+    // (الإيداع...) لا تحمل العلامة فلا تُخفى صورها.
+    try { media.dataset.shimmer = "1"; } catch(_){}
     try { forceCatalogCardMediaTransparent(media); } catch(_){}
 
     const img = document.createElement("img");
@@ -6156,6 +6153,7 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     try { forceCatalogMediaImageTransparent(img); } catch(_){}
 
     img.addEventListener("load", function() {
+      try { media.classList.add("is-loaded"); } catch(_){}
       try {
         if (restoreLoadedCatalogCardMediaImage(img)) return;
         if (img.dataset.catalogFallbackImage === "1") {
@@ -6199,10 +6197,16 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
       } catch (_) {
         img.src = realImageUrl;
       }
+      if (img.complete && img.naturalWidth) {
+        try { media.classList.add("is-loaded"); } catch (_) {}
+      }
       scheduleCatalogCardMediaImageAudit(host, media, img, realImageUrl);
     } else {
       try { applyCatalogCardMediaFallback(host, media, img, label); } catch (_) {}
     }
+    // صمّام أمان: مهما حدث (تنزيل معلّق/مؤجّل خارج الشاشة) يُطفأ الشيمر
+    // بعد 12 ثانية وتُعرض الحالة كما هي.
+    try { setTimeout(function(){ try { media.classList.add("is-loaded"); } catch(_){} }, 12000); } catch(_){}
 
     return img;
   }
@@ -11213,14 +11217,15 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
       }
       let lastError = null;
       for (let i = 0; i < bases.length; i += 1) {
-        const base = buildCatalogActionUrl(bases[i], (catalogMode === "provider-games" || forceProviderMode) ? "" : safeSlug);
         if (catalogMode === "provider-games" || forceProviderMode) {
-          base.searchParams.set("mode", "load-categories");
-          if (safeSlug) base.searchParams.set("slug", safeSlug);
-          if (uid) base.searchParams.set("useruid", uid);
-        } else {
-          if (uid) base.searchParams.set("useruid", uid);
+          // الشجرة الكاملة أُزيلت من الخادم نهائياً (410) — لا طلب شجري بعد
+          // الآن: بيانات المنتج تأتي من المسار الكسول (locate + hydrate) الذي
+          // يملأ الكاش المحلي، وهذا الاحتياطي الشبكي القديم يفشل بهدوء.
+          lastError = new Error("catalog_tree_removed");
+          continue;
         }
+        const base = buildCatalogActionUrl(bases[i], safeSlug);
+        if (uid) base.searchParams.set("useruid", uid);
 
         const res = await fetch(base.toString(), {
           method: "GET",
@@ -11768,7 +11773,9 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
     });
     dom.searchInput?.addEventListener("input", () => {
       clearTimeout(bindEvents._searchTimer);
-      bindEvents._searchTimer = setTimeout(() => applySearch(dom.searchInput.value), 0);
+      // مهلة فعلية بين الضغطات: الفلترة تمسح كل البطاقات (نصوص + مطابقة
+      // ضبابية)، وتشغيلها مع كل حرف كان يهنّج الكتابة على الكاتلوجات الكبيرة.
+      bindEvents._searchTimer = setTimeout(() => applySearch(dom.searchInput.value), 180);
     });
     dom.currentSectionBack?.addEventListener("click", () => {
       const parts = dom.currentSection && dom.currentSection.dataset
@@ -12725,13 +12732,12 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           deviceInfo: collectDeviceInfoLocal()
         };
         if (sessionKey) body.sessionKey = sessionKey;
-        const res = await fetch(buildAuthRouterUrl(), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || data?.success === false || data?.ok === false) return false;
+        const sharedSync = window.__dedupedAuthSyncPost
+          ? await window.__dedupedAuthSyncPost(buildAuthRouterUrl(), body, { timeoutMs: 9000 })
+          : null;
+        if (!sharedSync) return false;
+        const data = sharedSync.data || {};
+        if (!sharedSync.ok || data?.success === false || data?.ok === false) return false;
 
         const nextSessionKey = String(data.sessionKey || sessionKey || '').trim();
         const nextDeviceId = String(data.deviceId || deviceId || '').trim();
@@ -12990,9 +12996,18 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
       };
       try { window.addEventListener('site:runtime-config-ready', retryFirebaseBind, { once: true }); } catch (_) {}
       try { window.addEventListener('firebase:ready', retryFirebaseBind); } catch (_) {}
+      // زائر صرف بلا أي أثر جلسة ولا عودة Google وليس على مسار دخول:
+      // لا نسحب Firebase compat (~250KB لثلاثة سكربتات) عند الإقلاع.
+      // صفحة الدخول تحمّلها عند الحاجة (ensureFirebaseCompatAsync) ومستمعا
+      // firebase:ready/runtime-config أعلاه يربطان الجلسة حال جهوزيتها.
+      const deferFirebaseForGuest = (() => {
+        try {
+          return typeof window.__isPureGuestVisitor === 'function' && window.__isPureGuestVisitor() === true;
+        } catch (_) { return false; }
+      })();
       if (initFirebaseOnce()) {
         bindFirebaseHandlers();
-      } else {
+      } else if (!deferFirebaseForGuest) {
         bootFirebaseInline();
         loadFirebaseCompat().then((ok) => {
           if (!ok) {
@@ -13451,6 +13466,10 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
 
       function getNodeSearchText(node){
         if (!node) return '';
+        // البطاقة لا يتغير نصها بعد بنائها (إعادة الرسم تنشئ عقدًا جديدة)،
+        // فنحسب نص البحث مرة واحدة: قراءة textContent + التطبيع مع كل حرف
+        // كانت أثقل جزء في الفلترة.
+        try { if (node.__njSearchTextCache != null) return node.__njSearchTextCache; } catch (_) {}
         const parts = [];
         const data = node.dataset || {};
         const cardType = String(data.cardType || node.getAttribute('data-card-type') || '').toLowerCase();
@@ -13459,7 +13478,9 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           pushPart(parts, data.title || node.getAttribute('data-title'));
           pushPart(parts, data.catalogItemId);
           pushPart(parts, node.querySelector && node.querySelector('h2') ? node.querySelector('h2').textContent : '');
-          return norm(parts.join(' '));
+          const productText = norm(parts.join(' '));
+          try { node.__njSearchTextCache = productText; } catch (_) {}
+          return productText;
         }
         if (data.searchExpanded !== '1' && typeof window.__buildCatalogSearchTextFull === 'function') {
           try {
@@ -13492,7 +13513,9 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
         parseDataList(data.treePathParent).forEach(value => pushPart(parts, value));
         pushPart(parts, node.querySelector && node.querySelector('h2') ? node.querySelector('h2').textContent : '');
         pushPart(parts, node.textContent || '');
-        return norm(parts.join(' '));
+        const sectionText = norm(parts.join(' '));
+        try { node.__njSearchTextCache = sectionText; } catch (_) {}
+        return sectionText;
       }
 
       function getTargets(container, grid){
@@ -13650,13 +13673,13 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
         clearTimeout(t);
         t = setTimeout(() => {
           apply(input.value);
-        }, 0);
+        }, 180);
       });
       if (typeof MutationObserver === 'function') {
         let watchTimer = 0;
         const observer = new MutationObserver(() => {
           clearTimeout(watchTimer);
-          watchTimer = setTimeout(() => apply(input.value), 0);
+          watchTimer = setTimeout(() => apply(input.value), 150);
         });
         observer.observe(searchScope, { childList: true, subtree: true });
       }
@@ -15529,7 +15552,6 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
               catalogPayloadCache = _buildCatalogFromTree(treeCache);
               window.__CATALOG_CATALOG_CACHE__ = catalogPayloadCache;
               window.__CATALOG_TREE_CACHE__ = treeCache;
-              writeCatalogCache(getCurrentUid(), cache, categoriesCache, catalogPayloadCache);
             } catch(_){}
             if (opts.silentRender !== true) {
               try { scheduleForceRender(); } catch(_){}
@@ -16146,82 +16168,9 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           return "";
         }
 
-        function getProviderSyncKey(uid){
-          return PROVIDER_SYNC_CACHE_PREFIX + (uid || "guest");
-        }
-
-        function readProviderSync(uid){
-          try{
-            var raw = localStorage.getItem(getProviderSyncKey(uid));
-            if (!raw) return null;
-            var data = JSON.parse(raw);
-            if (!data || typeof data !== "object") return null;
-            return data;
-          }catch(_){
-            return null;
-          }
-        }
-
-        function writeProviderSync(uid, ok){
-          try{
-            var payload = { at: Date.now(), ok: ok === true };
-            localStorage.setItem(getProviderSyncKey(uid), JSON.stringify(payload));
-          }catch(_){}
-        }
-
-        function shouldSyncProvider(uid, force){
-          if (force) return true;
-          var data = readProviderSync(uid);
-          if (!data || !data.at) return true;
-          var age = Date.now() - Number(data.at || 0);
-          var ttl = data.ok === false ? PROVIDER_SYNC_RETRY_TTL : PROVIDER_SYNC_TTL;
-          return age > ttl;
-        }
-
-        function buildProviderSyncUrl(base, force, override, uid){
-          var url;
-          try {
-            url = new URL(base);
-          } catch {
-            url = new URL(DEFAULT_BASE);
-          }
-          // Frontend must not trigger provider sync mode; use read-only load mode.
-          url.searchParams.set("mode", "load-categories");
-          if (force) url.searchParams.set("force", "1");
-          if (override) url.searchParams.set("override", "1");
-          if (uid) url.searchParams.set("useruid", uid);
-          return url.toString();
-        }
-
-        function syncProviderCatalog(force){
-          if (shouldBlockLoadCategories("provider-games")) return Promise.resolve(null);
-          if (providerSyncInflight) return providerSyncInflight;
-          var uid = getCurrentUid();
-          if (!shouldSyncProvider(uid, force)) return Promise.resolve(null);
-          var base = getProviderBase();
-          if (!base) return Promise.resolve(null);
-          var syncUrl = buildProviderSyncUrl(base, force, false, uid);
-          if (!syncUrl) return Promise.resolve(null);
-          providerSyncInflight = fetchWithCatalogTimeout(syncUrl, { cache: "no-store" }, CATALOG_NETWORK_TIMEOUT_MS)
-            .then(function(res){
-              return res.json().catch(function(){ return {}; }).then(function(data){
-                var siteDisabledErr = handleCatalogSiteDisabledResponse(data, res, "catalog-provider-sync");
-                if (siteDisabledErr) throw siteDisabledErr;
-                return { ok: res.ok, data: data };
-              });
-            })
-            .then(function(result){
-              var ok = !!(result && result.ok && result.data && result.data.ok !== false);
-              writeProviderSync(uid, ok);
-              return result;
-            })
-            .catch(function(){
-              writeProviderSync(uid, false);
-              return null;
-            })
-            .finally(function(){ providerSyncInflight = null; });
-          return providerSyncInflight;
-        }
+        // (أقسام-أولاً) عنقود ping «provider-sync» حُذف بالكامل: كان يقرع
+        // load-categories (أُزيل 410) ويهمل الرد، وبلا أي مستدعٍ منذ جولة
+        // الأداء. مفاتيح catalog:provider-sync: القديمة تُمسح في تنظيف الإقلاع.
 
         function getCurrentUid(){
           try{
@@ -16382,45 +16331,15 @@ try { window.__CATALOG_INLINE_HOLD__ = true; } catch (_) {}
           return catalogCacheObjectHasContent(data.catalog);
         }
 
-        function readCatalogCache(uid){
-          try{
-            var key = getCatalogCacheKey(uid);
-            var raw = localStorage.getItem(key);
-            if (!raw) return null;
-            var data = JSON.parse(raw);
-            if (!catalogCachePayloadHasContent(data)) return null;
-            // عمر قصير: اللقطة الأقدم من الحد تُحذف وتُحمَّل بارداً؛ الأحدث
-            // تُعرض فوراً ويُعاد التحقق منها بالخلفية في fetchList.
-            var age = Date.now() - Number(data.savedAt || 0);
-            if (!(age >= 0 && age <= CATALOG_PERSIST_TTL_MS)) {
-              try { localStorage.removeItem(key); } catch(_){}
-              return null;
-            }
-            return data;
-          }catch(_){
-            return null;
-          }
+        // أقسام-أولاً: لقطة الشجرة الكاملة (catalog:cache:v9) أُزيلت نهائياً —
+        // الكاش الوحيد هو كاش الأقسام الموسمي (catalog:section:v1) قسمًا قسمًا.
+        // القارئ يعيد null دائماً والكاتب لا يكتب؛ مفاتيح قديمة تُمسح في تنظيف
+        // الإقلاع (catalogClearPersistentCache) كما كانت.
+        function readCatalogCache(_uid){
+          return null;
         }
 
-        function writeCatalogCache(uid, games, categories, catalogPayload){
-          try{
-            var storedTree = Array.isArray(treeCache) && treeCache.length ? treeCache : null;
-            if (!catalogCachePayloadHasContent({
-              games: games,
-              categories: categories,
-              catalog: catalogPayload,
-              tree: storedTree
-            })) return;
-            var payload = {
-              visitId: CATALOG_VISIT_ID,
-              savedAt: Date.now(),
-              games: Array.isArray(games) ? games : [],
-              categories: Array.isArray(categories) ? categories : null,
-              catalog: (catalogPayload && typeof catalogPayload === "object") ? catalogPayload : null,
-              tree: storedTree
-            };
-            localStorage.setItem(getCatalogCacheKey(uid), JSON.stringify(payload));
-          }catch(_){}
+        function writeCatalogCache(_uid, _games, _categories, _catalogPayload){
         }
 
         function hydrateCache(uid){
@@ -16975,6 +16894,40 @@ function normalizeCategory(value){
           if (node._loading) return node._fetchPromise || Promise.resolve(null);
           var existingChildren = treeNodeChildren(node, true);
           var forceFetch = !!node._forceFetch;
+          // أقسام-أولاً: ريّ فروع القسم يمر حصراً عبر جلب القسم الواحد
+          // (load-section). طلب الشجرة الكاملة بمعرّف قسم أُزيل من الخادم (410).
+          // مهم: لا نُطلق ريّاً إلا إذا كان القسم غير مروي فعلاً (أو طلب إجباري)
+          // — التنقّل المتكرر على قسم محمَّل يعيد ما بالذاكرة بلا أي عمل إضافي
+          // (وإلا تراكمت عقد DOM مع كل ذهاب وإياب).
+          try {
+            var lazySectionId = String((node && (node.id || node.key)) || "").trim();
+            var needsHydration = forceFetch || node.__d1LazyUnloaded === true || !existingChildren.length;
+            if (
+              lazySectionId &&
+              needsHydration &&
+              window.__catalogD1 &&
+              typeof window.__catalogD1.hydrateSection === "function"
+            ) {
+              node._loading = true;
+              node._fetchPromise = Promise.resolve(
+                window.__catalogD1.hydrateSection(lazySectionId, { force: forceFetch })
+              ).then(function(){
+                node._loaded = true;
+                return treeNodeChildren(node, true);
+              }).catch(function(){
+                return treeNodeChildren(node, true);
+              }).finally(function(){
+                node._loading = false;
+                node._forceFetch = false;
+              });
+              return node._fetchPromise;
+            }
+            if (lazySectionId && !needsHydration) {
+              node._loaded = true;
+              node._loading = false;
+              return Promise.resolve(existingChildren);
+            }
+          } catch(_){}
           var providerModeLocalOnly =
             PROVIDER_TREE_LOCAL_ONLY &&
             (typeof getCatalogMode === "function" && getCatalogMode() === "provider-games") &&
@@ -17059,73 +17012,12 @@ function normalizeCategory(value){
               return Promise.resolve(cachedTree);
             }
           }
-          var url;
-          try {
-            url = new URL(base);
-          } catch {
-            url = new URL(DEFAULT_BASE);
-          }
-          url.searchParams.set("mode", "load-categories");
-          url.searchParams.set("categoryId", requestCategoryId);
-          var uidParam = getCurrentUid();
-          if (uidParam) url.searchParams.set("useruid", uidParam);
-          if (forceFetch) {
-            url.searchParams.set("force", "1");
-          }
-
-          node._fetchPromise = fetchWithCatalogTimeout(url.toString(), { cache: "no-store" }, CATALOG_CATEGORY_FETCH_TIMEOUT_MS).then(function(res){
-            return res.json().catch(function(){ return {}; }).then(function(data){
-              var siteDisabledErr = handleCatalogSiteDisabledResponse(data, res, "catalog-category");
-              if (siteDisabledErr) throw siteDisabledErr;
-              if (!res.ok) {
-                var err = new Error("catalog_category_fetch_failed");
-                err.payload = data;
-                throw err;
-              }
-              return data;
-            });
-          }).then(function(data){
-            var tree = Array.isArray(data.tree) ? data.tree : [];
-            var hasServerTreeField = !!(data && Object.prototype.hasOwnProperty.call(data, "tree"));
-            var serverTreeIsEmpty = hasServerTreeField && Array.isArray(data.tree) && data.tree.length === 0;
-            if (serverTreeIsEmpty) {
-              try { node._emptyTreeToastAt = 0; } catch(_){}
-            } else if (hasServerTreeField && Array.isArray(data.tree) && data.tree.length > 0) {
-              try { node._emptyTreeToastAt = 0; } catch(_){}
-            }
-            node.branches = tree;
-            node._loaded = true;
-            try { node._emptyTree = tree.length === 0; } catch(_){}
-            node._loading = false;
-            if (providerCategoryCache) providerCategoryCache.set(cacheKey, tree);
-            if (forceFetch) {
-              try { node._forceFetch = false; } catch(_){}
-            }
-            try{
-              if (ensureCacheFromTree()) {
-                var uidUpdate = getCurrentUid();
-                writeCatalogCache(uidUpdate, cache, categoriesCache, catalogPayloadCache);
-              }
-              try { scheduleForceRender(); } catch(_){}
-            }catch(_){}
-            return tree;
-          }).catch(function(err){
-            if (isCatalogSiteDisabledError(err)) {
-              node._loading = false;
-              node._loaded = true;
-              return null;
-            }
-            console.warn("Catalog category fetch error:", err);
-            node._loading = false;
-            node._loaded = true;
-            return null;
-          }).finally(function(){
-            if (forceFetch) {
-              try { node._forceFetch = false; } catch(_){}
-            }
-            node._fetchPromise = null;
-          });
-          return node._fetchPromise;
+          // (أقسام-أولاً) بقية هذا المسار كانت تطلب الشجرة الكاملة بمعرّف قسم
+          // (load-categories&categoryId) — أُزيل من الخادم (410). الريّ يتم أعلاه
+          // عبر جلب القسم الواحد؛ وإن تعذّر، نُعيد ما هو محمَّل محلياً.
+          node._loading = false;
+          node._forceFetch = false;
+          return Promise.resolve(treeNodeChildren(node, true));
         }
         function getDeferredTreeWarmKey(node){
           if (!node || typeof node !== "object") return "";
@@ -17833,42 +17725,24 @@ function normalizeCategory(value){
           if (useLoader) {
             loaderHeld = holdLoader();
           }
-          // D1 lazy mode (flag-gated): the initial load fetches ONLY the
-          // top-level section list and synthesizes a shallow tree (each top
-          // node has empty branches, hydrated on entry). The rest of the
-          // pipeline below is reused unchanged because it already builds from a
-          // `tree` array. On any failure, fall back to the whole-tree fetch.
-          function fetchWholeTree(){
-            return fetchFromBase(base, primaryMode).catch(function(err){
-              if (isCatalogSiteDisabledError(err)) throw err;
-              if (fallbackMode !== primaryMode) {
-                return fetchFromBase(base, fallbackMode);
-              }
-              throw err;
-            });
-          }
+          // أقسام-أولاً: التحميل الأول يجلب قائمة الأقسام العليا فقط (شجرة
+          // ضحلة تُروى قسمًا قسمًا عند الدخول). الشجرة الكاملة أُزيلت من
+          // الخادم نهائيًا (410) — لا يوجد أي مسار احتياطي شجري: فشل الجلب
+          // يُظهر حالة الخطأ مع إعادة المحاولة.
           function fetchCatalogData(){
-            if (isCatalogD1LazyEnabled()) {
-              return catalogD1FetchTopSections().then(function(res){
-                // D1 cold / not yet backfilled -> the server served a Firebase
-                // fallback. Use the proven whole-tree path (one rebuild) instead
-                // of lazy per-section (which would rebuild on every entry).
-                if (!res || res.source !== "d1") return fetchWholeTree();
-                var nodes = (res.sections || []).map(function(s){
-                  return {
-                    type: "category", id: s.id, key: s.id, name: s.name,
-                    imageUrl: s.image || "", order: s.sortOrder || 0, branches: [],
-                    __d1LazyUnloaded: true, __d1LazyHasChildren: !!s.hasChildren
-                  };
-                });
-                return { tree: nodes, __d1Lazy: true, version: res.version };
-              }).catch(function(err){
-                if (isCatalogSiteDisabledError(err)) throw err;
-                // D1 not ready / failed -> safe fall back to the whole tree.
-                return fetchWholeTree();
+            return catalogD1FetchTopSections().then(function(res){
+              if (!res || !Array.isArray(res.sections)) {
+                throw new Error("تعذر تحميل الأقسام حالياً — أعد المحاولة.");
+              }
+              var nodes = (res.sections || []).map(function(s){
+                return {
+                  type: "category", id: s.id, key: s.id, name: s.name,
+                  imageUrl: s.image || "", order: s.sortOrder || 0, branches: [],
+                  __d1LazyUnloaded: true, __d1LazyHasChildren: !!s.hasChildren
+                };
               });
-            }
-            return fetchWholeTree();
+              return { tree: nodes, __d1Lazy: true, version: res.version };
+            });
           }
           inflight = syncPromise.then(fetchCatalogData).then(function(data){
             try { if (catalogPerf.isActive()) catalogPerf.mark("data_processing_start"); } catch(_){}
@@ -18417,42 +18291,9 @@ function normalizeCategory(value){
           return "";
         }
 
-        function appendCatalogCardMedia(card, options){
-          try {
-            if (typeof window.__appendCatalogCardMedia === "function") {
-              return window.__appendCatalogCardMedia(card, options);
-            }
-          } catch(_){}
-
-          var host = card && typeof card === "object" ? card : null;
-          var opts = options && typeof options === "object" ? options : {};
-          if (!host) return null;
-
-          var label = String(opts.label || opts.title || "Catalog").trim() || "Catalog";
-          var media = document.createElement("div");
-          media.className = "catalog-card-media is-empty";
-          media.setAttribute("aria-hidden", "true");
-
-          var img = document.createElement("img");
-          img.setAttribute("draggable", "false");
-          img.setAttribute("alt", label + " - بلا صورة");
-          img.setAttribute("loading", String(opts.loading || "eager"));
-          img.setAttribute("fetchpriority", String(opts.fetchPriority || opts.fetchpriority || "high"));
-          img.decoding = String(opts.decoding || "async");
-          try { img.removeAttribute("src"); } catch(_){}
-          try { img.style.display = "none"; } catch(_){}
-          media.appendChild(img);
-
-          var badge = document.createElement("span");
-          badge.className = "catalog-card-media-badge";
-          badge.textContent = "بلا صورة";
-          media.appendChild(badge);
-
-          try { host.classList.add("media-empty"); } catch(_){}
-          host.appendChild(media);
-          return img;
-        }
-
+        /* حُذف تعريف appendCatalogCardMedia المكرر الذي كان هنا: تعريفان
+           متتاليان بنفس الاسم في نفس النطاق — الثاني كان يطغى فيبقى الأول
+           كودًا ميتًا (وبإعدادات eager/high مخالفة للنسخة الأصلية). */
         function appendCatalogCardMedia(card, options){
           try {
             if (typeof window.__appendCatalogCardMedia === "function") {
@@ -23412,7 +23253,7 @@ function normalizeCategory(value){
           }
           try { input.__catalogSearchBound = '1'; } catch(_){ }
           input.addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); apply(input.value); } });
-          var t; input.addEventListener('input', function(){ clearTimeout(t); t=setTimeout(function(){ apply(input.value); }, 0); });
+          var t; input.addEventListener('input', function(){ clearTimeout(t); t=setTimeout(function(){ apply(input.value); }, 180); });
           if (!container.__catalogSearchObserver && typeof MutationObserver === 'function') {
             var watchTimer = 0;
             container.__catalogSearchObserver = new MutationObserver(function(){
@@ -23421,7 +23262,7 @@ function normalizeCategory(value){
                 try {
                   if (typeof container.__applyCatalogSearch === 'function') container.__applyCatalogSearch();
                 } catch(_){ }
-              }, 0);
+              }, 150);
             });
             container.__catalogSearchObserver.observe(container, { childList: true, subtree: true });
           }

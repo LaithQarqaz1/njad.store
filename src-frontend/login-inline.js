@@ -5128,6 +5128,21 @@
       validatePassword();
     }
 
+    // إظهار/إخفاء كلمة مرور التسجيل (الحقل type=password والكشف اختياري).
+    const registerPasswordReveal = byId("registerPasswordReveal");
+    if (registerPasswordInput && registerPasswordReveal && !registerPasswordReveal.__z3RevealBound) {
+      registerPasswordReveal.__z3RevealBound = true;
+      registerPasswordReveal.addEventListener("click", () => {
+        const show = registerPasswordInput.type === "password";
+        registerPasswordInput.type = show ? "text" : "password";
+        registerPasswordReveal.setAttribute("aria-pressed", show ? "true" : "false");
+        registerPasswordReveal.setAttribute("aria-label", show ? "إخفاء كلمة المرور" : "إظهار كلمة المرور");
+        const revealIcon = registerPasswordReveal.querySelector("i");
+        if (revealIcon) revealIcon.className = show ? "fa-solid fa-eye-slash" : "fa-solid fa-eye";
+        try { registerPasswordInput.focus({ preventScroll: true }); } catch (_) {}
+      });
+    }
+
     const registerLegalConsent = getLegalConsentCheckbox();
     if (registerLegalConsent) {
       if (hasStoredLegalConsent()) registerLegalConsent.checked = true;

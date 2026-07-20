@@ -1412,6 +1412,17 @@ body[data-inline-route="edaa"] #methodModal:not(.hidden) .modal-content {
     z-index: 9100 !important;
   }
 
+  /* زر شات الدعم واختصار واتساب أساسهما 82px (لسطح المكتب) بينما قائمة
+     الدعم كلها مرفوعة هنا إلى 92px فوق شريط التنقل السفلي — فكان زر الشات
+     يجلس فوق زر القائمة نفسه. 158px = قاع القائمة (92) + زرها (54) + فجوة 12،
+     ومتغيرا الرفع يواصلان التكديس فوقها كما في سطح المكتب. */
+  #siteSupportChatFab {
+    bottom: calc(max(158px, calc(env(safe-area-inset-bottom, 0px) + 158px)) + var(--support-chat-fab-lift, 0px)) !important;
+  }
+  #waJoinShortcutButton {
+    bottom: calc(max(158px, calc(env(safe-area-inset-bottom, 0px) + 158px)) + var(--wa-join-shortcut-lift, 0px)) !important;
+  }
+
   body.sidebar-open #supportFloatingWidget {
     z-index: 8900 !important;
   }
@@ -7559,6 +7570,41 @@ body.dark-mode .calendar-day.range-start, body.dark-mode .calendar-day.range-end
   }
   html[dir="ltr"] #loginInline .input-group i{ right:auto; left:14px; }
 
+  /* زر إظهار/إخفاء كلمة المرور — يقابل أيقونة القفل على الطرف الآخر */
+  #loginInline .input-group .pw-reveal{
+    position:absolute;
+    top:50%;
+    transform:translateY(-50%);
+    left:12px;
+    right:auto;
+    width:34px;
+    height:34px;
+    border-radius:999px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:transparent;
+    border:0;
+    padding:0;
+    color:var(--muted);
+    cursor:pointer;
+    opacity:.9;
+  }
+  #loginInline .input-group .pw-reveal:hover,
+  #loginInline .input-group .pw-reveal:focus-visible{ opacity:1; color:var(--text); }
+  #loginInline .input-group .pw-reveal i{
+    position:static;
+    transform:none;
+    width:auto;
+    height:auto;
+    background:transparent;
+    border:0;
+    font-size:15px;
+    color:inherit;
+    opacity:1;
+  }
+  html[dir="ltr"] #loginInline .input-group .pw-reveal{ left:auto; right:12px; }
+
   #loginInline .stack{ display:flex; flex-direction:column; gap:10px; }
 
   #loginInline .btn{
@@ -11045,6 +11091,35 @@ html[data-theme="dark"] .card::after{
   border-radius:inherit;
   display:block;
   margin:0 auto;
+}
+/* هيكل تحميل: قبل اكتمال الصورة تظهر ومضة خفيفة بدل فراغ يبدو كعطل،
+   والصورة تدخل بتلاشٍ. is-loaded يضيفها appendCatalogCardMedia عند onload. */
+.catalog-card-media[data-shimmer="1"]:not(.is-loaded):not(.is-empty)::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  border-radius:inherit;
+  background:linear-gradient(100deg,
+    rgba(148,163,184,.10) 32%,
+    rgba(148,163,184,.22) 46%,
+    rgba(148,163,184,.10) 60%);
+  background-size:220% 100%;
+  animation:catalogMediaShimmer 1.4s ease-in-out infinite;
+  z-index:0;
+}
+.catalog-card-media[data-shimmer="1"]:not(.is-loaded):not(.is-empty) img{
+  opacity:0;
+}
+.catalog-card-media[data-shimmer="1"].is-loaded img{
+  opacity:1;
+  transition:opacity .28s ease;
+}
+@keyframes catalogMediaShimmer{
+  0%{ background-position:120% 0; }
+  100%{ background-position:-120% 0; }
+}
+@media (prefers-reduced-motion: reduce){
+  .catalog-card-media[data-shimmer="1"]:not(.is-loaded):not(.is-empty)::before{ animation:none; }
 }
 .catalog-card-media.is-empty{
   background:transparent;

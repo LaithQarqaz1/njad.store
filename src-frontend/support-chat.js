@@ -2337,22 +2337,13 @@
       var lookup = String(itemId == null ? '' : itemId).trim().toLowerCase();
       var resolved = String(fallback || '').trim();
       if (!lookup) return resolved;
+      // أقسام-أولاً: لا لقطة شجرة في localStorage بعد الآن — المصدر الوحيد هو
+      // النموذج بالذاكرة (الأقسام المحمّلة في هذه الزيارة)؛ والمسار الرسمي
+      // لتحديد قسم المنتج هو locate-product عبر window.__catalogD1.
       var catalogs = [];
       try {
         if (window.__CATALOG_CATALOG_CACHE__ && window.__CATALOG_CATALOG_CACHE__.items) {
           catalogs.push(window.__CATALOG_CATALOG_CACHE__);
-        }
-      } catch (_) {}
-      try {
-        for (var li = 0; li < localStorage.length; li += 1) {
-          var storeKey = String(localStorage.key(li) || '');
-          if (storeKey.indexOf('catalog:cache:v9:') !== 0) continue;
-          var raw = localStorage.getItem(storeKey);
-          if (!raw) continue;
-          var parsedCache = JSON.parse(raw);
-          if (parsedCache && parsedCache.catalog && parsedCache.catalog.items) {
-            catalogs.push(parsedCache.catalog);
-          }
         }
       } catch (_) {}
       for (var c = 0; c < catalogs.length; c += 1) {

@@ -140,5 +140,7 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(fetch(remoteAuthScript, { cache: "no-store", mode: "no-cors" }));
     return;
   }
-  event.respondWith(fetch(request, { cache: "no-store" }));
+  // بقية الطلبات لا تُعترض إطلاقًا: الاعتراض السابق بـ cache:"no-store" كان
+  // يعطّل كاش HTTP لكل أصول الموقع (الحزمة والأجزاء والصور) ما دامت نسخة
+  // القتل هذه مسيطرة على التبويب.
 });
