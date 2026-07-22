@@ -66,14 +66,17 @@
   <!-- ضمان عمل التخزين والمتغيرات البيئية في جميع البيئات -->
   <!-- Unified startup assets -->
   <meta name="color-scheme" content="light dark">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <!-- Preconnect only to critical-path origins (Lighthouse warns above 4):
+       img.njad.store + i.ibb.co host the logo/banners/product images (the LCP);
+       fonts.gstatic.com serves the font files; cdnjs serves Font Awesome.
+       fonts.googleapis.com only serves the tiny (non-blocking) font CSS → dns-prefetch. -->
+  <link rel="preconnect" href="https://img.njad.store" crossorigin>
+  <link rel="preconnect" href="https://i.ibb.co" crossorigin>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link rel="dns-prefetch" href="https://fonts.googleapis.com">
   <link rel="preload" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <noscript><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet"></noscript>
-  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
-  <link rel="preconnect" href="https://i.ibb.co" crossorigin>
-  <link rel="preconnect" href="https://images.icon-icons.com" crossorigin>
-  <link rel="preconnect" href="https://cdn.qrcode-ai.com" crossorigin>
   <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" as="style" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'">
   <noscript><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" crossorigin="anonymous"></noscript>
   <link rel="stylesheet" href="site-bundle.css?v=7c76c9eb57">
@@ -104,11 +107,7 @@
   <!-- الخطوط -->
   <!-- Load Google Fonts without blocking first paint -->
 
-  <!-- الأيقونات -->
-  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
-  <link rel="preconnect" href="https://i.ibb.co" crossorigin>
-  <link rel="preconnect" href="https://images.icon-icons.com" crossorigin>
-  <link rel="preconnect" href="https://cdn.qrcode-ai.com" crossorigin>
+  <!-- الأيقونات (preconnects consolidated into <head> above; duplicates removed) -->
 
   <!-- Phone input -->
 
@@ -791,7 +790,7 @@
   }
   </script>
   <script src="site_settings.js?v=20260702-firebase-publish-01"></script>
-  <script src="site-bundle.js?v=fed072500a"></script>
+  <script src="site-bundle.js?v=bdac028362"></script>
   <!-- End runtime scripts -->
 </body>
 </html>
