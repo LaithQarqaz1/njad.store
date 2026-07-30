@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://njad.store/sitemap.xml
+Host: njad.store

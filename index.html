@@ -1,0 +1,823 @@
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-lang="ar">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- حجز صندوق البانر قبل أول رسم.
+       حزمة site-bundle.js تُنفَّذ بعد أول رسم، وشرائح البانر تُبنى منها،
+       فكان صندوق البانر يبقى بارتفاع صفر ثم يقفز إلى ارتفاعه الكامل بعد
+       لحظات ويدفع الشريط والبحث والبطاقات كلها للأسفل (‏CLS ‏0.9+).
+       هنا نقرأ — قبل أي رسم — ما إذا كانت هناك بانرات محفوظة محليًا ونسبتها،
+       فنحجز الصندوق بمقاسه النهائي منذ البداية. -->
+  <script>
+  (function(){
+    try {
+      var root = document.documentElement;
+      // وجود النسبة المحفوظة يعني أن بانرًا حقيقيًا رُسم في زيارة سابقة،
+      // فهو وحده شرط الحجز — لا حاجة لقراءة قائمة البانرات هنا.
+      var ratio = parseFloat(localStorage.getItem('site:hero:ratio:v1') || '');
+      if (ratio > 0.2 && ratio < 12) {
+        root.style.setProperty('--hero-reserve-ratio', String(ratio));
+        root.classList.add('hero-will-render');
+      }
+    } catch (_) {}
+  })();
+  </script>
+  <!-- GENERATED from store.identity.json (or the GitHub Actions repository
+       variables that override it). DO NOT EDIT BY HAND: change the identity and
+       run `npm run identity`. Every brand-specific tag in <head> lives here. -->
+  <!-- store-identity:head -->
+  <title>Njad store | نجاد ستور</title>
+  <meta name="application-name" content="Njad store">
+  <meta name="apple-mobile-web-app-title" content="Njad store">
+  <meta name="author" content="Njad store">
+  <meta name="theme-color" content="#0C0C0C">
+  <link rel="canonical" href="https://njad.store/">
+  <link rel="alternate" href="https://njad.store/" hreflang="ar">
+  <link rel="alternate" href="https://njad.store/" hreflang="x-default">
+  <meta name="turnstile-sitekey" content="0x4AAAAAABmiVmi7wosqeHQT">
+
+  <meta name="description" content="Njad store | نجاد ستور للخدمات الرقمية وشحن الألعاب والاشتراكات بسرعة وأمان، مع تسجيل دخول ودعم مباشر.">
+  <meta name="keywords" content="Njad store, نجاد ستور, njad.store, خدمات رقمية, متجر رقمي, شحن ألعاب, شحن العاب, اشتراكات رقمية, بطاقات رقمية, دفع إلكتروني, تسجيل الدخول, دعم فني">
+
+  <meta property="og:url" content="https://njad.store/">
+  <meta property="og:title" content="Njad store | نجاد ستور">
+  <meta property="og:description" content="Njad store | نجاد ستور للخدمات الرقمية وشحن الألعاب والاشتراكات بسرعة وأمان.">
+  <meta property="og:image:alt" content="Njad store">
+  <meta property="og:site_name" content="Njad store | نجاد ستور">
+  <meta name="twitter:title" content="Njad store | نجاد ستور">
+  <meta name="twitter:description" content="Njad store | نجاد ستور للخدمات الرقمية وشحن الألعاب والاشتراكات بسرعة وأمان.">
+  <meta name="twitter:image:alt" content="Njad store">
+
+  <!-- This store's R2 bucket — it serves every logo/banner/product image (the LCP). -->
+  <link rel="preconnect" href="https://img.njad.store" crossorigin>
+  <!-- /store-identity:head -->
+
+  <link id="dynamicSiteManifestLink" rel="manifest" href="/manifest.webmanifest?v=20260613-share-preview-01">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1 1'%3E%3C/svg%3E" type="image/svg+xml" sizes="any">
+  <link rel="shortcut icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1 1'%3E%3C/svg%3E" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1 1'%3E%3C/svg%3E">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+
+  <!-- Open Graph / Twitter — the brand-dependent tags (og:url/title/description/
+       site_name, twitter:title/description) are emitted in the store-identity
+       region above; only the store-independent ones live here. -->
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="/site-preview.png">
+  <meta property="og:image:secure_url" content="/site-preview.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:locale" content="ar_AR">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="/site-preview.png">
+  <meta name="twitter:image:src" content="/site-preview.png">
+
+
+  <!-- ضمان عمل التخزين والمتغيرات البيئية في جميع البيئات -->
+  <!-- Unified startup assets -->
+  <meta name="color-scheme" content="light dark">
+  <!-- Preconnect only to critical-path origins (Lighthouse warns above 4):
+       this store's own image host is emitted in the store-identity region above
+       (hosts.imagesOrigin); i.ibb.co hosts uploaded product images (the LCP);
+       fonts.gstatic.com serves the font files; cdnjs serves Font Awesome.
+       fonts.googleapis.com only serves the tiny (non-blocking) font CSS → dns-prefetch. -->
+  <link rel="preconnect" href="https://i.ibb.co" crossorigin>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link rel="dns-prefetch" href="https://fonts.googleapis.com">
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet"></noscript>
+  <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" as="style" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" crossorigin="anonymous"></noscript>
+  <link rel="stylesheet" href="src-frontend/dist/site-bundle.css?v=4b0df4df47">
+
+  <!-- End unified startup assets -->
+  
+  </head>
+  <body>
+  <div id="preloader" role="status" aria-live="polite" aria-label="Loading">
+    <div class="loader" aria-hidden="true"></div>
+  </div>
+  <div id="headerContainer"></div>
+  <div id="sidebarContainer"></div>
+
+  
+  
+
+  
+  
+
+  <!-- سكربت تثبيت الثيم مبكرًا جدًا لمنع اللمعة -->
+  
+
+  
+
+
+
+  <!-- الخطوط -->
+  <!-- Load Google Fonts without blocking first paint -->
+
+  <!-- الأيقونات (preconnects consolidated into <head> above; duplicates removed) -->
+
+  <!-- Phone input -->
+
+  <!-- CSS -->
+
+  <!-- Firebase SDK is loaded on demand after the shell is visible. -->
+
+  <!-- Scripts -->
+  <!-- Clear stale navigation loader markers on fresh home loads -->
+  
+  
+  
+    
+
+
+  
+  
+  <!-- Styles for inline-loaded pages: auto ribbon, premium cards -->
+  
+
+  <!-- Reviews page inline styles -->
+  
+
+  <!-- Wallet page inline styles -->
+  
+
+  
+
+  
+
+  
+
+  
+
+  <!-- Settings page inline styles -->
+  
+  
+  <!-- Account security (2FA) inline styles -->
+  
+
+  <!-- بانر علوي: تنسيق بسيط + سلايدر -->
+  
+
+  
+
+  <!-- Theme tokens -->
+  
+
+  
+
+  
+  
+  <!-- توافق شريط الإشعار + البحث للهواتف -->
+  
+
+
+  <!-- Preload/Warm important game images for seamless navigation -->
+  
+  
+  
+  <!-- وضع علامة الملاحة مبكرًا جدًا لمنع إعادة التوجيه الخاطئة عند النقر بسرعة -->
+  
+  
+  <!-- شريط إشعار متحرك (CSS) -->
+  
+
+  
+  
+
+  
+
+  
+
+
+
+<!-- عنوان دلالي واضح للمحركات -->
+<h1 class="sr-only">الرئيسية</h1>
+
+
+
+
+    <div class="page-hero">
+      <div class="hero-slider" id="heroSlider" aria-label="بانرات مميزة">
+        <div class="hero-track">
+
+        </div>
+      </div>
+    </div>
+
+    
+
+  <!-- شريط الإشعار: يبدأ من البداية، يخرج تمامًا، ثم يعاود من البداية -->
+  <div class="notice-ticker" id="homeTicker" aria-label="إعلانات الموقع" hidden aria-hidden="true">
+    <div class="ticker-track" aria-live="off">
+      <div class="ticker-copy">
+        <span data-runtime-ticker="1"></span>
+      </div>
+    </div>
+  </div>
+  
+
+
+  
+
+  
+
+<main>
+  <div class="home-sections">
+    <!-- البحث -->
+    <div class="catalog-context-bar" id="catalogContextBar" hidden>
+      <button type="button" class="catalog-context-back" id="catalogContextBack" aria-label="&#1585;&#1580;&#1608;&#1593;">
+        <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+      </button>
+      <div class="catalog-context-title" id="catalogContextTitle"></div>
+      <span class="catalog-context-spacer" aria-hidden="true"></span>
+    </div>
+    <div class="search-container">
+      <input type="text" id="searchInput" placeholder="&#1575;&#1576;&#1581;&#1579; &#1593;&#1606; &#1575;&#1604;&#1576;&#1575;&#1602;&#1575;&#1578;..." aria-label="&#1576;&#1581;&#1579;" />
+    </div>
+  <div class="catalog-branches" data-catalog-branches style="display:none"></div>
+  <section class="categories" id="categoriesContainer" data-catalog-target="*">
+    <span data-catalog-anchor class="catalog-games-anchor" aria-hidden="true" style="display:none"></span>
+  </section>
+  <p class="no-results" id="noResults" style="display:none;">&#1604;&#1575;&#32;&#1610;&#1608;&#1580;&#1583;&#32;&#1606;&#1578;&#1575;&#1574;&#1580;&#32;&#1576;&#1593;&#1583;.</p>
+  
+  </div>
+  <!-- Inline page content container -->
+  <div id="inlinePage" style="display:none"></div>
+
+  <template id="login-inline-template">
+    <div id="loginInline" class="login-inline">
+      <div class="auth-page">
+        <div class="auth-shell">
+          <section class="form-side">
+            <header class="header header--simple">
+              <h2 id="formTitle">تسجيل الدخول</h2>
+            </header>
+
+            <div class="card">
+              <form class="login-box" id="loginForm" autocomplete="on" novalidate>
+                <div class="input-group">
+                  <input id="emailInput" name="email" placeholder="أدخل بريدك الإلكتروني" type="email" autocomplete="email"/>
+                  <i class="fa-regular fa-envelope"></i>
+                </div>
+                <div class="input-group">
+                  <input id="passwordInput" name="password" placeholder="أدخل كلمة المرور" type="password" autocomplete="current-password"/>
+                  <i class="fa-solid fa-lock"></i>
+                </div>
+                <div class="input-group" id="totpRow" style="display:none;">
+                  <input id="totpInput" placeholder="رمز التحقق (6 أرقام)" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6"/>
+                  <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <div class="stack">
+                  <button class="btn btn-primary" id="submitLogin" type="button" onclick="try{if(window.__manualLogin){event&&event.preventDefault&&event.preventDefault();event&&event.stopImmediatePropagation&&event.stopImmediatePropagation();window.__manualLogin(event);return false;}}catch(e){try{console.error(e);}catch(_){} return false;}">تسجيل الدخول</button>
+                  <button class="btn btn-info btn-link" id="showReset" type="button">نسيت كلمة المرور؟</button>
+                </div>
+                <div class="divider">أو</div>
+                <button class="btn btn-link" id="toggleRegister" type="button">إنشاء حساب جديد</button>
+                <div class="divider">أو</div>
+                <button class="btn btn-secondary btn-google" id="googleLogin" type="button" onclick="try{return (window.__triggerGoogleLogin?window.__triggerGoogleLogin('login',this):false);}catch(_){return false;}"><i class="fa-brands fa-google"></i> تسجيل دخول بواسطة Google</button>
+                <p class="error-message" id="loginError"></p>
+              </form>
+
+              <div class="login-box hidden" id="resetForm">
+                <h3>استعادة كلمة المرور</h3>
+                <div class="input-group">
+                  <input id="resetEmail" placeholder="أدخل بريدك الإلكتروني" type="email"/>
+                  <i class="fa-regular fa-envelope"></i>
+                </div>
+                <div class="stack">
+                  <button class="btn btn-success" id="resetSubmitBtn" onclick="sendResetLink()">إرسال رابط الاستعادة</button>
+                  <button class="btn btn-link" onclick="switchForm('login')">العودة إلى تسجيل الدخول</button>
+                </div>
+                <p class="error-message" id="resetMessage"></p>
+              </div>
+
+              <div class="login-box hidden" id="registerForm">
+                <h3>إنشاء حساب</h3>
+                <div class="input-group">
+                  <input id="usernameInput" placeholder="اسم المستخدم" type="text"/>
+                  <i class="fa-solid fa-user"></i>
+                </div>
+                <div class="input-group">
+                  <input id="registerEmail" placeholder="البريد الإلكتروني" type="email"/>
+                  <i class="fa-regular fa-envelope"></i>
+                </div>
+
+                <div class="input-group phone-group">
+                  <input id="phoneInput" type="tel" placeholder="رقم الهاتف"/>
+                  <i class="fa-solid fa-phone"></i>
+                </div>
+
+                <div class="input-group">
+                  <input id="registerPassword" onkeyup="validatePassword()" placeholder="كلمة المرور" type="password" autocomplete="new-password"/>
+                  <i class="fa-solid fa-lock"></i>
+                  <button type="button" class="pw-reveal" id="registerPasswordReveal" aria-label="إظهار كلمة المرور" aria-pressed="false"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
+                </div>
+
+                <div class="password-strength-bar"><div id="strengthIndicator"></div></div>
+                <div id="strengthText" class="strength-text"></div>
+
+                <div class="password-criteria" id="passwordCriteria">
+                  <p id="minLength"><i class="fa-solid fa-xmark icon"></i> 6 حروف على الأقل</p>
+                  <p id="hasNumber"><i class="fa-solid fa-xmark icon"></i> رقم</p>
+                  <p id="hasUpper"><i class="fa-solid fa-xmark icon"></i> حرف كبير</p>
+                  <p id="hasLower"><i class="fa-solid fa-xmark icon"></i> حرف صغير</p>
+                  <p id="hasSymbol"><i class="fa-solid fa-xmark icon"></i> رمز</p>
+                  <p>يجب أن تحتوي على 3 حقول من هذه المتطلبات على الأقل.</p>
+                </div>
+
+                <div class="legal-consent-wrap">
+                  <div class="legal-consent">
+                    <div class="legal-consent-body">
+                      <p class="legal-consent-links">
+                        <span>أوافق على</span>
+                        <a href="#/privacy">سياسة الخصوصية</a>
+                        <span class="legal-sep">و</span>
+                        <a href="#/terms">شروط الاستخدام</a>.
+                      </p>
+                    </div>
+                    <label class="neon-checkbox" for="registerLegalConsent">
+                      <input id="registerLegalConsent" type="checkbox" />
+                      <div class="neon-checkbox__frame">
+                        <div class="neon-checkbox__box">
+                          <div class="neon-checkbox__check-container">
+                            <svg viewBox="0 0 24 24" class="neon-checkbox__check">
+                              <path d="M3,12.5l7,7L21,5"></path>
+                            </svg>
+                          </div>
+                          <div class="neon-checkbox__glow"></div>
+                          <div class="neon-checkbox__borders">
+                            <span></span><span></span><span></span><span></span>
+                          </div>
+                        </div>
+                        <div class="neon-checkbox__effects">
+                          <div class="neon-checkbox__particles">
+                            <span></span><span></span><span></span><span></span>
+                            <span></span><span></span><span></span><span></span>
+                            <span></span><span></span><span></span><span></span>
+                          </div>
+                          <div class="neon-checkbox__rings">
+                            <div class="ring"></div>
+                            <div class="ring"></div>
+                            <div class="ring"></div>
+                          </div>
+                          <div class="neon-checkbox__sparks">
+                            <span></span><span></span><span></span><span></span>
+                          </div>
+                        </div>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+                <p class="legal-consent-error" id="registerLegalError"></p>
+
+                <div class="stack">
+                  <button class="btn btn-primary btn-register" id="registerSubmitBtn" type="button" onclick="register()" disabled aria-disabled="true">
+                    <i class="fa-solid fa-lock btn-lock" aria-hidden="true"></i>
+                    <span class="btn-label">إنشاء حساب</span>
+                  </button>
+                  <button class="btn btn-link" onclick="switchForm('login')">العودة إلى تسجيل الدخول</button>
+                </div>
+                <div class="divider">أو</div>
+                <button class="btn btn-secondary btn-google" id="googleLoginRegister" type="button" onclick="try{return (window.__triggerGoogleLogin?window.__triggerGoogleLogin('register',this):false);}catch(_){return false;}"><i class="fa-brands fa-google"></i> تسجيل دخول بواسطة Google</button>
+                <p class="error-message" id="registerError"></p>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <div class="google-redirect-loader hidden" id="googleRedirectLoader" role="status" aria-live="polite" aria-hidden="true">
+        <div class="google-redirect-loader-card">
+          <span class="google-redirect-spinner" aria-hidden="true"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+          <strong id="googleRedirectLoaderTitle">جاري إكمال تسجيل الدخول عبر Google...</strong>
+          <span id="googleRedirectLoaderCopy">تم اختيار الحساب، نجهّز الجلسة الآن.</span>
+        </div>
+      </div>
+
+      <div class="modal hidden" id="emailVerificationModal">
+        <div class="modal-content">
+          <img alt="تأكيد البريد" src="https://i.ibb.co/Fkftn6tJ/2025-07-09-162704-2.png"/>
+          <p>يرجى تأكيد ملكية البريد الإلكتروني عبر الرسالة الواردة في الإيميل.</p>
+          <button class="btn-login" onclick="closeModal()">تم</button>
+        </div>
+      </div>
+
+      <div class="modal hidden" id="resetSuccessModal">
+        <div class="modal-content">
+          <img alt="تأكيد البريد" src="https://i.ibb.co/Fkftn6tJ/2025-07-09-162704-2.png"/>
+          <p>تم إرسال رابط الاستعادة إلى بريدك الإلكتروني.</p>
+          <button class="btn-login" onclick="closeModal()">تم</button>
+        </div>
+      </div>
+
+      <div class="modal hidden" id="completeProfileModal">
+        <div class="modal-content">
+          <p>يرجى اختيار اسم مستخدم لإكمال التسجيل:</p>
+          <input id="googleUsernameInput" placeholder="اسم المستخدم" type="text"/>
+          <div id="googleUsernameError"></div>
+          <button class="btn-login" onclick="submitGoogleUsername()">إكمال</button>
+        </div>
+      </div>
+
+      <div class="modal hidden" id="googlePhoneModal">
+        <div class="modal-content">
+          <p>يرجى إدخال رقم هاتفك لإكمال التسجيل:</p>
+          <div class="input-group phone-group">
+            <input id="googlePhoneInput" type="tel" placeholder="رقم الهاتف" />
+            <i class="fa-solid fa-phone"></i>
+          </div>
+          <div id="phoneSaveError"></div>
+          <button class="btn-login" id="savePhoneBtn">
+            <i class="fa-solid fa-check"></i> حفظ رقم الهاتف والمتابعة
+          </button>
+        </div>
+      </div>
+
+      <div class="modal hidden" id="totpLoginModal">
+        <div class="modal-content totp-modal">
+          <button class="totp-close" id="totpLoginClose" type="button" aria-label="إغلاق">&times;</button>
+          <h3>التحقق بخطوتين</h3>
+          <p class="totp-subtitle" id="totpLoginSubtitle">أدخل رمز Google Authenticator المكوّن من 6 أرقام.</p>
+          <div class="input-group">
+            <input id="totpLoginInput" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="123456" maxlength="6"/>
+            <i class="fa-solid fa-shield-halved"></i>
+          </div>
+          <p class="totp-error" id="totpLoginError"></p>
+          <div class="totp-actions">
+            <button class="btn btn-primary" id="totpLoginConfirm" type="button">تأكيد الدخول</button>
+            <button class="totp-email-btn" id="totpLoginEmailBtn" type="button" style="display:none;"><i class="fa-regular fa-envelope"></i> إرسال رمز التحقق</button>
+            <button class="totp-lost-btn" id="totpLoginLostBtn" type="button" style="display:none;">فقدت حماية Google Authenticator؟</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal hidden" id="unverifiedEmailModal">
+        <div class="modal-content">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <h3>تنبيه: البريد الإلكتروني غير مؤكد</h3>
+          <p>
+            لم يتم تأكيد بريدك الإلكتروني بعد. في حال كان البريد غير صحيح، قد تفقد إمكانية:
+          </p>
+          <ul>
+            <li>استعادة كلمة المرور</li>
+            <li>استلام إشعارات مهمة</li>
+            <li>حماية حسابك من الاختراق</li>
+          </ul>
+          <p class="unverified-warning">
+            أتحمل كامل المسؤولية عن صحة البريد الإلكتروني المسجل
+          </p>
+          <div class="modal-actions">
+            <button class="btn btn-primary" onclick="confirmUnverifiedLogin()">
+              <i class="fa-solid fa-check"></i> موافق، أكمل الدخول
+            </button>
+            <button class="btn btn-secondary" id="resendVerificationBtn" onclick="sendVerificationNow()">
+              <i class="fa-solid fa-paper-plane"></i> تأكيد البريد الآن
+            </button>
+          </div>
+          <p class="error-message" id="verificationMessage"></p>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <template id="not-found-inline-template">
+    <section id="notFoundInline" class="not-found-inline" aria-labelledby="notFoundTitle">
+      <div class="not-found-shell">
+        <div class="not-found-card">
+          <p class="not-found-kicker">404</p>
+          <h2 id="notFoundTitle" class="not-found-title">الصفحة غير موجودة</h2>
+          <p class="not-found-copy">تعذر العثور على الصفحة أو المسار الذي طلبته.</p>
+          <div class="not-found-path" data-not-found-path hidden>
+            <span class="not-found-path-label">المسار المطلوب</span>
+            <code data-not-found-path-text>/</code>
+          </div>
+          <div class="not-found-actions">
+            <button type="button" class="not-found-btn primary" data-not-found-home>العودة للرئيسية</button>
+            <button type="button" class="not-found-btn secondary" data-not-found-login>تسجيل الدخول</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </template>
+
+  <template id="catalog-inline-template">
+    <div class="catalog-inline-host" data-no-currency-convert="1">
+      <main class="catalog-shell">
+        <section id="catalogHeader" class="catalog-hero" hidden>
+          <img id="catalogGameImage" src="" alt="" />
+          <div>
+            <h1 id="catalogGameTitle"></h1>
+            <p id="catalogGameDesc"></p>
+            <div id="catalogGameCategory" class="badge"><span>-</span></div>
+          </div>
+        </section>
+        <section class="catalog-controls">
+          <div class="player-id-box notranslate" translate="no">
+            <label id="catalogPlayerLabel" for="catalogPlayerId">&#1575;&#1610;&#1583;&#1610;&#32;&#1575;&#1604;&#1604;&#1575;&#1593;&#1576;</label>
+            <div class="player-input-row" translate="no">
+            <input id="catalogPlayerId" name="catalog_player_id" type="text" inputmode="numeric" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" lang="en" translate="no" placeholder="&#1575;&#1583;&#1582;&#1604;&#32;&#1575;&#1604;&#1575;&#1610;&#1583;&#1610;&#32;&#1607;&#1606;&#1575;" />
+              <button id="catalogPasteBtn" type="button">&#1604;&#1589;&#1602;</button>
+            </div>
+            <div id="catalogExtraFields" class="player-extra-fields" translate="no"></div>
+          </div>
+          <div id="catalogCurrentSection" class="catalog-current-sectionbar" hidden>
+            <button id="catalogSectionBack" class="catalog-current-section-back" type="button" aria-label="&#1585;&#1580;&#1608;&#1593;">
+              <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+            </button>
+            <strong id="catalogCurrentSectionTitle" class="catalog-current-section-title"></strong>
+          </div>
+          <div class="search-container">
+            <input id="catalogSearchInput" type="text" placeholder="&#1575;&#1576;&#1581;&#1579; &#1593;&#1606; &#1575;&#1604;&#1576;&#1575;&#1602;&#1575;&#1578;..." />
+          </div>
+        </section>
+        <section id="catalogOffersContainer"></section>
+          <div id="catalogLoader" class="catalog-loader" style="display:none;">
+            <div class="spinner" aria-hidden="true"></div>
+            <span>جاري التحميل...</span>
+          </div>
+        <div id="catalogNoResults" class="no-results" style="display:none;">&#1604;&#1575;&#32;&#1610;&#1608;&#1580;&#1583;&#32;&#1606;&#1578;&#1575;&#1574;&#1580;&#32;&#1576;&#1593;&#1583;.</div>
+        <section id="selected-amount-container">
+          <h2>&#1578;&#1601;&#1575;&#1589;&#1610;&#1604;&#32;&#1575;&#1604;&#1591;&#1604;&#1576;</h2>
+          <div id="selected-amount" class="no-selection"></div>
+          <div class="catalog-actions">
+            <button id="catalogPurchaseBtn" class="send-button" type="button" disabled>&#1588;&#1585;&#1575;&#1569;</button>
+            <button id="catalogClearBtn" class="btn-outline" type="button" disabled>&#1605;&#1587;&#1581;</button>
+          </div>
+        </section>
+      </main>
+      <div id="purchase-modal">
+        <div class="pm-card notranslate" role="dialog" aria-modal="true" translate="no">
+          <div class="pm-header">
+            <span id="pm-price" class="pm-pill">?</span>
+            <div class="pm-title">
+              <button id="pm-fav-toggle" class="pm-fav-toggle" type="button" aria-label="إضافة إلى المفضلة" aria-pressed="false">
+                <i class="fa-regular fa-heart" aria-hidden="true"></i>
+              </button>
+              <span id="pm-title" dir="auto">?</span>
+            </div>
+          </div>
+          <div class="pm-input" id="modal-player-row" translate="no">
+            <label id="modal-player-label" for="modal-player-id">&#1575;&#1610;&#1583;&#1610;&#32;&#1575;&#1604;&#1604;&#1575;&#1593;&#1576;</label>
+            <input id="modal-player-id" name="catalog_modal_player_id" type="text" inputmode="numeric" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" lang="en" translate="no" placeholder="&#1575;&#1583;&#1582;&#1604;&#32;&#1575;&#1604;&#1575;&#1610;&#1583;&#1610;&#32;&#1607;&#1606;&#1575;" />
+            <div id="modalExtraFields" class="pm-extra-fields"></div>
+          </div>
+          <div class="pm-input pm-name-validation" id="modal-name-validation" style="display:none;">
+            <button id="modal-name-validation-btn" class="btn btn-outline" type="button">انقر للتحقق من الاسم</button>
+            <div id="modal-name-validation-result" class="pm-hint" aria-live="polite"></div>
+          </div>
+          <div class="pm-input" id="modal-qty-row" style="display:none;" translate="no">
+            <label for="modal-qty">&#1575;&#1604;&#1603;&#1605;&#1610;&#1577;&#32;&#1575;&#1604;&#1605;&#1591;&#1604;&#1608;&#1576;&#1577;</label>
+            <input id="modal-qty" type="text" step="1" inputmode="numeric" pattern="[0-9]*" lang="en" autocomplete="off" placeholder="&#1575;&#1583;&#1582;&#1604;&#32;&#1575;&#1604;&#1603;&#1605;&#1610;&#1577;&#32;&#1575;&#1604;&#1605;&#1591;&#1604;&#1608;&#1576;&#1577;" />
+            <select id="modal-qty-select" style="display:none;"></select>
+            <div id="modal-qty-picker" class="pm-select" style="display:none;">
+              <button id="modal-qty-trigger" class="pm-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="modal-qty-menu">
+                <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+                <span id="modal-qty-value" class="pm-select-value">اختر الكمية</span>
+              </button>
+              <div id="modal-qty-menu" class="pm-select-menu" role="listbox" tabindex="-1"></div>
+            </div>
+            <datalist id="modal-qty-options"></datalist>
+            <div id="modal-qty-hint" class="pm-hint"></div>
+          </div>
+          <div id="cf-turnstile-modal"></div>
+          <div id="pm-desc-wrap" class="pm-desc-wrap">
+            <div id="pm-desc" class="pm-desc" aria-live="polite"></div>
+            <div id="pm-desc-scroll-rail" class="pm-desc-scroll-rail" aria-hidden="true">
+              <span id="pm-desc-scroll-thumb" class="pm-desc-scroll-thumb"></span>
+            </div>
+          </div>
+          <div class="pm-actions">
+            <button id="pm-cancel" class="btn btn-outline" type="button">&#1585;&#1580;&#1608;&#1593;</button>
+            <button id="pm-buy" class="btn btn-primary" type="button">&#1588;&#1585;&#1575;&#1569;</button>
+          </div>
+        </div>
+      </div>
+      <div id="toast" class="app-toast app-toast--info" role="alert" aria-live="polite" aria-atomic="true">
+        <span class="toast-icon" aria-hidden="true">
+          <svg stroke="currentColor" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M13 16h-1v-4h1m0-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></path>
+          </svg>
+        </span>
+        <p id="toast-message" class="toast-message"></p>
+      </div>
+    </div>
+  </template>
+
+  
+  <textarea id="deposit-inline-template" hidden></textarea>
+
+  <template id="privacy-inline-template">
+    <section class="legal-page">
+      <div class="legal-spacer"></div>
+      <div class="legal-wrap">
+        <h2>سياسة الخصوصية</h2>
+        <p class="legal-updated">آخر تحديث: 18 فبراير 2026</p>
+
+        <h3>1) نطاق السياسة</h3>
+        <p>توضح هذه السياسة طريقة جمع واستخدام وحماية بيانات مستخدمي المتجر عبر الموقع والخدمات المرتبطة به.</p>
+
+        <h3>2) البيانات التي نجمعها</h3>
+        <ul>
+          <li>بيانات الحساب: الاسم، البريد الإلكتروني، رقم الهاتف، ومعرّفات تسجيل الدخول.</li>
+          <li>بيانات الطلبات: الخدمة المطلوبة، حالة الطلب، تفاصيل الدفع اللازمة للتنفيذ والتوثيق.</li>
+          <li>بيانات تقنية: نوع الجهاز، المتصفح، عنوان IP، وسجلات الاستخدام لتحسين الأداء والأمان.</li>
+        </ul>
+
+        <h3>3) كيف نستخدم البيانات</h3>
+        <ul>
+          <li>تنفيذ الطلبات وتقديم الدعم الفني.</li>
+          <li>التحقق من الأمان ومنع الاحتيال وإساءة الاستخدام.</li>
+          <li>إرسال الإشعارات المتعلقة بالحساب والطلبات والعروض (عند السماح بذلك).</li>
+          <li>الامتثال للالتزامات القانونية والتنظيمية.</li>
+        </ul>
+
+        <h3>4) مشاركة البيانات</h3>
+        <p>لا يتم بيع بياناتك. قد تتم المشاركة فقط مع مزودي الدفع أو مزودي الخدمات التقنية أو الجهات الرسمية عند وجود سبب قانوني أو تشغيلي مشروع.</p>
+
+        <h3>5) حماية البيانات</h3>
+        <p>نطبق إجراءات تنظيمية وتقنية معقولة لحماية البيانات. كما يلتزم المستخدم بالحفاظ على سرية كلمة المرور والرموز الأمنية وعدم مشاركتها.</p>
+
+        <h3>6) الاحتفاظ بالبيانات</h3>
+        <p>يتم الاحتفاظ بالبيانات للمدة اللازمة لتقديم الخدمة، وتسوية النزاعات، والالتزام القانوني، ثم تُزال أو تُخفى هوية البيانات متى أمكن.</p>
+
+        <h3>7) حقوق المستخدم</h3>
+        <p>يمكنك طلب تحديث بياناتك أو تصحيحها، وطلب حذفها ضمن الحدود النظامية وما لا يتعارض مع الالتزامات القانونية أو حقوق الطرفين في إثبات العمليات.</p>
+
+        <h3>8) ملفات الارتباط والتخزين المحلي</h3>
+        <p>يستخدم الموقع التخزين المحلي وملفات تعريف الارتباط لتحسين تجربة الاستخدام، حفظ التفضيلات، واستمرارية الجلسة وعرض المحتوى بشكل أسرع.</p>
+
+        <h3>9) التعديلات على السياسة</h3>
+        <p>قد يتم تحديث هذه السياسة عند تطوير الخدمات. استمرار الاستخدام بعد التحديث يعني الاطلاع والقبول بالإصدار الأحدث.</p>
+
+        <p class="legal-note">باستخدامك للموقڡ فإنك توافق على هذه السياسة بما يضمن مصلحة المستخدم والمتجر ويحفظ حقوق الطرفين.</p>
+      </div>
+    </section>
+  </template>
+
+  <template id="terms-inline-template">
+    <section class="legal-page">
+      <div class="legal-spacer"></div>
+      <div class="legal-wrap">
+        <h2>شروط الاستخدام</h2>
+        <p class="legal-updated">آخر تحديث: 18 فبراير 2026</p>
+
+        <h3>1) القبول والأهلية</h3>
+        <p>استخدامك للمتجر يعني موافقتك على هذه الشروء وأن لديك الأهلية النظامية لإجراء الطلبات والالتزامات المالية.</p>
+
+        <h3>2) طبيعة الخدمات</h3>
+        <p>المتجر يقدم منتجات وخدمات رقمية (شحن/اشتراكات/أكواد). بعض الخدمات تعتمد على مزودين خارجيين وقد تختلف مدة التنفيذ وفق حالة المزود.</p>
+
+        <h3>3) التزامات المستخدم</h3>
+        <ul>
+          <li>إدخال بيانات صحيحة وكاملة عند الطلب.</li>
+          <li>عدم استخدام الموقع لأي نشاط مخالف للأنظمة أو ينتهك حقوق الغير.</li>
+          <li>تحمل المسؤولية عن أي خطأ في البيانات المدخلة من طرفك.</li>
+        </ul>
+
+        <h3>4) الأسعار والدفع</h3>
+        <p>الأسعار المعروضة وقت تنفيذ الطلب هي المعتمدة، ويحق للمتجر تعديل الأسعار مستقبلًا دون أثر رجعي على الطلبات المكتملة.</p>
+
+        <h3>5) قبول أو رفض الطلب</h3>
+        <p>يحق للمتجر إلغاء أو رفض أي طلب قبل التسليم في حال عدم التوفر، الاشتباه الاحتيالي، أو تعارض البيانات، مع إعادة المبلغ وفق وسيلة الدفع المتاحة عند الاقتضاء.</p>
+
+        <h3>6) الإرجاع والاستبدال</h3>
+        <ul>
+          <li>بعد تسليم الخدمة الرقمية أو ظهور الكود/تنفيذ الشحن، لا يحق طلب استرجاع إلا في حالات فشل موثقة بسبب من المتجر أو المزود.</li>
+          <li>في حال ثبوت خلل قابل للتحقق، يتم التعويض المناسب (إعادة التنفيذ أو الرصيد أو الاسترجاع) وفق تقييم الحالة.</li>
+        </ul>
+
+        <h3>7) النزاعات وعمليات الاعتراض</h3>
+        <p>أي اعتراض دفع غير مبرر أو إساءة استخدام قد يؤدي إلى تعليق الحساب مؤقتًا حتى اكتمال التحقق وحماية حقوق جميع الأطراف.</p>
+
+        <h3>8) حدود المسؤولية</h3>
+        <p>لا يتحمل المتجر المسؤولية عن الأضرار غير المباشرة أو الناتجة عن إدخال بيانات خاطئة من المستخدم أو عن انقطاع خارجي خارج السيطرة المعقولة.</p>
+
+        <h3>9) الملكية الفكرية</h3>
+        <p>جميع محتويات الموقع من تصميم ونصوص وشعارات وواجهات هي ملك للمتجر أو لأصحابها المرخصين، ولا يجوز نسخها أو إعادة استخدامها دون إذن.</p>
+
+        <h3>10) تعديل الشروط</h3>
+        <p>يجوز تحديث هذه الشروط عند الحاجة. استمرار استخدام الموقع بعد التعديل يُعد قبولًا بالإصدار المحدث.</p>
+
+        <p class="legal-note">هذه الشروط وضعت لحماية المستخدم والمتجر بشكل متوازن، وضمان تعامل واضح وعادل يحفظ حق الطرفين.</p>
+      </div>
+    </section>
+  </template>
+
+  <div class="legal-mini-links" aria-label="روابط قانونية">
+    <a href="#/privacy">سياسة الخصوصية</a>
+    <span aria-hidden="true">|</span>
+    <a href="#/terms">شروط الاستخدام</a>
+  </div>
+
+</main>
+
+    
+
+
+
+    
+
+  
+  <!-- تمت إزالة ماسح صفحات HTML: أصبح التحميل المسبق للصور عبر Service Worker فقط -->
+  
+  <!-- Inline loader for catalog routes without redirect -->
+  
+
+  
+  <div id="wa-join-modal" role="dialog" aria-modal="true" aria-labelledby="wa-title" aria-describedby="wa-desc">
+    <div class="wa-modal-content">
+      <button type="button" class="wa-close" id="wa-close-btn" aria-label="إغلاق النافذة">
+        <span aria-hidden="true">&times;</span>
+      </button>
+      <div class="wa-badge" role="text">
+        <span class="wa-wave" aria-hidden="true">&#x1F44B;</span>
+        <div class="wa-badge-text">
+          <span class="wa-badge-sub" id="wa-badge-sub">حياكم الله في</span>
+          <strong class="wa-badge-brand" id="wa-badge-brand"></strong>
+        </div>
+      </div>
+      <h3 id="wa-title">نورّتنا!</h3>
+      <p id="wa-desc">يرجى الانضمام إلى مجتمع الواتساب الخاص بنا لتصلك أهم أخبار المتجر والعروض الحصرية.</p>
+      <ul class="wa-benefits" id="wa-benefits" aria-label="مزايا الانضمام">
+        <li>
+          <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+          <span id="wa-benefit-1">تحديثات المتجر أولاً بأول</span>
+        </li>
+        <li>
+          <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+          <span id="wa-benefit-2">عروض مميزة لأعضاء القروب</span>
+        </li>
+      </ul>
+      <a class="wa-btn wa-primary" id="wa-join-link" href="https://chat.whatsapp.com/Gs3vxpniU791qwwYqm3y6a?mode=wwt" target="_blank" rel="noopener noreferrer">
+        <i class="fa-brands fa-whatsapp" aria-hidden="true"></i>
+        <span id="wa-join-text">انضم للقروب الآن</span>
+      </a>
+    </div>
+  </div>
+
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  <!-- Runtime scripts moved after page markup -->
+  <!-- Structured data for rich sitelinks + brand card. GENERATED from
+       store.identity.json — DO NOT EDIT BY HAND, run `npm run identity`. -->
+  <!-- store-identity:jsonld -->
+  <script id="siteWebJsonLd" type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "Njad store",
+    "url": "https://njad.store/",
+    "inLanguage": "ar",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": "https://njad.store/#/?q={search_term_string}",
+      "query-input": "required name=search_term_string"
+    }
+  }
+  </script>
+  <script id="siteOrgJsonLd" type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "Njad store",
+    "url": "https://njad.store/"
+  }
+  </script>
+  <script id="siteNavigationJsonLd" type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SiteNavigationElement",
+    "name": [
+      "الرئيسية",
+      "تسجيل الدخول",
+      "الطلبات",
+      "المحفظة"
+    ],
+    "url": [
+      "https://njad.store/",
+      "https://njad.store/#/login",
+      "https://njad.store/#/orders",
+      "https://njad.store/#/wallet"
+    ]
+  }
+  </script>
+  <!-- /store-identity:jsonld -->
+  <script src="src-frontend/dist/site_settings.js?v=d128533941"></script>
+  <script src="src-frontend/dist/site-bundle.js?v=1e537c0038"></script>
+  <!-- End runtime scripts -->
+</body>
+</html>

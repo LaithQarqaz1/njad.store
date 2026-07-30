@@ -1,0 +1,31 @@
+include:
+  - "__"
+  - ".nojekyll"
+
+# What lives in the REPOSITORY but must not be served from the DOMAIN.
+#
+# GitHub Pages serves this branch directly, so by default every committed path
+# is also a URL. The build machinery has to be committed — the deploy workflow's
+# first step runs `scripts/check-brand-leaks.mjs`, and a repo without `scripts/`
+# fails before it starts — but none of it belongs on the site.
+#
+# The two `store.identity.*` files are no longer published AT ALL (they are in
+# PUBLISH_DENY in the desktop manager, alongside `backend/`): the file is the
+# store's whole configuration — Firebase project, Turnstile key, R2 bucket,
+# Cloudflare account and D1 ids — and excluding it here only ever stopped it
+# being fetchable at https://<domain>/store.identity.json. It stayed readable on
+# github.com while the repository was public, which this setting cannot change.
+#
+# Their entries below are kept as a second line of defence, for the case where a
+# copy is committed by hand rather than by the publisher. Nothing needs them at
+# runtime: the values reach the site through the GENERATED `site_settings.js`,
+# and a build from the published tree resolves identity from repository
+# variables (`resolveIdentity` defaults to `source: "env"`).
+exclude:
+  - "scripts"
+  - ".github"
+  - "package.json"
+  - "package-lock.json"
+  - "store.identity.json"
+  - "store.identity.schema.json"
+  - ".storemanagerignore"

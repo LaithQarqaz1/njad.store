@@ -1,0 +1,41 @@
+{
+  "id": "/?source=pwa",
+  "name": "Njad store | نجاد ستور",
+  "short_name": "Njad",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": [
+    "fullscreen",
+    "standalone",
+    "minimal-ui"
+  ],
+  "background_color": "#0C0C0C",
+  "theme_color": "#0C0C0C",
+  "lang": "ar",
+  "dir": "rtl",
+  "prefer_related_applications": false,
+  "icons": [],
+  "shortcuts": [
+    {
+      "name": "تسجيل الدخول",
+      "short_name": "الدخول",
+      "url": "/login"
+    },
+    {
+      "name": "الإعدادات",
+      "short_name": "إعدادات",
+      "url": "/settings"
+    },
+    {
+      "name": "طلباتي",
+      "short_name": "طلباتي",
+      "url": "/orders"
+    },
+    {
+      "name": "المحفظة",
+      "short_name": "المحفظة",
+      "url": "/wallet"
+    }
+  ]
+}
