@@ -43,6 +43,54 @@
   color:rgba(148,163,184,.9) !important;
   font-size:2rem !important;
 }
+/* «توثيق الهوية» — a method that needs a verified identity. The card stays
+   readable (the customer must recognise WHICH method it is) but is visibly
+   inert: dimmed artwork, a padlock over it, and the reason where the price
+   would be. It still takes a tap — to the verification page, not the form. */
+#depositInlineApp .card.depositTreeCard.is-identity-locked .catalog-card-media{
+  position:relative !important;
+}
+#depositInlineApp .card.depositTreeCard.is-identity-locked .catalog-card-media img,
+#depositInlineApp .card.depositTreeCard.is-identity-locked .depositTreeThumbFallback{
+  filter:grayscale(.85) !important;
+  opacity:.5 !important;
+}
+#depositInlineApp .card.depositTreeCard.is-identity-locked .depositTreeLockBadge{
+  position:absolute !important;
+  inset:0 !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  font-size:1.6rem !important;
+  color:#fff !important;
+  background:rgba(15,23,42,.35) !important;
+  border-radius:inherit !important;
+  pointer-events:none !important;
+}
+#depositInlineApp .card.depositTreeCard.is-identity-locked .depositTreeTitle{
+  opacity:.75 !important;
+}
+#depositInlineApp .card.depositTreeCard .depositTreeLockNote{
+  display:inline-flex !important;
+  align-items:center !important;
+  gap:5px !important;
+  margin:0 !important;
+  font-size:.76rem !important;
+  font-weight:800 !important;
+  line-height:1.35 !important;
+  text-align:center !important;
+  color:#b45309 !important;
+  background:rgba(245,158,11,.14) !important;
+  border:1px solid rgba(245,158,11,.34) !important;
+  border-radius:999px !important;
+  padding:3px 9px !important;
+  white-space:nowrap !important;
+}
+html[data-theme="dark"] #depositInlineApp .card.depositTreeCard .depositTreeLockNote{
+  color:#fbbf24 !important;
+  background:rgba(245,158,11,.16) !important;
+  border-color:rgba(245,158,11,.4) !important;
+}
 #depositInlineApp #grid.categories .card.depositTreeCard .catalog-card-media.is-empty,
 #depositInlineApp .categories .card.depositTreeCard .catalog-card-media.is-empty{
   display:flex !important;
@@ -1770,6 +1818,10 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
     if (raw.proofLabel !== undefined && data.proofButtonLabel === undefined) data.proofButtonLabel = raw.proofLabel;
     if (raw.proofUploadLabel !== undefined && data.proofButtonLabel === undefined) data.proofButtonLabel = raw.proofUploadLabel;
     if (raw.uploadProofLabel !== undefined && data.proofButtonLabel === undefined) data.proofButtonLabel = raw.uploadProofLabel;
+    if (raw.requiresIdentityVerification !== undefined && data.requiresIdentityVerification === undefined) data.requiresIdentityVerification = raw.requiresIdentityVerification;
+    if (raw.requireIdentityVerification !== undefined && data.requiresIdentityVerification === undefined) data.requiresIdentityVerification = raw.requireIdentityVerification;
+    if (raw.requiresIdentity !== undefined && data.requiresIdentityVerification === undefined) data.requiresIdentityVerification = raw.requiresIdentity;
+    if (raw.identityRequired !== undefined && data.requiresIdentityVerification === undefined) data.requiresIdentityVerification = raw.identityRequired;
     if (raw.showLogoInModal !== undefined && data.showLogoInModal === undefined) data.showLogoInModal = raw.showLogoInModal;
     if (raw.modalLogoEnabled !== undefined && data.showLogoInModal === undefined) data.showLogoInModal = raw.modalLogoEnabled;
     if (raw.modalImageEnabled !== undefined && data.showLogoInModal === undefined) data.showLogoInModal = raw.modalImageEnabled;
@@ -2185,14 +2237,21 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
     const meta = getRootEntryMeta(item);
     const hasImage = !!imageUrl;
     const iconClass = safeKind === 'method' ? 'fa-wallet' : 'fa-earth-asia';
+    // «توثيق الهوية»: a locked card replaces the price/meta line with the reason
+    // and wears a padlock, so the customer understands BEFORE tapping that this
+    // is not a broken method — it needs their identity verified first.
+    const identityLocked = safeKind === 'method' && isInlineMethodIdentityLocked(item);
     return ''
       + '<div class="catalog-card-media' + (hasImage ? '' : ' is-empty') + '">'
       + (hasImage
         ? ('<img src="' + zEscHtml(imageUrl) + '" alt="' + zEscHtml(title) + '">')
         : ('<div class="depositTreeThumbFallback"><i class="fa-solid ' + iconClass + '"></i></div>'))
+      + (identityLocked ? '<span class="depositTreeLockBadge"><i class="fa-solid fa-lock"></i></span>' : '')
       + '</div>'
       + '<h2 class="depositTreeTitle">' + zEscHtml(title) + '</h2>'
-      + (meta ? ('<span class="offer-price">' + zEscHtml(meta) + '</span>') : '');
+      + (identityLocked
+        ? '<span class="depositTreeLockNote"><i class="fa-solid fa-id-card"></i> تتطلب توثيق الهوية</span>'
+        : (meta ? ('<span class="offer-price">' + zEscHtml(meta) + '</span>') : ''));
   }
 
   function openRootMethod(entry){
@@ -2379,6 +2438,16 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
   }
 
   function openInlineMethodPage(entry, source){
+    // The choke point for EVERY way a method window opens — card tap, keyboard,
+    // and a deep link like #/deposit/<country>/<method>. Guarding here (not only
+    // in the click handlers) is what makes "the form never opens" true for a
+    // pasted URL too.
+    try {
+      if (isInlineMethodIdentityLocked(entry)) {
+        openInlineIdentityPage();
+        return null;
+      }
+    } catch (_) {}
     try { markInlineMethodOpenDiagnostic(entry, source || 'method_card'); } catch (_) {}
     const handler = getInlineMethodOpenHandler();
     if (handler) {
@@ -2493,6 +2562,101 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
   // from the warm localStorage countries cache (which does NOT carry the full
   // payload), so we mirror rechargeCard into a dedicated per-flow store on every
   // server fetch and read it back here — otherwise the card shows defaults.
+  /* ================= «توثيق الهوية» — locked method cards =================
+     A method whose admin ticked «يتطلب توثيق الهوية» must not open the deposit
+     form at all for an unverified customer: the CARD itself renders locked and
+     taps through to the verification page.
+
+     WHY THIS IS NEVER CACHED IN localStorage (unlike the recharge card above):
+     a stale verified:true would unlock a card for someone whose verification
+     was since revoked or rejected. It lives in memory for the page load only,
+
+     NOTE: this whole block is inside buildInlineDepositEnhancementBlock's
+     TEMPLATE LITERAL — a backtick or a dollar-brace interpolation here (even
+     inside a comment) terminates the literal early and the rest of the file
+     starts parsing as code. Keep both out of this region entirely.
+     and its ABSENCE means "not verified" — so the failure direction is a locked
+     card with an explanation, never an open form that dies at submit.
+     The server re-checks at /deposit/submit regardless; this is UX, not the gate. */
+  function rememberInlineIdentityState(state){
+    try {
+      var next = (state && typeof state === 'object') ? state : null;
+      var prev = window.__depositInlineIdentityState || null;
+      window.__depositInlineIdentityState = next;
+      var changed = String(prev && prev.enabled) !== String(next && next.enabled)
+        || String(prev && prev.verified) !== String(next && next.verified);
+      // Cards drawn from the countries CACHE paint before this arrives; when the
+      // verdict finally lands and differs, redraw so a verified customer does not
+      // stare at a locked card.
+      if (changed) {
+        try { if (typeof applySearch === 'function') applySearch(); } catch (_) {}
+      }
+    } catch (_) {}
+  }
+  function readInlineIdentityState(){
+    try {
+      var s = window.__depositInlineIdentityState;
+      if (s && typeof s === 'object') return s;
+    } catch (_) {}
+    return null;
+  }
+  /** Is the identity feature switched on for this store? */
+  function isInlineIdentityFeatureOn(){
+    var s = readInlineIdentityState();
+    if (s && s.enabled === true) return true;
+    // Fallback to the public site-state while the deposit payload is in flight,
+    // so the lock is right on the very first paint too.
+    try {
+      var siteState = (typeof window.__getResolvedSiteStateData === 'function')
+        ? window.__getResolvedSiteStateData()
+        : null;
+      var raw = siteState && (siteState.identityVerification || siteState.identity);
+      if (raw && typeof raw === 'object') {
+        return raw.enabled === true || raw.on === true || raw.active === true
+          || String(raw.enabled || raw.on || raw.active || '').toLowerCase() === 'true';
+      }
+    } catch (_) {}
+    return false;
+  }
+  function isInlineIdentityVerified(){
+    var s = readInlineIdentityState();
+    return !!(s && s.verified === true);
+  }
+  /** Does this payment method demand a verified identity? */
+  function resolveInlineMethodRequiresIdentity(method){
+    var methodData = method && method.data && typeof method.data === 'object'
+      ? method.data
+      : ((method && typeof method === 'object') ? method : {});
+    var parsed = parseInlineOptionalBoolean(
+      methodData.requiresIdentityVerification ??
+      methodData.requireIdentityVerification ??
+      methodData.requiresIdentity ??
+      methodData.identityRequired ??
+      methodData.needIdentityVerification
+    );
+    return parsed === true;
+  }
+  /**
+   * The lock decision for one card. Locked ⇔ the feature is on AND this method
+   * requires identity AND the customer is not verified.
+   */
+  function isInlineMethodIdentityLocked(entry){
+    if (!entry) return false;
+    if (!resolveInlineMethodRequiresIdentity(entry)) return false;
+    if (!isInlineIdentityFeatureOn()) return false;
+    return !isInlineIdentityVerified();
+  }
+  /** Open the storefront verification page from a locked card. */
+  function openInlineIdentityPage(){
+    try {
+      if (typeof window.navigateHomeHash === 'function') {
+        window.navigateHomeHash('#/identity', 'identity');
+        return;
+      }
+    } catch (_) {}
+    try { location.hash = '#/identity'; } catch (_) {}
+  }
+
   function rememberInlineRechargeCardForFlow(flowKind, card){
     try {
       var fk = normalizeInlineFlow(flowKind || getCurrentInlineFlowKind());
@@ -2738,22 +2902,33 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       node.setAttribute('role', 'button');
       node.setAttribute('tabindex', '0');
       node.innerHTML = buildDepositTreeCard(entry, isMethod ? 'method' : 'country');
-      node.addEventListener('click', function(ev){
-        try { ev.preventDefault(); ev.stopPropagation(); } catch (_) {}
+      // A locked method never reaches openRootMethod — the deposit form does not
+      // open at all; the card routes to «توثيق الهوية» instead.
+      const identityLocked = isMethod && isInlineMethodIdentityLocked(entry);
+      if (identityLocked) {
+        node.classList.add('is-identity-locked');
+        node.dataset.identityLocked = '1';
+        node.setAttribute('aria-label', String(entry && entry.data && entry.data.name || '') + ' — تتطلب توثيق الهوية');
+      }
+      const activate = function(){
+        if (identityLocked) {
+          openInlineIdentityPage();
+          return;
+        }
         if (isMethod) {
           openRootMethod(entry);
           return;
         }
         navigateToCountry(entry);
+      };
+      node.addEventListener('click', function(ev){
+        try { ev.preventDefault(); ev.stopPropagation(); } catch (_) {}
+        activate();
       });
       node.addEventListener('keydown', function(ev){
         if (!ev || (ev.key !== 'Enter' && ev.key !== ' ')) return;
         try { ev.preventDefault(); ev.stopPropagation(); } catch (_) {}
-        if (isMethod) {
-          openRootMethod(entry);
-          return;
-        }
-        navigateToCountry(entry);
+        activate();
       });
       grid.appendChild(node);
     });
@@ -2781,13 +2956,22 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
       node.setAttribute('role', 'button');
       node.setAttribute('tabindex', '0');
       node.innerHTML = buildDepositTreeCard(Object.assign({}, entry, { __rootType: 'method' }), 'method');
+      // Same lock rule inside a country as on the root grid.
+      const identityLocked = isInlineMethodIdentityLocked(entry);
+      if (identityLocked) {
+        node.classList.add('is-identity-locked');
+        node.dataset.identityLocked = '1';
+        node.setAttribute('aria-label', String(entry && entry.data && entry.data.name || '') + ' — تتطلب توثيق الهوية');
+      }
       node.addEventListener('click', function(ev){
         try { ev.preventDefault(); ev.stopPropagation(); } catch (_) {}
+        if (identityLocked) { openInlineIdentityPage(); return; }
         openInlineMethodPage(entry, 'country_method_card');
       });
       node.addEventListener('keydown', function(ev){
         if (!ev || (ev.key !== 'Enter' && ev.key !== ' ')) return;
         try { ev.preventDefault(); ev.stopPropagation(); } catch (_) {}
+        if (identityLocked) { openInlineIdentityPage(); return; }
         openInlineMethodPage(entry, 'country_method_keyboard');
       });
       grid.appendChild(node);
@@ -3156,6 +3340,9 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
         window.__depositInlineLastCountriesPayloadByFlow[flowKind] = data;
         window.__depositInlineLastRootMethodsByFlow[flowKind] = rootMethods.slice();
         try { rememberInlineRechargeCardForFlow(flowKind, data && data.rechargeCard); } catch (_) {}
+        // «توثيق الهوية» verdict rides this same response (balance.js
+        // buildDepositIdentityStateForClient) — absent means the feature is off.
+        try { rememberInlineIdentityState(data && data.identity); } catch (_) {}
         if (flowKind === getCurrentInlineFlowKind()) {
           window.__depositInlineLastCountriesPayload = data;
           window.__depositInlineLastRootMethods = rootMethods.slice();
