@@ -1,0 +1,55 @@
+# Deploy the store to GitHub Pages.
+#
+# THIS WORKFLOW BUILDS NOTHING. The store manager already ran the whole build on
+# the operator's machine before publishing: it copied the template, wrote the
+# identity into every generated file, rebuilt the frontend bundles, and ran the
+# three gates (placeholders, brand leaks, bundle drift). What lands on the branch
+# is that finished output.
+#
+# So this file needs NOTHING from the repository except the files themselves — no
+# `scripts/`, no `package.json`, no `store.identity.schema.json`, no Node at all.
+# That is the point: those files are deliberately NOT published (they describe how
+# the store is built and name every variable and secret it uses), and the template's
+# own `frontend-config.yml` cannot run without them. This is the store-side
+# replacement, owned by the store manager rather than the template so it never runs
+# in the template's own repository.
+name: Deploy Pages
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time; a newer publish supersedes an in-flight one.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/configure-pages@v5
+
+      # The branch content, as-is. Uploading an artifact rather than serving the
+      # branch through Jekyll matters here: Jekyll hides paths beginning with `_`
+      # and this store serves `__/` (the Firebase auth helpers) and needs them
+      # reachable.
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
