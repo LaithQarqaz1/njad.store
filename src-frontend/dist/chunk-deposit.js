@@ -70,29 +70,40 @@
 #depositInlineApp .card.depositTreeCard.is-identity-locked .depositTreeTitle{
   opacity:.75 !important;
 }
-/* الشارة تحمل لون الموقع الديناميكي لا لوناً ثابتاً: نفس سلسلة المتغيّرات
-   المستعملة في بقية هذا الملف (runtime ثم accent-theme ثم ارتداد ثابت)،
-   والخلفية/الحدّ مشتقّان من --site-accent-rgb فيتبعان اللون تلقائياً. */
+/* شريط أبيض شفّاف يعبر أعلى الكرت، والعبارة عليه باللون الديناميكي للموقع:
+   نفس سلسلة المتغيّرات المستعملة في بقية هذا الملف (runtime ثم accent-theme ثم
+   ارتداد ثابت). الشريط داخل .catalog-card-media فيركب الشعار لا يزيحه، ويعلو
+   قفل الـLockBadge بـz-index. */
 #depositInlineApp .card.depositTreeCard .depositTreeLockNote{
-  display:inline-flex !important;
+  position:absolute !important;
+  top:0 !important;
+  left:0 !important;
+  right:0 !important;
+  z-index:3 !important;
+  display:flex !important;
   align-items:center !important;
-  gap:5px !important;
+  justify-content:center !important;
   margin:0 !important;
-  font-size:.76rem !important;
-  font-weight:800 !important;
+  padding:4px 6px !important;
+  font-size:.72rem !important;
+  font-weight:900 !important;
   line-height:1.35 !important;
   text-align:center !important;
-  color:var(--site-accent-runtime, var(--accent-theme, #5c5ebf)) !important;
-  background:rgba(var(--site-accent-rgb, 92, 94, 191), .12) !important;
-  border:1px solid rgba(var(--site-accent-rgb, 92, 94, 191), .32) !important;
-  border-radius:999px !important;
-  padding:3px 9px !important;
   white-space:nowrap !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+  color:var(--site-accent-runtime, var(--accent-theme, #5c5ebf)) !important;
+  background:rgba(255,255,255,.72) !important;
+  -webkit-backdrop-filter:blur(3px) !important;
+  backdrop-filter:blur(3px) !important;
+  border-radius:inherit !important;
+  border-end-start-radius:0 !important;
+  border-end-end-radius:0 !important;
+  pointer-events:none !important;
 }
 html[data-theme="dark"] #depositInlineApp .card.depositTreeCard .depositTreeLockNote{
   color:var(--site-accent-runtime-light, var(--site-accent-runtime, var(--accent-theme, #a5b4fc))) !important;
-  background:rgba(var(--site-accent-rgb, 92, 94, 191), .18) !important;
-  border-color:rgba(var(--site-accent-rgb, 92, 94, 191), .38) !important;
+  background:rgba(255,255,255,.16) !important;
 }
 #depositInlineApp #grid.categories .card.depositTreeCard .catalog-card-media.is-empty,
 #depositInlineApp .categories .card.depositTreeCard .catalog-card-media.is-empty{
@@ -2250,11 +2261,12 @@ html[data-theme="dark"] #depositInlineApp .categories .card.depositTreeCard .off
         ? ('<img src="' + zEscHtml(imageUrl) + '" alt="' + zEscHtml(title) + '">')
         : ('<div class="depositTreeThumbFallback"><i class="fa-solid ' + iconClass + '"></i></div>'))
       + (identityLocked ? '<span class="depositTreeLockBadge"><i class="fa-solid fa-lock"></i></span>' : '')
+      // الشريط داخل الوسائط لا تحته: العبارة تركب الكرت نفسه على شريط أبيض
+      // شفّاف، فتُقرأ فوق أي شعار مهما كان لونه.
+      + (identityLocked ? '<span class="depositTreeLockNote">تتطلب توثيق الهوية</span>' : '')
       + '</div>'
       + '<h2 class="depositTreeTitle">' + zEscHtml(title) + '</h2>'
-      + (identityLocked
-        ? '<span class="depositTreeLockNote"><i class="fa-solid fa-id-card"></i> تتطلب توثيق الهوية</span>'
-        : (meta ? ('<span class="offer-price">' + zEscHtml(meta) + '</span>') : ''));
+      + (identityLocked ? '' : (meta ? ('<span class="offer-price">' + zEscHtml(meta) + '</span>') : ''));
   }
 
   function openRootMethod(entry){
