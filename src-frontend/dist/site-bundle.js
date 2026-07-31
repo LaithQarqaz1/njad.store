@@ -1894,7 +1894,7 @@ body.dark-mode #preloader .loader {
       #sidebar .support-rights {
       pointer-events: none; /* Disable clicks on container */
       margin-top: 14px !important;
-      padding-top: 10px;
+      padding-top: 30px; /* مسافة بين الخط الفاصل وشعار المطوّر */
       border-top: 1px solid rgba(230, 237, 255, 0.28);
       }
       #sidebar .support-rights a {
