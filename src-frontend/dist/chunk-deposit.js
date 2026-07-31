@@ -70,6 +70,9 @@
 #depositInlineApp .card.depositTreeCard.is-identity-locked .depositTreeTitle{
   opacity:.75 !important;
 }
+/* الشارة تحمل لون الموقع الديناميكي لا لوناً ثابتاً: نفس سلسلة المتغيّرات
+   المستعملة في بقية هذا الملف (runtime ثم accent-theme ثم ارتداد ثابت)،
+   والخلفية/الحدّ مشتقّان من --site-accent-rgb فيتبعان اللون تلقائياً. */
 #depositInlineApp .card.depositTreeCard .depositTreeLockNote{
   display:inline-flex !important;
   align-items:center !important;
@@ -79,17 +82,17 @@
   font-weight:800 !important;
   line-height:1.35 !important;
   text-align:center !important;
-  color:#b45309 !important;
-  background:rgba(245,158,11,.14) !important;
-  border:1px solid rgba(245,158,11,.34) !important;
+  color:var(--site-accent-runtime, var(--accent-theme, #5c5ebf)) !important;
+  background:rgba(var(--site-accent-rgb, 92, 94, 191), .12) !important;
+  border:1px solid rgba(var(--site-accent-rgb, 92, 94, 191), .32) !important;
   border-radius:999px !important;
   padding:3px 9px !important;
   white-space:nowrap !important;
 }
 html[data-theme="dark"] #depositInlineApp .card.depositTreeCard .depositTreeLockNote{
-  color:#fbbf24 !important;
-  background:rgba(245,158,11,.16) !important;
-  border-color:rgba(245,158,11,.4) !important;
+  color:var(--site-accent-runtime-light, var(--site-accent-runtime, var(--accent-theme, #a5b4fc))) !important;
+  background:rgba(var(--site-accent-rgb, 92, 94, 191), .18) !important;
+  border-color:rgba(var(--site-accent-rgb, 92, 94, 191), .38) !important;
 }
 #depositInlineApp #grid.categories .card.depositTreeCard .catalog-card-media.is-empty,
 #depositInlineApp .categories .card.depositTreeCard .catalog-card-media.is-empty{
