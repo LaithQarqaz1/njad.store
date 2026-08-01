@@ -92,7 +92,7 @@
   <noscript><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet"></noscript>
   <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" as="style" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'">
   <noscript><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" crossorigin="anonymous"></noscript>
-  <link rel="stylesheet" href="src-frontend/dist/site-bundle.css?v=8d7d6b8122">
+  <link rel="stylesheet" href="src-frontend/dist/site-bundle.css?v=047075bb47">
 
   <!-- End unified startup assets -->
   
@@ -262,43 +262,41 @@
             <div class="card">
               <form class="login-box" id="loginForm" autocomplete="on" novalidate>
                 <div class="input-group">
-                  <input id="emailInput" name="email" placeholder="أدخل بريدك الإلكتروني" type="email" autocomplete="email"/>
+                  <input id="emailInput" name="email" placeholder="البريد الإلكتروني" type="email" autocomplete="email"/>
                   <i class="fa-regular fa-envelope"></i>
                 </div>
                 <div class="input-group">
-                  <input id="passwordInput" name="password" placeholder="أدخل كلمة المرور" type="password" autocomplete="current-password"/>
+                  <input id="passwordInput" name="password" placeholder="كلمة المرور" type="password" autocomplete="current-password"/>
                   <i class="fa-solid fa-lock"></i>
+                  <button type="button" class="pw-reveal" id="loginPasswordReveal" data-pw-target="passwordInput" aria-label="إظهار كلمة المرور" aria-pressed="false"><i class="fa-solid fa-eye-slash" aria-hidden="true"></i></button>
                 </div>
                 <div class="input-group" id="totpRow" style="display:none;">
                   <input id="totpInput" placeholder="رمز التحقق (6 أرقام)" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6"/>
                   <i class="fa-solid fa-shield-halved"></i>
                 </div>
-                <div class="stack">
-                  <button class="btn btn-primary" id="submitLogin" type="button" onclick="try{if(window.__manualLogin){event&&event.preventDefault&&event.preventDefault();event&&event.stopImmediatePropagation&&event.stopImmediatePropagation();window.__manualLogin(event);return false;}}catch(e){try{console.error(e);}catch(_){} return false;}">تسجيل الدخول</button>
+                <div class="auth-meta-row">
                   <button class="btn btn-info btn-link" id="showReset" type="button">نسيت كلمة المرور؟</button>
                 </div>
-                <div class="divider">أو</div>
-                <button class="btn btn-link" id="toggleRegister" type="button">إنشاء حساب جديد</button>
-                <div class="divider">أو</div>
-                <button class="btn btn-secondary btn-google" id="googleLogin" type="button" onclick="try{return (window.__triggerGoogleLogin?window.__triggerGoogleLogin('login',this):false);}catch(_){return false;}"><i class="fa-brands fa-google"></i> تسجيل دخول بواسطة Google</button>
+                <button class="btn btn-primary" id="submitLogin" type="button" onclick="try{if(window.__manualLogin){event&&event.preventDefault&&event.preventDefault();event&&event.stopImmediatePropagation&&event.stopImmediatePropagation();window.__manualLogin(event);return false;}}catch(e){try{console.error(e);}catch(_){} return false;}">تسجيل الدخول</button>
+                <p class="auth-switch"><span>ليس لديك حساب؟</span> <button class="btn btn-link" id="toggleRegister" type="button">أنشئ حساباً</button></p>
+                <div class="divider">أو تابع بحساب</div>
+                <div class="auth-social">
+                  <button class="social-btn btn-google" id="googleLogin" type="button" aria-label="تسجيل دخول بواسطة Google" onclick="try{return (window.__triggerGoogleLogin?window.__triggerGoogleLogin('login',this):false);}catch(_){return false;}"><i class="fa-brands fa-google" aria-hidden="true"></i></button>
+                </div>
                 <p class="error-message" id="loginError"></p>
               </form>
 
               <div class="login-box hidden" id="resetForm">
-                <h3>استعادة كلمة المرور</h3>
                 <div class="input-group">
-                  <input id="resetEmail" placeholder="أدخل بريدك الإلكتروني" type="email"/>
+                  <input id="resetEmail" placeholder="البريد الإلكتروني" type="email"/>
                   <i class="fa-regular fa-envelope"></i>
                 </div>
-                <div class="stack">
-                  <button class="btn btn-success" id="resetSubmitBtn" onclick="sendResetLink()">إرسال رابط الاستعادة</button>
-                  <button class="btn btn-link" onclick="switchForm('login')">العودة إلى تسجيل الدخول</button>
-                </div>
+                <button class="btn btn-primary" id="resetSubmitBtn" onclick="sendResetLink()">إرسال رابط الاستعادة</button>
+                <p class="auth-switch"><span>تذكّرت كلمة المرور؟</span> <button class="btn btn-link" onclick="authGoToForm('login')">العودة لتسجيل الدخول</button></p>
                 <p class="error-message" id="resetMessage"></p>
               </div>
 
               <div class="login-box hidden" id="registerForm">
-                <h3>إنشاء حساب</h3>
                 <div class="input-group">
                   <input id="usernameInput" placeholder="اسم المستخدم" type="text"/>
                   <i class="fa-solid fa-user"></i>
@@ -316,7 +314,7 @@
                 <div class="input-group">
                   <input id="registerPassword" onkeyup="validatePassword()" placeholder="كلمة المرور" type="password" autocomplete="new-password"/>
                   <i class="fa-solid fa-lock"></i>
-                  <button type="button" class="pw-reveal" id="registerPasswordReveal" aria-label="إظهار كلمة المرور" aria-pressed="false"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
+                  <button type="button" class="pw-reveal" id="registerPasswordReveal" data-pw-target="registerPassword" aria-label="إظهار كلمة المرور" aria-pressed="false"><i class="fa-solid fa-eye-slash" aria-hidden="true"></i></button>
                 </div>
 
                 <div class="password-strength-bar"><div id="strengthIndicator"></div></div>
@@ -331,65 +329,39 @@
                   <p>يجب أن تحتوي على 3 حقول من هذه المتطلبات على الأقل.</p>
                 </div>
 
-                <div class="legal-consent-wrap">
-                  <div class="legal-consent">
-                    <div class="legal-consent-body">
-                      <p class="legal-consent-links">
-                        <span>أوافق على</span>
-                        <a href="#/privacy">سياسة الخصوصية</a>
-                        <span class="legal-sep">و</span>
-                        <a href="#/terms">شروط الاستخدام</a>.
-                      </p>
-                    </div>
-                    <label class="neon-checkbox" for="registerLegalConsent">
-                      <input id="registerLegalConsent" type="checkbox" />
-                      <div class="neon-checkbox__frame">
-                        <div class="neon-checkbox__box">
-                          <div class="neon-checkbox__check-container">
-                            <svg viewBox="0 0 24 24" class="neon-checkbox__check">
-                              <path d="M3,12.5l7,7L21,5"></path>
-                            </svg>
-                          </div>
-                          <div class="neon-checkbox__glow"></div>
-                          <div class="neon-checkbox__borders">
-                            <span></span><span></span><span></span><span></span>
-                          </div>
-                        </div>
-                        <div class="neon-checkbox__effects">
-                          <div class="neon-checkbox__particles">
-                            <span></span><span></span><span></span><span></span>
-                            <span></span><span></span><span></span><span></span>
-                            <span></span><span></span><span></span><span></span>
-                          </div>
-                          <div class="neon-checkbox__rings">
-                            <div class="ring"></div>
-                            <div class="ring"></div>
-                            <div class="ring"></div>
-                          </div>
-                          <div class="neon-checkbox__sparks">
-                            <span></span><span></span><span></span><span></span>
-                          </div>
-                        </div>
-                      </div>
-                    </label>
-                  </div>
-                </div>
                 <p class="legal-consent-error" id="registerLegalError"></p>
 
-                <div class="stack">
-                  <button class="btn btn-primary btn-register" id="registerSubmitBtn" type="button" onclick="register()" disabled aria-disabled="true">
-                    <i class="fa-solid fa-lock btn-lock" aria-hidden="true"></i>
-                    <span class="btn-label">إنشاء حساب</span>
-                  </button>
-                  <button class="btn btn-link" onclick="switchForm('login')">العودة إلى تسجيل الدخول</button>
+                <button class="btn btn-primary btn-register" id="registerSubmitBtn" type="button" onclick="register()">
+                  <i class="fa-solid fa-lock btn-lock" aria-hidden="true"></i>
+                  <span class="btn-label">إنشاء حساب</span>
+                </button>
+                <p class="auth-switch"><span>لديك حساب بالفعل؟</span> <button class="btn btn-link" onclick="authGoToForm('login')">سجّل الدخول</button></p>
+                <div class="divider">أو تابع بحساب</div>
+                <div class="auth-social">
+                  <button class="social-btn btn-google" id="googleLoginRegister" type="button" aria-label="تسجيل دخول بواسطة Google" onclick="try{return (window.__triggerGoogleLogin?window.__triggerGoogleLogin('register',this):false);}catch(_){return false;}"><i class="fa-brands fa-google" aria-hidden="true"></i></button>
                 </div>
-                <div class="divider">أو</div>
-                <button class="btn btn-secondary btn-google" id="googleLoginRegister" type="button" onclick="try{return (window.__triggerGoogleLogin?window.__triggerGoogleLogin('register',this):false);}catch(_){return false;}"><i class="fa-brands fa-google"></i> تسجيل دخول بواسطة Google</button>
                 <p class="error-message" id="registerError"></p>
+                <p class="legal-consent-note">بإنشاء حساب فإنك توافق على <a href="#/privacy">سياسة الخصوصية</a> و<a href="#/terms">شروط الاستخدام</a></p>
               </div>
+
             </div>
           </section>
         </div>
+      </div>
+
+      <!-- خارج .card عمدًا: الأخيرة تحمل will-change فتصير مرجع التموضع الثابت،
+           فلو بقيت الصفحة بداخلها لما غطّت الشاشة. -->
+      <div class="country-page hidden" id="countryPickerPage" role="dialog" aria-modal="true" aria-labelledby="countryPickerTitle">
+        <div class="country-page-head">
+          <button class="country-back" id="countryPickerClose" type="button" aria-label="رجوع"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
+          <h2 id="countryPickerTitle">اختر الدولة</h2>
+        </div>
+        <div class="input-group country-search">
+          <input id="countryPickerSearch" type="text" inputmode="search" autocomplete="off" spellcheck="false" placeholder="البحث عن دولة" />
+          <i class="fa-solid fa-magnifying-glass"></i>
+        </div>
+        <div class="country-list" id="countryPickerList"></div>
+        <p class="country-empty hidden" id="countryPickerEmpty">لا توجد دولة بهذا الاسم</p>
       </div>
 
       <div class="google-redirect-loader hidden" id="googleRedirectLoader" role="status" aria-live="polite" aria-hidden="true">
@@ -817,7 +789,7 @@
   </script>
   <!-- /store-identity:jsonld -->
   <script src="src-frontend/dist/site_settings.js?v=d128533941"></script>
-  <script src="src-frontend/dist/site-bundle.js?v=f0f80838fb"></script>
+  <script src="src-frontend/dist/site-bundle.js?v=a0bfeca49d"></script>
   <!-- End runtime scripts -->
 </body>
 </html>
